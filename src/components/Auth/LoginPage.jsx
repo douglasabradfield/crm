@@ -18,7 +18,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     await new Promise((r) => setTimeout(r, 400)); // tactile delay
-    const ok = login(email.trim(), password);
+    const ok = await login(email.trim(), password);
     setLoading(false);
     if (ok) {
       navigate('/', { replace: true });
@@ -27,8 +27,8 @@ export default function LoginPage() {
     }
   }
 
-  function quickLogin(user) {
-    const ok = login(user.email, user.password);
+  async function quickLogin(user) {
+    const ok = await login(user.email, user.password);
     if (ok) navigate('/', { replace: true });
   }
 

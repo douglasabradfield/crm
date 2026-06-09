@@ -1,10 +1,15 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { ShieldOff } from 'lucide-react';
 import { useAuth } from '../../store/auth.js';
+import { SkeletonPageLoader } from '../UI/SkeletonLoader.jsx';
 
 export default function ProtectedRoute({ children, module }) {
-  const { isAuthenticated, hasPermission } = useAuth();
+  const { isAuthenticated, hasPermission, loading } = useAuth();
   const location = useLocation();
+
+  if (loading) {
+    return <SkeletonPageLoader />;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;

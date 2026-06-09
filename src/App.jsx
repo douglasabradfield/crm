@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useUI } from './store/index.js';
 import { useAuth } from './store/auth.js';
+import { SkeletonPageLoader } from './components/UI/SkeletonLoader.jsx';
 
 import Sidebar          from './components/Layout/Sidebar';
 import Topbar           from './components/Layout/Topbar';
@@ -142,8 +143,13 @@ export default function App() {
 }
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
+
+  // Wait for Supabase to confirm/deny the session before deciding where to route.
+  if (loading) {
+    return <SkeletonPageLoader />;
+  }
 
   if (location.pathname === '/login') {
     return (

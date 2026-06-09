@@ -5,16 +5,10 @@ para PMEs brasileiras. Dê respostas práticas, diretas e acionáveis. \
 Use linguagem brasileira informal mas profissional. Máx 200 palavras \
 por resposta, mas muito úteis. Crie templates e scripts quando pedido.`;
 
-const API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL   = 'claude-sonnet-4-20250514';
+const MODEL = 'claude-sonnet-4-20250514';
 
 /* ─── Standalone fetch function ─────────────────────────────────────────────── */
 export async function callClaude(userMessage, pageContext = '', history = []) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error('Configure VITE_ANTHROPIC_API_KEY no arquivo .env.local para usar o assistente.');
-  }
-
   const systemPrompt = pageContext
     ? `${BASE_SYSTEM_PROMPT}\n\nContexto da página atual:\n${pageContext}`
     : BASE_SYSTEM_PROMPT;
@@ -24,20 +18,15 @@ export async function callClaude(userMessage, pageContext = '', history = []) {
     { role: 'user', content: userMessage },
   ];
 
-  const res = await fetch(API_URL, {
+  const res = await fetch('/api/chat', {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ model: MODEL, max_tokens: 800, system: systemPrompt, messages }),
   });
 
   if (!res.ok) {
     const { status } = res;
-    if (status === 401) throw new Error('API key inválida. Verifique o VITE_ANTHROPIC_API_KEY no .env.local.');
+    if (status === 401) throw new Error('Erro no servidor de IA. Tente novamente.');
     if (status === 429) throw new Error('Muitas requisições seguidas. Aguarde alguns segundos e tente novamente.');
     if (status >= 500) throw new Error('Serviço temporariamente indisponível. Tente novamente em instantes.');
     throw new Error('Erro ao conectar com o assistente. Verifique sua conexão e tente novamente.');
