@@ -918,8 +918,24 @@ function ToolsForm({ onComplete, done }) {
   );
 }
 
+/* ─── Destination label helper ───────────────────────────────────────────────── */
+function destinoLabel(destino) {
+  if (!destino) return null;
+  const { modulo, arquivo } = destino;
+  const labels = {
+    diagnostico: 'Diagnóstico',
+    crm:         'CRM',
+    kpis:        'KPIs & Metas',
+    diretorio:   arquivo ? `Diretório → ${arquivo}` : 'Diretório Interno',
+    redes:       'Redes Sociais',
+    regua:       'Régua de Comunicação',
+    guia:        null,
+  };
+  return labels[modulo] ?? null;
+}
+
 /* ─── Simple complete form (fallback) ────────────────────────────────────────── */
-function SimpleCompleteForm({ onComplete, done }) {
+function SimpleCompleteForm({ onComplete, done, destino }) {
   const [notes,   setNotes]   = useState('');
   const [touched, setTouched] = useState(false);
 
@@ -931,9 +947,16 @@ function SimpleCompleteForm({ onComplete, done }) {
     onComplete();
   }
 
+  const dsLabel = destinoLabel(destino);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div>
+        {dsLabel && (
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>
+            → Vai para: {dsLabel}
+          </span>
+        )}
         <FLabel>Sua anotação {done ? '' : '(obrigatório para concluir)'}</FLabel>
         <textarea
           value={notes}
@@ -957,7 +980,7 @@ function SimpleCompleteForm({ onComplete, done }) {
 }
 
 /* ─── Task inline form dispatcher ───────────────────────────────────────────── */
-function TaskInlineForm({ taskId, onComplete, done }) {
+function TaskInlineForm({ taskId, onComplete, done, destino }) {
   const { getFormType } = useContext(GuiaCtx);
   switch (getFormType(taskId)) {
     case 'swot':       return <SwotForm       onComplete={onComplete} done={done} />;
@@ -970,7 +993,7 @@ function TaskInlineForm({ taskId, onComplete, done }) {
     case 'kpis_def':   return <KPIsDefForm    onComplete={onComplete} done={done} />;
     case 'richtext':   return <RichTextForm   taskId={taskId} onComplete={onComplete} done={done} />;
     case 'tools':      return <ToolsForm      onComplete={onComplete} done={done} />;
-    default:           return <SimpleCompleteForm onComplete={onComplete} done={done} />;
+    default:           return <SimpleCompleteForm onComplete={onComplete} done={done} destino={destino} />;
   }
 }
 
@@ -1147,7 +1170,7 @@ function LayersPanel({ item, color, onComplete, done }) {
             </div>
             {done && <GuideBadge />}
           </div>
-          <TaskInlineForm taskId={item.id} onComplete={onComplete} done={done} />
+          <TaskInlineForm taskId={item.id} onComplete={onComplete} done={done} destino={item.destino} />
         </div>
       </div>
     </div>

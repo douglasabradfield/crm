@@ -105,9 +105,9 @@ Se você está começando e ainda não tem faturamento consistente, defina um va
 O mercado muda rápido demais para planos rígidos. Reserve 2 horas a cada 90 dias para revisar o que funcionou, o que não funcionou e ajustar as metas do trimestre seguinte. Isso é gestão ágil aplicada ao comercial.`,
     checklist: [
       { id: 'c2-1', texto: 'Defina 3 metas bem definidas para os próximos 12 meses: vendas, geração de leads e retenção de clientes', concluido: false, destino: { modulo: 'kpis', secao: 'okrs' } },
-      { id: 'c2-2', texto: 'Calcule quanto é 5-10% do seu faturamento atual e aloque como orçamento de marketing', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Planejamento — Orçamento de Marketing' } },
-      { id: 'c2-3', texto: 'Crie um cronograma trimestral: quais ações serão priorizadas no 1º, 2º, 3º e 4º trimestre?', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Planejamento — Cronograma Trimestral' } },
-      { id: 'c2-4', texto: 'Valide a oferta: você tem clientes que indicam ativamente? Colete depoimentos', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Planejamento — Validação da Oferta' } },
+      { id: 'c2-2', texto: 'Calcule quanto é 5-10% do seu faturamento atual e aloque como orçamento de marketing', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Orçamento de Marketing' } },
+      { id: 'c2-3', texto: 'Crie um cronograma trimestral: quais ações serão priorizadas no 1º, 2º, 3º e 4º trimestre?', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Cronograma Trimestral' } },
+      { id: 'c2-4', texto: 'Valide a oferta: você tem clientes que indicam ativamente? Colete depoimentos', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Validação da Oferta' } },
       { id: 'c2-5', texto: 'Agende a primeira revisão trimestral no calendário agora — 90 dias a partir de hoje', concluido: false, destino: { modulo: 'kpis', secao: 'okrs', campo: 'revisao_trimestral' } },
     ],
     tabela: null,
