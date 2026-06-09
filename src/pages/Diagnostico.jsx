@@ -5,6 +5,9 @@ import {
   Package, DollarSign, MapPin, Megaphone, History, Layers, GripVertical, Globe,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
+import { useAuth } from '../store/auth.js';
+import { supabase } from '../services/supabase.js';
+import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -324,6 +327,102 @@ const INITIAL_FUNNEL = [
 ];
 
 let _funelId = 400;
+
+/* ─── Row mappers (DB snake_case ↔ app camelCase) ────────────────────────── */
+function personaFromRow(r) {
+  return {
+    id:           r.id,
+    nome:         r.nome            ?? '',
+    cargo:        r.cargo           ?? '',
+    avatar:       r.avatar          ?? '',
+    color:        r.color           ?? '--accent2',
+    descricao:    r.descricao       ?? '',
+    dores:        r.dores           ?? [],
+    decisaoCompra:r.decisao_compra  ?? '',
+    objecoes:     r.objecoes        ?? [],
+    canais:       r.canais          ?? '',
+  };
+}
+function personaToRow(p) {
+  const r = {};
+  if ('nome'          in p) r.nome           = p.nome;
+  if ('cargo'         in p) r.cargo          = p.cargo;
+  if ('avatar'        in p) r.avatar         = p.avatar;
+  if ('color'         in p) r.color          = p.color;
+  if ('descricao'     in p) r.descricao      = p.descricao;
+  if ('dores'         in p) r.dores          = p.dores;
+  if ('decisaoCompra' in p) r.decisao_compra = p.decisaoCompra;
+  if ('objecoes'      in p) r.objecoes       = p.objecoes;
+  if ('canais'        in p) r.canais         = p.canais;
+  return r;
+}
+
+function entrevistaFromRow(r) {
+  return {
+    id:          r.id,
+    clienteNome: r.cliente_nome ?? '',
+    cargo:       r.cargo        ?? '',
+    data:        r.data         ?? new Date().toISOString().split('T')[0],
+    respostas: {
+      porque:      r.porque      ?? '',
+      melhor:      r.melhor      ?? '',
+      indicaria:   r.indicaria   ?? false,
+      observacoes: r.observacoes ?? '',
+    },
+  };
+}
+function entrevistaToRow(e) {
+  const r = { cliente_nome: e.clienteNome ?? '', cargo: e.cargo ?? '', data: e.data ?? null };
+  if (e.respostas) {
+    r.porque      = e.respostas.porque      ?? '';
+    r.melhor      = e.respostas.melhor      ?? '';
+    r.indicaria   = e.respostas.indicaria   ?? false;
+    r.observacoes = e.respostas.observacoes ?? '';
+  }
+  return r;
+}
+
+function concorrenteFromRow(r) {
+  return {
+    id:           r.id,
+    nome:         r.nome          ?? '',
+    site:         r.site          ?? '',
+    faixaPreco:   r.faixa_preco   ?? 'medio',
+    canais:       r.canais        ?? [],
+    forcas:       r.forcas        ?? [],
+    fraquezas:    r.fraquezas     ?? [],
+    diferenciais: r.diferenciais  ?? '',
+  };
+}
+function concorrenteToRow(c) {
+  const r = {};
+  if ('nome'         in c) r.nome         = c.nome;
+  if ('site'         in c) r.site         = c.site;
+  if ('faixaPreco'   in c) r.faixa_preco  = c.faixaPreco;
+  if ('canais'       in c) r.canais       = c.canais;
+  if ('forcas'       in c) r.forcas       = c.forcas;
+  if ('fraquezas'    in c) r.fraquezas    = c.fraquezas;
+  if ('diferenciais' in c) r.diferenciais = c.diferenciais;
+  return r;
+}
+
+function maturidadeFromRow(r) {
+  return {
+    id:     r.id,
+    date:   r.criado_em,
+    score:  r.score,
+    label:  r.score_label,
+    dims:   r.scores_por_dimensao ?? {},
+  };
+}
+function maturidadeToRow(entry) {
+  return {
+    score:               entry.score,
+    score_label:         entry.label,
+    respostas:           entry.respostas ?? {},
+    scores_por_dimensao: entry.dims ?? {},
+  };
+}
 
 /* ─── Maturity questionnaire data ────────────────────────────────────────── */
 const MATURITY_QUESTIONS = [
@@ -1500,7 +1599,9 @@ function PersonaCard({ persona, onEdit, onDelete }) {
 
 /* ─── PersonasSection ────────────────────────────────────────────────────── */
 function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, openAI }) {
-  const [modal, setModal] = useState(null); // null | 'new' | persona object
+  const { empresaId } = useAuth();
+  const [modal, setModal] = useState(null);
+  const [saveErr, setSaveErr] = useState(null);
   const { versions: personaVersions, saveVersion: savePersonaVersion } = useVersionHistory('diag_personas_versions');
   const _personasStr = JSON.stringify(personas);
   const _personasMounted = useRef(false);
@@ -1510,16 +1611,29 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
     savePersonaVersion(personas);
   }, [_personasStr]);
 
-  function savePersona(data) {
-    setPersonas(prev => {
-      const exists = prev.find(p => p.id === data.id);
-      return exists ? prev.map(p => p.id === data.id ? data : p) : [...prev, data];
-    });
+  async function savePersona(data) {
+    setSaveErr(null);
+    const isNew = !personas.find(p => p.id === data.id);
+    if (isNew) {
+      const row = personaToRow(data);
+      const { data: created, error } = await supabase
+        .from('diagnostico_personas').insert(row).select().single();
+      if (error) { setSaveErr(error.message); return; }
+      setPersonas(prev => [...prev, personaFromRow(created)]);
+    } else {
+      const { error } = await supabase
+        .from('diagnostico_personas').update(personaToRow(data)).eq('id', data.id);
+      if (error) { setSaveErr(error.message); return; }
+      setPersonas(prev => prev.map(p => p.id === data.id ? { ...p, ...data } : p));
+    }
     setLastUpdated(nowISO());
     setModal(null);
   }
 
-  function deletePersona(id) {
+  async function deletePersona(id) {
+    const { error } = await supabase
+      .from('diagnostico_personas').delete().eq('id', id);
+    if (error) { setSaveErr(error.message); return; }
     setPersonas(prev => prev.filter(p => p.id !== id));
     setLastUpdated(nowISO());
   }
@@ -1609,6 +1723,11 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
           {personas.length === 0 && (
             <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic', gridColumn: '1 / -1', padding: '20px 0' }}>
               Nenhuma persona mapeada. Clique em "Nova persona" para começar.
+            </p>
+          )}
+          {saveErr && (
+            <p style={{ fontSize: 12, color: 'var(--red)', gridColumn: '1 / -1', padding: '4px 0' }}>
+              Erro ao salvar: {saveErr}
             </p>
           )}
         </div>
@@ -3148,14 +3267,39 @@ function EntrevistaCard({ entrevista, onEdit, onDelete }) {
 
 /* ─── EntrevistasSection ──────────────────────────────────────────────────── */
 function EntrevistasSection({ openAI }) {
-  const [entrevistas, setEntrevistas] = useLocalStorage('diag_entrevistas', []);
+  const { empresaId } = useAuth();
+  const [entrevistas, setEntrevistas] = useState([]);
+  const [loadingEnt, setLoadingEnt] = useState(true);
+  const [saveErr, setSaveErr] = useState(null);
   const [modal, setModal] = useState(null);
 
-  function saveEntrevista(data) {
-    setEntrevistas(prev => {
-      const exists = prev.find(e => e.id === data.id);
-      return exists ? prev.map(e => e.id === data.id ? data : e) : [...prev, data];
-    });
+  useEffect(() => {
+    if (!empresaId) { setLoadingEnt(false); return; }
+    let cancelled = false;
+    supabase.from('diagnostico_entrevistas').select('*')
+      .eq('empresa_id', empresaId).order('criado_em', { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (!error && data) setEntrevistas(data.map(entrevistaFromRow));
+        setLoadingEnt(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  async function saveEntrevista(data) {
+    setSaveErr(null);
+    const isNew = !entrevistas.find(e => e.id === data.id);
+    if (isNew) {
+      const { data: created, error } = await supabase
+        .from('diagnostico_entrevistas').insert(entrevistaToRow(data)).select().single();
+      if (error) { setSaveErr(error.message); return; }
+      setEntrevistas(prev => [...prev, entrevistaFromRow(created)]);
+    } else {
+      const { error } = await supabase
+        .from('diagnostico_entrevistas').update(entrevistaToRow(data)).eq('id', data.id);
+      if (error) { setSaveErr(error.message); return; }
+      setEntrevistas(prev => prev.map(e => e.id === data.id ? { ...e, ...data } : e));
+    }
     setModal(null);
   }
 
@@ -3197,7 +3341,8 @@ function EntrevistasSection({ openAI }) {
           </div>
         </div>
 
-        {entrevistas.length === 0 ? (
+        {saveErr && <p style={{ fontSize: 12, color: 'var(--red)' }}>Erro: {saveErr}</p>}
+        {loadingEnt ? <SkeletonLoader rows={3} /> : entrevistas.length === 0 ? (
           <div style={{ padding: '20px 0', textAlign: 'center' }}>
             <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 4 }}>Nenhuma entrevista registrada ainda.</p>
             <p style={{ fontSize: 12, color: 'var(--text3)' }}>Entreviste 3 clientes reais — é a base mais sólida para qualquer diagnóstico.</p>
@@ -3205,7 +3350,11 @@ function EntrevistasSection({ openAI }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {entrevistas.map(e => (
-              <EntrevistaCard key={e.id} entrevista={e} onEdit={setModal} onDelete={id => setEntrevistas(prev => prev.filter(e => e.id !== id))} />
+              <EntrevistaCard key={e.id} entrevista={e} onEdit={setModal} onDelete={async id => {
+                const { error } = await supabase.from('diagnostico_entrevistas').delete().eq('id', id);
+                if (error) { setSaveErr(error.message); return; }
+                setEntrevistas(prev => prev.filter(x => x.id !== id));
+              }} />
             ))}
           </div>
         )}
@@ -3225,16 +3374,22 @@ function EntrevistasSection({ openAI }) {
 /* ─── Diagnostico (main) ─────────────────────────────────────────────────── */
 export default function Diagnostico() {
   const { openAI } = useUI();
+  const { empresaId } = useAuth();
 
-  const [swot, setSwot] = useLocalStorage('diag_swot', INITIAL_SWOT);
-  const [swotUpdated, setSwotUpdated] = useLocalStorage('diag_swot_updated', null);
+  // ── SWOT (Supabase) ──────────────────────────────────────────────────────
+  const [swot, setSwot] = useState(INITIAL_SWOT);
+  const [swotUpdated, setSwotUpdated] = useState(null);
   const [swotVersions, setSwotVersions] = useLocalStorage('diag_swot_versions', []);
+  // Refs for debounced SWOT auto-save
+  const swotSkipSave = useRef(true); // skip initial load change
+  const swotSaveTimer = useRef(null);
 
+  // ── 4Ps (still localStorage — not in scope) ──────────────────────────────
   const [fourPs, setFourPs] = useLocalStorage('diag_4ps', INITIAL_4PS);
   const [fourPsUpdated, setFourPsUpdated] = useLocalStorage('diag_4ps_updated', null);
   const [fourPsVersions, setFourPsVersions] = useLocalStorage('diag_4ps_versions', []);
 
-  // One-time migration: add pessoas/processos to existing saved data that only had 4 fields.
+  // One-time migration: add pessoas/processos to existing saved data.
   useEffect(() => {
     if (!fourPs.pessoas || !fourPs.processos) {
       setFourPs(prev => ({ ...INITIAL_4PS, ...prev }));
@@ -3242,8 +3397,74 @@ export default function Diagnostico() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [personas, setPersonas] = useLocalStorage('diag_personas', INITIAL_PERSONAS);
-  const [personasUpdated, setPersonasUpdated] = useLocalStorage('diag_personas_updated', null);
+  // ── Personas (Supabase) ──────────────────────────────────────────────────
+  const [personas, setPersonas] = useState([]);
+  const [personasUpdated, setPersonasUpdated] = useState(null);
+  const [loadingDiag, setLoadingDiag] = useState(true);
+
+  // ── Fetch SWOT + Personas on mount ───────────────────────────────────────
+  useEffect(() => {
+    if (!empresaId) { setLoadingDiag(false); return; }
+    let cancelled = false;
+
+    async function fetchDiagData() {
+      const [swotRes, personasRes] = await Promise.all([
+        supabase.from('diagnostico_swot').select('*').eq('empresa_id', empresaId).maybeSingle(),
+        supabase.from('diagnostico_personas').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true }),
+      ]);
+      if (cancelled) return;
+
+      if (swotRes.data) {
+        const r = swotRes.data;
+        swotSkipSave.current = true; // skip the setSwot-triggered effect below
+        setSwot({
+          forcas:        r.forcas        ?? [],
+          fraquezas:     r.fraquezas     ?? [],
+          oportunidades: r.oportunidades ?? [],
+          ameacas:       r.ameacas       ?? [],
+        });
+        setSwotUpdated(r.atualizado_em ?? null);
+      }
+
+      if (personasRes.data?.length > 0) {
+        setPersonas(personasRes.data.map(personaFromRow));
+        const latest = personasRes.data.reduce(
+          (m, p) => ((p.atualizado_em ?? '') > m ? (p.atualizado_em ?? '') : m), '',
+        );
+        if (latest) setPersonasUpdated(latest);
+      }
+
+      setLoadingDiag(false);
+    }
+
+    fetchDiagData();
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  // ── Auto-save SWOT on change (debounced, skips DB-loaded changes) ────────
+  const _swotStr = JSON.stringify(swot);
+  useEffect(() => {
+    if (!empresaId) return;
+    if (swotSkipSave.current) { swotSkipSave.current = false; return; }
+    clearTimeout(swotSaveTimer.current);
+    swotSaveTimer.current = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from('diagnostico_swot')
+        .upsert({
+          empresa_id:    empresaId,
+          forcas:        swot.forcas,
+          fraquezas:     swot.fraquezas,
+          oportunidades: swot.oportunidades,
+          ameacas:       swot.ameacas,
+          atualizado_em: new Date().toISOString(),
+        }, { onConflict: 'empresa_id' })
+        .select().single();
+      if (error) { console.error('Erro ao salvar SWOT:', error.message); return; }
+      setSwotUpdated(data.atualizado_em);
+    }, 800);
+    return () => clearTimeout(swotSaveTimer.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_swotStr]);
 
   const totalScore = Math.round(DIMENSIONS.reduce((s, d) => s + d.score, 0) / DIMENSIONS.length * 10);
   const scoreLabel = totalScore >= 70 ? 'Maduro' : totalScore >= 45 ? 'Em desenvolvimento' : 'Inicial';
@@ -3292,6 +3513,8 @@ export default function Diagnostico() {
       `Estruture o relatório em: Síntese, Diagnóstico SWOT, Análise de Marketing, Público-alvo, Prioridades estratégicas (top 5 ações para os próximos 90 dias).`
     );
   }
+
+  if (loadingDiag) return <SkeletonLoader rows={6} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
