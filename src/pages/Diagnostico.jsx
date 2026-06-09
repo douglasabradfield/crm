@@ -2428,16 +2428,53 @@ function ConcorrentesSection({ openAI }) {
 
 /* ─── FunilVendasSection ─────────────────────────────────────────────────── */
 function FunilVendasSection({ openAI }) {
-  const [stages, setStages] = useLocalStorage('diag_funil', INITIAL_FUNNEL);
+  const { empresaId } = useAuth();
+  const [stages, setStages] = useState(INITIAL_FUNNEL);
   const [editingId, setEditingId] = useState(null);
   const [drafts, setDrafts] = useState({});
   const { versions: funilVersions, saveVersion: saveFunilVersion } = useVersionHistory('diag_funil_versions');
+  const funilSkipSave = useRef(true);
+  const funilSaveTimer = useRef(null);
   const _funilStr = JSON.stringify(stages);
   const _funilMounted = useRef(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!_funilMounted.current) { _funilMounted.current = true; return; }
     saveFunilVersion(stages);
+  }, [_funilStr]);
+
+  // Fetch on mount
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase.from('diagnostico_funil').select('etapas')
+      .eq('empresa_id', empresaId).maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data?.etapas?.length) {
+          funilSkipSave.current = true;
+          setStages(data.etapas);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  // Auto-save (debounced 800ms)
+  useEffect(() => {
+    if (!empresaId) return;
+    if (funilSkipSave.current) { funilSkipSave.current = false; return; }
+    clearTimeout(funilSaveTimer.current);
+    funilSaveTimer.current = setTimeout(async () => {
+      const { error } = await supabase
+        .from('diagnostico_funil')
+        .upsert(
+          { empresa_id: empresaId, etapas: stages, atualizado_em: new Date().toISOString() },
+          { onConflict: 'empresa_id' },
+        );
+      if (error) console.error('Erro ao salvar funil:', error.message);
+    }, 800);
+    return () => clearTimeout(funilSaveTimer.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_funilStr]);
 
   const maxVolume = Math.max(...stages.map(s => s.volume), 1);
@@ -3415,18 +3452,12 @@ export default function Diagnostico() {
   const swotSkipSave = useRef(true); // skip initial load change
   const swotSaveTimer = useRef(null);
 
-  // ── 4Ps (still localStorage — not in scope) ──────────────────────────────
-  const [fourPs, setFourPs] = useLocalStorage('diag_4ps', INITIAL_4PS);
-  const [fourPsUpdated, setFourPsUpdated] = useLocalStorage('diag_4ps_updated', null);
+  // ── 4Ps (Supabase) ──────────────────────────────────────────────────────
+  const [fourPs, setFourPs] = useState(INITIAL_4PS);
+  const [fourPsUpdated, setFourPsUpdated] = useState(null);
   const [fourPsVersions, setFourPsVersions] = useLocalStorage('diag_4ps_versions', []);
-
-  // One-time migration: add pessoas/processos to existing saved data.
-  useEffect(() => {
-    if (!fourPs.pessoas || !fourPs.processos) {
-      setFourPs(prev => ({ ...INITIAL_4PS, ...prev }));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const fourPsSkipSave = useRef(true);
+  const fourPsSaveTimer = useRef(null);
 
   // ── Personas (Supabase) ──────────────────────────────────────────────────
   const [personas, setPersonas] = useState([]);
@@ -3439,15 +3470,16 @@ export default function Diagnostico() {
     let cancelled = false;
 
     async function fetchDiagData() {
-      const [swotRes, personasRes] = await Promise.all([
+      const [swotRes, personasRes, psRes] = await Promise.all([
         supabase.from('diagnostico_swot').select('*').eq('empresa_id', empresaId).maybeSingle(),
         supabase.from('diagnostico_personas').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true }),
+        supabase.from('diagnostico_4ps').select('*').eq('empresa_id', empresaId).maybeSingle(),
       ]);
       if (cancelled) return;
 
       if (swotRes.data) {
         const r = swotRes.data;
-        swotSkipSave.current = true; // skip the setSwot-triggered effect below
+        swotSkipSave.current = true;
         setSwot({
           forcas:        r.forcas        ?? [],
           fraquezas:     r.fraquezas     ?? [],
@@ -3463,6 +3495,20 @@ export default function Diagnostico() {
           (m, p) => ((p.atualizado_em ?? '') > m ? (p.atualizado_em ?? '') : m), '',
         );
         if (latest) setPersonasUpdated(latest);
+      }
+
+      if (psRes.data) {
+        const r = psRes.data;
+        fourPsSkipSave.current = true;
+        setFourPs({
+          produto:   r.produto   ?? INITIAL_4PS.produto,
+          preco:     r.preco     ?? INITIAL_4PS.preco,
+          praca:     r.praca     ?? INITIAL_4PS.praca,
+          promocao:  r.promocao  ?? INITIAL_4PS.promocao,
+          pessoas:   r.pessoas   ?? INITIAL_4PS.pessoas,
+          processos: r.processos ?? INITIAL_4PS.processos,
+        });
+        setFourPsUpdated(r.atualizado_em ?? null);
       }
 
       setLoadingDiag(false);
@@ -3496,6 +3542,33 @@ export default function Diagnostico() {
     return () => clearTimeout(swotSaveTimer.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_swotStr]);
+
+  // ── Auto-save 4Ps (debounced 800ms, skips DB-loaded changes) ────────────
+  const _fourPsStr = JSON.stringify(fourPs);
+  useEffect(() => {
+    if (!empresaId) return;
+    if (fourPsSkipSave.current) { fourPsSkipSave.current = false; return; }
+    clearTimeout(fourPsSaveTimer.current);
+    fourPsSaveTimer.current = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from('diagnostico_4ps')
+        .upsert({
+          empresa_id: empresaId,
+          produto:    fourPs.produto,
+          preco:      fourPs.preco,
+          praca:      fourPs.praca,
+          promocao:   fourPs.promocao,
+          pessoas:    fourPs.pessoas,
+          processos:  fourPs.processos,
+          atualizado_em: new Date().toISOString(),
+        }, { onConflict: 'empresa_id' })
+        .select().single();
+      if (error) { console.error('Erro ao salvar 4Ps:', error.message); return; }
+      setFourPsUpdated(data.atualizado_em);
+    }, 800);
+    return () => clearTimeout(fourPsSaveTimer.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_fourPsStr]);
 
   const totalScore = Math.round(DIMENSIONS.reduce((s, d) => s + d.score, 0) / DIMENSIONS.length * 10);
   const scoreLabel = totalScore >= 70 ? 'Maduro' : totalScore >= 45 ? 'Em desenvolvimento' : 'Inicial';
