@@ -399,7 +399,7 @@ Posicionamento é a resposta clara para: "por que você, e não o concorrente?" 
 Tom de voz é como a empresa fala, não o que ela fala. É formal ou descontraído? Técnico ou acessível? Empático ou direto? Defina 3 a 4 adjetivos que descrevem o tom ideal e use-os como filtro para qualquer conteúdo produzido. Se o texto não parece com esses adjetivos, revise.
 
 **Escolha de canais**
-Não tente estar em todo lugar. Para PMEs B2B, LinkedIn e WhatsApp costumam ter o melhor ROI. Para B2C, Instagram e WhatsApp dominam. Escolha 2 ou 3 canais onde seu cliente ideal já está e invista consistência neles antes de expandir.
+Não tente estar em todo lugar. Para empresas que vendem para outras empresas (B2B), LinkedIn e WhatsApp costumam ter o melhor retorno. Para empresas que vendem direto para o consumidor final (B2C), Instagram e WhatsApp dominam. Escolha 2 ou 3 canais onde seu cliente ideal já está e invista consistência neles antes de expandir.
 
 **Guia de marca de 1 página**
 Um documento simples com: logotipo (versões e uso incorreto), paleta de cores (hex), tipografia, tom de voz e exemplos de uso. Isso garante que qualquer pessoa, freelancer ou funcionário novo, reproduza a identidade corretamente desde o primeiro dia.`,
@@ -413,6 +413,45 @@ Um documento simples com: logotipo (versões e uso incorreto), paleta de cores (
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
+    exercicio: {
+      titulo: 'Defina a voz da sua marca',
+      instrucao: 'Preencha abaixo. Essas informações vão para o Diretório Interno como seu Guia de Marca.',
+      campos: [
+        {
+          id: 'posicionamento',
+          label: 'Posicionamento em uma frase',
+          placeholder: 'Complete: "Somos a única [categoria] que [benefício único] para [público-alvo]." Ex: "Somos a única consultoria comercial que ensina PMEs a vender com método, sem promessas milagrosas."',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Guia de Marca' },
+        },
+        {
+          id: 'tom_de_voz',
+          label: '3 adjetivos que descrevem como sua empresa fala',
+          placeholder: 'Ex: direto, empático, especialista. Esses adjetivos são o filtro para qualquer conteúdo: se não parece com eles, revise.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Guia de Marca' },
+        },
+        {
+          id: 'canais_prioritarios',
+          label: 'Quais são seus 2 ou 3 canais prioritários?',
+          placeholder: 'Ex: WhatsApp (atendimento e follow-up), Instagram (conteúdo e autoridade), LinkedIn (prospecção B2B). Desative os canais em que não consegue publicar com consistência.',
+          tipo: 'textarea',
+          destino: { modulo: 'redes', secao: 'canais' },
+        },
+      ],
+    },
+    promptsIA: [
+      'Escrever o posicionamento da minha empresa em uma frase',
+      'Definir tom de voz da minha marca',
+      'Escolher canais prioritários para meu perfil de empresa',
+      'Criar guia de comunicação em 1 página',
+    ],
+    proximoPasso: {
+      modulo: 'redes',
+      label: 'Redes Sociais',
+      mensagem: 'Agora configure sua presença nos canais prioritários no módulo Redes Sociais.',
+      rota: '/redes',
+    },
   },
 
   {
@@ -425,8 +464,8 @@ Um documento simples com: logotipo (versões e uso incorreto), paleta de cores (
 **Stack inicial recomendado**
 - **Google Workspace (Docs, Sheets, Drive)**: base para documentação, planilhas de KPIs e armazenamento. Gratuito até certo limite.
 - **Canva**: criação de posts, apresentações e materiais de vendas sem precisar de designer.
-- **WhatsApp Business**: atendimento, follow-up e broadcast para leads e clientes. Catálogo de produtos integrado.
-- **CRM (HubSpot Free ou Pipedrive)**: gestão do pipeline de vendas. HubSpot free é robusto o suficiente para equipes de até 5 pessoas.
+- **WhatsApp Business**: atendimento, acompanhamento (follow-up) e broadcast para leads e clientes. Catálogo de produtos integrado.
+- **CRM desta plataforma**: gerencie seu pipeline de vendas, leads e clientes em um só lugar — já integrado ao seu guia e assistente IA.
 - **Trello ou Notion**: gestão de projetos e calendário editorial. Gratuito e intuitivo.
 
 **Rotina da operação diária**
@@ -437,18 +476,50 @@ Consistência é mais valiosa que intensidade. Uma rotina clara evita que as tar
 - **Call semanal de equipe**: alinhamento de 30 minutos, sem slides, com foco em bloqueios e próximos passos.
 
 **Integrações sem código**
-Zapier e Make (ex-Integromat) conectam ferramentas sem precisar de programador. Exemplos práticos: formulário do site → lead no CRM → notificação no WhatsApp do vendedor. Comece com uma automação simples e expanda.`,
+Zapier e Make (ex-Integromat) conectam sistemas sem precisar de programador (são chamadas de ferramentas no-code, ou sem código). Exemplos práticos: formulário do site → lead no CRM → notificação no WhatsApp do vendedor. Comece com uma automação simples e expanda.`,
     checklist: [
       { id: 'c6-1', texto: 'Configure Google Workspace (ou Gmail + Drive): crie pastas organizadas por área e projeto', concluido: false },
       { id: 'c6-2', texto: 'Instale e configure WhatsApp Business: perfil completo, catálogo e mensagem automática de ausência', concluido: false },
       { id: 'c6-3', texto: 'Crie conta no Trello ou Notion para o calendário editorial: 4 semanas de conteúdo planejado', concluido: false },
-      { id: 'c6-4', texto: 'Configure ou escolha um CRM gratuito (HubSpot ou Pipedrive): cadastre os leads atuais', concluido: false },
+      { id: 'c6-4', texto: 'Configure o CRM desta plataforma: crie seu primeiro funil e cadastre os leads atuais', concluido: false },
       { id: 'c6-5', texto: 'Estabeleça a rotina diária da equipe: blocos fixos para conteúdo, CRM e análise na agenda', concluido: false },
       { id: 'c6-6', texto: 'Crie 1 automação no Zapier: ex. formulário de contato → lead no CRM + notificação para o vendedor', concluido: false },
     ],
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
+    exercicio: {
+      titulo: 'Monte sua rotina operacional',
+      instrucao: 'Defina os blocos de tempo da sua operação. Esse documento vai para o Diretório como sua Rotina Comercial.',
+      campos: [
+        {
+          id: 'rotina_diaria',
+          label: 'Sua rotina diária (blocos de tempo)',
+          placeholder: 'Ex:\n8h–9h: revisar e-mails e WhatsApp\n9h–10h: atualizar o CRM e verificar follow-ups do dia\n10h–11h: prospecção ativa (ligações ou mensagens)\n14h–15h: produzir ou revisar conteúdo para redes sociais',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Rotina Comercial' },
+        },
+        {
+          id: 'ferramentas_usadas',
+          label: 'Quais ferramentas você já usa ou vai adotar?',
+          placeholder: 'Ex: WhatsApp Business (atendimento), Canva (conteúdo), Google Drive (documentos), CRM desta plataforma (pipeline de vendas).',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Rotina Comercial' },
+        },
+      ],
+    },
+    promptsIA: [
+      'Montar minha rotina comercial diária',
+      'Criar lista de ferramentas essenciais com custo zero',
+      'Gerar passo a passo de prospecção para o Diretório',
+      'Criar calendário editorial para as próximas 4 semanas',
+    ],
+    proximoPasso: {
+      modulo: 'dashboard',
+      label: 'Dashboard',
+      mensagem: 'Veja no Dashboard como sua operação está performando — as métricas do CRM e das metas já aparecem lá.',
+      rota: '/',
+    },
   },
 
   {
@@ -456,19 +527,25 @@ Zapier e Make (ex-Integromat) conectam ferramentas sem precisar de programador. 
     numero: 7,
     titulo: 'Medição e Ajustes',
     subtitulo: 'Os 5 KPIs que toda PME precisa acompanhar e como agir quando desviam',
-    teoria: `"O que não é medido não é gerenciado." A frase é clichê, mas é verdade — principalmente para PMEs que tomam decisões por feeling. Medir não precisa ser complexo. Cinco indicadores bem acompanhados valem mais do que um dashboard com 40 gráficos que ninguém olha.
+    teoria: `"O que não é medido não é gerenciado." A frase é clichê, mas é verdade — principalmente para PMEs que tomam decisões por intuição do momento. Medir não precisa ser complexo. Cinco indicadores bem acompanhados valem mais do que um dashboard com 40 gráficos que ninguém olha.
 
 **Indicadores de topo de funil (geração)**
 Leads por mês é o termômetro da sua máquina de atração. Queda de leads = problema em prospecção ou conteúdo. Crescimento de leads = hora de checar se a qualidade acompanha.
 
 **Indicadores de meio de funil (conversão)**
-Taxa de fechamento (leads → clientes) revela a eficiência do processo de vendas. Se cai, o problema pode ser qualificação fraca, proposta sem valor percebido ou follow-up insuficiente.
+Taxa de fechamento (leads → clientes) revela a eficiência do processo de vendas. Se cai, o problema pode ser qualificação fraca, proposta sem valor percebido ou acompanhamento (follow-up) insuficiente.
 
 **Indicadores de eficiência**
-CAC (Custo de Aquisição de Clientes) = total gasto em vendas e marketing / número de novos clientes. Quanto menor, melhor. Compare sempre com o LTV (Lifetime Value) do cliente — a regra geral é LTV ≥ 3× CAC para o negócio ser saudável.
+CAC (Custo de Aquisição de Cliente) = total gasto em vendas e marketing / número de novos clientes. Quanto menor, melhor. Compare sempre com o LTV (Valor do Tempo de Vida do Cliente — quanto um cliente gera de receita enquanto permanece com você) — a regra geral é LTV ≥ 3× CAC para o negócio ser saudável.
 
 **Ferramentas de medição**
 Google Analytics 4 para tráfego e comportamento no site. Meta Ads Manager para anúncios no Instagram/Facebook. CRM para métricas do pipeline. Planilha simples para consolidar tudo em um único relatório mensal.
+
+**NPS — lealdade geral**
+O NPS (Net Promoter Score) mede se os seus clientes indicariam sua empresa para outras pessoas. A pergunta é simples: "De 0 a 10, quanto você indicaria nossa empresa?" Promotores (9–10) são clientes satisfeitos que geram novos negócios. Detratores (0–6) correm risco de cancelar e podem prejudicar sua reputação. A fórmula é % de Promotores − % de Detratores. Aplique trimestralmente por WhatsApp ou e-mail.
+
+**CSAT — satisfação com cada entrega**
+Enquanto o NPS mede se o cliente recomendaria sua empresa no geral, o CSAT (Índice de Satisfação do Cliente) mede como ele avaliou uma experiência específica: o atendimento de hoje, a entrega do projeto, o suporte recebido. A pergunta é simples: "De 1 a 5, como você avalia esse atendimento?" Envie logo depois de cada entrega importante. Para prestadores de serviço, o CSAT costuma ser mais acionável que o NPS — porque aponta exatamente qual entrega precisa melhorar, não só a impressão geral.
 
 **O ciclo de ajuste**
 Medir sem agir é desperdício de tempo. Para cada KPI abaixo da meta, defina uma hipótese de causa e um experimento de 30 dias para testar a solução. Documente o que funcionou para não depender da memória.`,
@@ -486,12 +563,66 @@ Medir sem agir é desperdício de tempo. Para cada KPI abaixo da meta, defina um
         ['Leads gerados/mês',      '50+ leads qualificados',        'Formulários + CRM',              'Queda de 20% por 2 semanas seguidas'],
         ['Taxa de fechamento',     '10–20% de leads → clientes',    'CRM: fechados ÷ qualificados',   'Abaixo de 8% por 30 dias'],
         ['CAC (Custo por cliente)', 'Depende do ticket médio',       'Planilha: gasto ÷ novos clientes','CAC > 33% do LTV do cliente'],
-        ['Churn mensal',           'Abaixo de 3%',                  'CRM: cancelamentos ÷ base ativa','Acima de 5% em qualquer mês'],
-        ['NPS (satisfação)',       'Acima de 50 (Promotores − Detratores)', 'Pesquisa trimestral',     'Abaixo de 30 ou tendência de queda'],
+        ['Cancelamento mensal (Churn)', 'Abaixo de 3%',                  'CRM: cancelamentos ÷ base ativa','Acima de 5% em qualquer mês'],
+        ['NPS — lealdade geral (Net Promoter Score)', 'Acima de 50 (Promotores − Detratores)', 'Pesquisa trimestral', 'Abaixo de 30 ou tendência de queda'],
+        ['CSAT por entrega',       'Acima de 4,0 (em 5,0)',         'Pesquisa pós-atendimento ou pós-entrega', 'Abaixo de 3,5 em qualquer mês ou queda consecutiva'],
       ],
     },
     status: 'nao_iniciado',
     progresso: 0,
+    exercicio: {
+      titulo: 'Defina seus indicadores',
+      instrucao: 'Escolha os KPIs que vai acompanhar. Eles vão direto para o módulo KPIs & Metas.',
+      campos: [
+        {
+          id: 'kpi_leads',
+          label: 'Meta de leads por mês',
+          placeholder: 'Ex: Gerar 30 leads qualificados por mês até o 2º trimestre.',
+          tipo: 'textarea',
+          destino: { modulo: 'kpis', secao: 'kpis', campo: 'leads_mes' },
+        },
+        {
+          id: 'kpi_conversao',
+          label: 'Meta de taxa de fechamento',
+          placeholder: 'Ex: Converter 15% dos leads qualificados em clientes até dezembro.',
+          tipo: 'textarea',
+          destino: { modulo: 'kpis', secao: 'kpis', campo: 'taxa_conversao' },
+        },
+        {
+          id: 'kpi_cac',
+          label: 'CAC atual e meta (Custo de Aquisição de Cliente)',
+          placeholder: 'Ex: CAC atual R$ 350. Meta: reduzir para R$ 250 até o 3º trimestre. Calcule: total gasto em vendas e marketing no mês ÷ novos clientes conquistados.',
+          tipo: 'textarea',
+          destino: { modulo: 'kpis', secao: 'kpis', campo: 'cac' },
+        },
+        {
+          id: 'kpi_nps',
+          label: 'Meta de NPS (lealdade geral)',
+          placeholder: 'Ex: Manter NPS acima de 50. Aplicar pesquisa trimestral por WhatsApp: "De 0 a 10, quanto você indicaria nossa empresa?"',
+          tipo: 'textarea',
+          destino: { modulo: 'kpis', secao: 'kpis', campo: 'nps' },
+        },
+        {
+          id: 'kpi_csat',
+          label: 'Como vai medir a satisfação de cada entrega? (CSAT)',
+          placeholder: 'Ex: Enviar mensagem no WhatsApp após cada projeto entregue: "De 1 a 5, como foi nosso atendimento?" Meta: manter média acima de 4,0.',
+          tipo: 'textarea',
+          destino: { modulo: 'kpis', secao: 'kpis', campo: 'csat' },
+        },
+      ],
+    },
+    promptsIA: [
+      'Escolher meus 5 principais indicadores',
+      'Criar painel de metas para o trimestre',
+      'Gerar relatório mensal simples',
+      'Identificar o que parar de fazer',
+    ],
+    proximoPasso: {
+      modulo: 'kpis',
+      label: 'KPIs & Metas',
+      mensagem: 'Configure seus indicadores no módulo KPIs & Metas — crie os KPIs que você acabou de definir e acompanhe a evolução.',
+      rota: '/kpis',
+    },
   },
 
   {
@@ -508,20 +639,66 @@ Empresas que escalam de forma sustentável têm um sistema, não um conjunto de 
 Trinta minutos por semana com representantes de marketing, vendas e comunicação. Pauta fixa: (1) o que foi gerado na semana, (2) o que está travado no pipeline, (3) o que vai ser publicado na próxima semana. Sem slides, sem relatórios longos — só alinhamento e decisões.
 
 **Escalar com responsabilidade**
-A regra de ouro: contrate quando a capacidade atual estiver consistentemente acima de 80% por pelo menos 60 dias. Contratar antes disso gera custo sem necessidade; contratar depois gera perda de oportunidades e burnout da equipe atual. Cada nova contratação deve estar atrelada a uma meta específica: "contratamos 1 SDR quando a taxa de conversão de leads superar 15% por 2 meses consecutivos."
+A regra de ouro: contrate quando a capacidade atual estiver consistentemente acima de 80% por pelo menos 60 dias. Contratar antes disso gera custo sem necessidade; contratar depois gera perda de oportunidades e esgotamento da equipe atual (burnout). Cada nova contratação deve estar atrelada a uma meta específica: "contratamos 1 pré-vendedor (SDR) quando a taxa de conversão de leads superar 15% por 2 meses consecutivos."
 
 **Revisão anual estratégica**
-Uma vez por ano, revise todo o planejamento com olhar externo. O que mudou no mercado? As personas ainda são as mesmas? O posicionamento ainda diferencia? O que era uma oportunidade virou commodity? Use os dados dos últimos 12 meses para tomar decisões sobre os próximos 12 — não o feeling do momento.`,
+Uma vez por ano, revise todo o planejamento com olhar externo. O que mudou no mercado? As personas ainda são as mesmas? O posicionamento ainda diferencia? O que era uma oportunidade virou commodity? Use os dados dos últimos 12 meses para tomar decisões sobre os próximos 12 — não a intuição do momento.`,
     checklist: [
       { id: 'c8-1', texto: 'Agende a primeira reunião tripartite semanal (marketing + vendas + comunicação) — 30 minutos, pauta fixa', concluido: false },
       { id: 'c8-2', texto: 'Crie o documento de alinhamento: persona compartilhada, metas unificadas e glossário comum entre as áreas', concluido: false },
       { id: 'c8-3', texto: 'Defina o critério de contratação: qual meta precisa ser batida por quantos dias para contratar a próxima pessoa?', concluido: false },
-      { id: 'c8-4', texto: 'Implante o SLA entre marketing e vendas: prazo máximo para contato após um lead entrar no CRM', concluido: false },
+      { id: 'c8-4', texto: 'Implante o acordo de tempo de resposta (SLA) entre marketing e vendas: prazo máximo para o primeiro contato após um lead entrar no CRM', concluido: false },
       { id: 'c8-5', texto: 'Agende a revisão anual estratégica: bloco de 4 horas, fora do escritório, para repensar o plano completo', concluido: false },
       { id: 'c8-6', texto: 'Celebre e documente: quais processos do guia geraram mais resultado? Escreva o que funcionou para replicar', concluido: false },
     ],
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
+    exercicio: {
+      titulo: 'Síntese do seu plano comercial',
+      instrucao: 'Registre o que funcionou em cada área. Esse documento vai para o Diretório como seu Plano Comercial — o guia que sua equipe vai consultar daqui pra frente.',
+      campos: [
+        {
+          id: 'sintese_marketing',
+          label: 'O que ficou definido em marketing?',
+          placeholder: 'Ex: Canais: Instagram e WhatsApp. Frequência: 3 posts por semana. Responsável: assistente virtual. Meta: 30 leads/mês.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Plano Comercial' },
+        },
+        {
+          id: 'sintese_vendas',
+          label: 'O que ficou definido em vendas?',
+          placeholder: 'Ex: Funil: Prospecção → Qualificação → Proposta → Fechamento. Script de qualificação criado. Meta: 15% de taxa de conversão.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Plano Comercial' },
+        },
+        {
+          id: 'sintese_comunicacao',
+          label: 'O que ficou definido em comunicação?',
+          placeholder: 'Ex: Tom de voz: direto e empático. Posicionamento definido. Guia de marca criado no Diretório.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Plano Comercial' },
+        },
+        {
+          id: 'proximo_passo_90dias',
+          label: 'Qual é seu próximo passo nos próximos 90 dias?',
+          placeholder: 'Ex: Contratar assistente virtual, atingir 30 leads/mês, configurar automação de acompanhamento (follow-up) no CRM.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Plano Comercial' },
+        },
+      ],
+    },
+    promptsIA: [
+      'Revisar progresso geral do meu comercial',
+      'Criar plano de crescimento para os próximos 90 dias',
+      'Identificar próximos passos de contratação',
+      'Gerar resumo do meu plano comercial completo',
+    ],
+    proximoPasso: {
+      modulo: 'dashboard',
+      label: 'Dashboard',
+      mensagem: 'Parabéns — você concluiu o guia! Acesse o Dashboard para ver sua operação completa e acompanhar o crescimento a partir de agora.',
+      rota: '/',
+    },
   },
 ];

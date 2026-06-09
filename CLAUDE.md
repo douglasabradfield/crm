@@ -8,7 +8,7 @@ seu departamento comercial. Combina conteúdo educacional (guia em 8 capítulos)
 ferramentas operacionais (CRM, prospecção, régua, KPIs) e IA assistente contextual.
 
 ## Estado atual
-O projeto está no estágio de boilerplate Vite. `src/` contém apenas os arquivos padrão (`App.jsx`, `main.jsx`, `index.css`, `App.css`). Toda a arquitetura descrita abaixo ainda precisa ser construída.
+O app está funcional. Todas as 11 páginas estão construídas, autenticação via Supabase implementada, sistema de permissões por papel (role), todos os stores de estado separados. A persistência é via localStorage para dados operacionais e Supabase para autenticação de usuários.
 
 ## Comandos
 
@@ -21,15 +21,16 @@ npm run lint      # ESLint em todo o projeto
 
 ## Stack técnica
 - React 19 + Vite
-- React Router DOM v7 para navegação entre as 9 páginas
-- Tailwind CSS v3 para estilos (dark theme obrigatório)
-- Recharts para gráficos e visualizações
+- React Router DOM v7
+- Tailwind CSS v3 (dark theme obrigatório)
+- Recharts para gráficos
 - lucide-react para ícones
-- date-fns para manipulação de datas
-- Context API para estado global compartilhado
+- date-fns para datas
+- @hello-pangea/dnd para drag-and-drop (kanban do CRM)
+- @supabase/supabase-js para autenticação
+- Context API para estado global
 - localStorage para persistência de dados no MVP
-- Anthropic API (fetch direto) para chamadas de IA
-- Modelo IA: `claude-sonnet-4-20250514`, `max_tokens: 800`
+- Anthropic API via fetch direto — modelo `claude-sonnet-4-6`, `max_tokens: 800`
 
 ## Design System — seguir rigorosamente
 
@@ -66,7 +67,7 @@ npm run lint      # ESLint em todo o projeto
 - Botão ghost: `background: transparent; border: 1px solid var(--border2); color: var(--text2)`
 - Badges/tags: `padding: 2px 9px; border-radius: 20px; font-size: 11px`
 
-## Módulos do app (9 páginas)
+## Módulos do app (11 páginas)
 
 | Rota | Página | Descrição |
 |------|--------|-----------|
@@ -79,30 +80,41 @@ npm run lint      # ESLint em todo o projeto
 | /diagnostico | Diagnostico | SWOT editável, personas, score de maturidade |
 | /diretorio | DiretorioInterno | SOPs, senhas mascaradas, templates |
 | /redes | RedesSociais | Métricas por rede + calendário editorial |
+| /configuracoes | Configuracoes | Permissões e usuários |
+| /tickets | Tickets | Atendimento interno e externo |
 
-## Arquitetura de estado (Context API)
+## Arquitetura de estado
 
-O provider raiz em `src/store/index.js` expõe:
-```javascript
-{
-  ui: { activePage, aiPanelOpen, aiPanelContext },
-  crm: { leads: [], pipeline: {} },
-  metas: { kpis: [], targets: {} },
-  diretorio: { folders: {}, passwords: [] },
-  redes: { metrics: {}, posts: [], calendar: {} }
-}
-```
+Os contextos são separados por domínio — cada um em seu próprio arquivo:
+
+| Arquivo | Contexto | Hook |
+|---------|----------|------|
+| `src/store/index.js` | ThemeContext, UIContext | `useTheme()`, `useUI()` |
+| `src/store/auth.js` | AuthContext | `useAuth()` |
+| `src/store/crm.js` | CRMContext | `useCRM()` |
+| `src/store/diretorio.js` | DiretorioContext | `useDiretorio()` |
+| `src/store/metas.js` | MetasContext | `useMetas()` |
+| `src/store/prospeccao.js` | ProspeccaoContext | `useProspeccao()` |
+| `src/store/redes.js` | RedesContext | `useRedes()` |
+
+O `UIContext` expõe `openAI(prompt?)` e `closeAI()` para abrir o painel de IA de qualquer componente.
+
+## Autenticação e permissões
+
+- `src/store/auth.js` gerencia sessão Supabase (`supabase.auth`) e perfil do usuário da tabela `perfis` (campos: `empresa_id`, `nome`, `email`, `papel`)
+- Papéis disponíveis: `superadmin`, outros definidos em `src/data/permissions.js`
+- `src/components/Auth/ProtectedRoute.jsx` — bloqueia rotas por módulo
+- `src/components/Auth/PermissionGate.jsx` — oculta elementos por permissão granular (`module`, `action`)
+- Overrides de permissão por usuário e papel ficam em localStorage (`crm_user_overrides`, `crm_role_overrides`)
 
 ## Assistente IA (AIPanel.jsx)
 
-- Slide-in pela direita, largura 380px, overlay semitransparente
-- Dot verde pulsando no header (status online)
-- Bolhas: usuário (direita, accent-bg) e IA (esquerda, bg3)
-- Animação de digitação com 3 pontos bouncing
-- Quick chips contextuais ao abrir
+- Slide-in pela direita, largura 380px
+- Disparado via `openAI(prompt?)` do `UIContext`
+- Contexto da página ativa é injetado como string em `PAGE_AI_CONTEXT` em `App.jsx`
 - Enter envia, Shift+Enter quebra linha
 
-System prompt base injetado em todas as chamadas:
+System prompt base:
 ```
 Você é um assistente especializado em estratégia comercial e marketing
 para PMEs brasileiras. Dê respostas práticas, diretas e acionáveis.
@@ -111,46 +123,42 @@ por resposta, mas muito úteis. Crie templates e scripts quando pedido.
 Quando criar mensagens de prospecção ou follow-up, formate claramente.
 ```
 
-Adicionar contexto da página ativa ao system prompt (dados de leads, KPIs, etc.).
-
 ## Integrações externas (src/services/)
+
+### Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)
+Usado apenas para autenticação. Tabela `perfis` vinculada ao `auth.users`.
 
 ### API Receita Federal (gratuita)
 ```
 GET https://receitaws.com.br/v1/cnpj/{cnpj}
-Retorna: razao_social, cnae_fiscal, municipio, uf, situacao, capital_social
 ```
 
-### Hunter.io (VITE_HUNTER_API_KEY)
+### Hunter.io (`VITE_HUNTER_API_KEY`)
 ```
 GET https://api.hunter.io/v2/domain-search?domain={domain}&api_key={key}
-Retorna: emails verificados com score de confiança
 ```
 
-### Apollo.io (VITE_APOLLO_API_KEY)
+### Apollo.io (`VITE_APOLLO_API_KEY`)
 ```
 POST https://api.apollo.io/v1/people/search
 Headers: x-api-key: {key}
-Body: { q_organization_domains: [domain], page: 1 }
-Retorna: phone_numbers, emails, LinkedIn
 ```
 
-### Anthropic API (VITE_ANTHROPIC_API_KEY)
+### Anthropic API (`VITE_ANTHROPIC_API_KEY`)
 ```
 POST https://api.anthropic.com/v1/messages
 Headers: x-api-key: {key}, anthropic-version: 2023-06-01
-Body: { model, max_tokens, system, messages }
 ```
 
 ## Regras de desenvolvimento
 
 1. SEMPRE dark theme — nunca usar fundo branco ou cinza claro
 2. Componentes de UI reutilizáveis em `src/components/UI/`
-3. Dados mockados em `src/data/` para todo o MVP (sem backend ainda)
+3. Dados mockados em `src/data/` para todo o MVP (sem backend ainda, exceto auth)
 4. Cada integração externa tem arquivo próprio em `src/services/`
 5. API keys via `import.meta.env.VITE_*`
 6. Erros de API: mensagem amigável em português
 7. Senhas no Diretório: mascaradas (`••••••••`) por padrão, revelar 3s ao clicar
 8. Loading states: skeleton ou spinner em toda chamada assíncrona
-9. Animação fadeIn ao trocar de página (CSS keyframes simples)
+9. Animação fadeIn ao trocar de página (CSS keyframes simples, classe `page-enter`)
 10. Todos os números monetários: `toLocaleString('pt-BR')` com prefixo R$
