@@ -920,16 +920,35 @@ function ToolsForm({ onComplete, done }) {
 
 /* ─── Simple complete form (fallback) ────────────────────────────────────────── */
 function SimpleCompleteForm({ onComplete, done }) {
-  const [notes, setNotes] = useState('');
+  const [notes,   setNotes]   = useState('');
+  const [touched, setTouched] = useState(false);
+
+  const valid = notes.trim().length >= 10;
+  const showError = touched && !valid && !done;
+
+  function handleComplete() {
+    if (!done && !valid) { setTouched(true); return; }
+    onComplete();
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div>
-        <FLabel>Anotação livre (opcional)</FLabel>
-        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+        <FLabel>Sua anotação {done ? '' : '(obrigatório para concluir)'}</FLabel>
+        <textarea
+          value={notes}
+          onChange={(e) => { setNotes(e.target.value); if (touched) setTouched(false); }}
+          rows={3}
           placeholder="Anote o que fez, o que aprendeu ou o próximo passo..."
-          style={{ ...INPUT_S, resize: 'vertical' }} />
+          style={{ ...INPUT_S, resize: 'vertical', borderColor: showError ? 'var(--red)' : undefined }}
+        />
+        {showError && (
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--red)' }}>
+            Escreva sua anotação antes de concluir esta tarefa.
+          </p>
+        )}
       </div>
-      <button onClick={onComplete}
+      <button onClick={handleComplete}
         style={{ display: 'flex', alignItems: 'center', gap: 6, background: done ? 'var(--bg3)' : 'var(--accent)', color: done ? 'var(--text3)' : '#fff', border: done ? '1px solid var(--border)' : 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', alignSelf: 'flex-start' }}>
         <CheckCircle2 size={13} /> {done ? 'Atualizar anotação' : 'Marcar como concluída'}
       </button>
