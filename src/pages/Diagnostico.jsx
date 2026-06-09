@@ -3304,6 +3304,218 @@ function CanvasPropostaValorSection({ openAI }) {
   );
 }
 
+/* ─── EntrevistaModal ─────────────────────────────────────────────────────── */
+let _entrevistaId = 2000;
+
+function EntrevistaModal({ initial, onSave, onClose }) {
+  const [form, setForm] = useState(() => ({
+    id:          initial?.id          || null,
+    clienteNome: initial?.clienteNome || '',
+    data:        initial?.data        || new Date().toISOString().split('T')[0],
+    cargo:       initial?.cargo       || '',
+    respostas: {
+      porque:      initial?.respostas?.porque      || '',
+      melhor:      initial?.respostas?.melhor       || '',
+      indicaria:   initial?.respostas?.indicaria    ?? false,
+      observacoes: initial?.respostas?.observacoes  || '',
+    },
+  }));
+
+  const iS = {
+    width: '100%', background: 'var(--bg4)', border: '1px solid var(--border)',
+    borderRadius: 6, padding: '7px 10px', color: 'var(--text)',
+    fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+  };
+  const taS = { ...iS, resize: 'vertical', lineHeight: 1.55 };
+  const lbl = { fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 };
+
+  const set    = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const setRes = (k, v) => setForm(p => ({ ...p, respostas: { ...p.respostas, [k]: v } }));
+
+  function handleSave() {
+    if (!form.clienteNome.trim()) return;
+    onSave({ ...form, id: form.id || `ent${_entrevistaId++}` });
+  }
+
+  const canSave = form.clienteNome.trim().length > 0;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(14,15,18,0.8)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: '100%', maxWidth: 540, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Header */}
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', margin: 0 }}>
+            {initial ? 'Editar entrevista' : 'Nova entrevista de cliente'}
+          </p>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}><X size={15} /></button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={lbl}>Nome do cliente *</label>
+              <input value={form.clienteNome} onChange={e => set('clienteNome', e.target.value)} placeholder="Ex: Maria Silva" style={iS} />
+            </div>
+            <div>
+              <label style={lbl}>Data da entrevista</label>
+              <input type="date" value={form.data} onChange={e => set('data', e.target.value)} style={iS} />
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Cargo / função (opcional)</label>
+            <input value={form.cargo} onChange={e => set('cargo', e.target.value)} placeholder="Ex: CEO, Gerente, Sócio..." style={iS} />
+          </div>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text2)', margin: 0 }}>Respostas da entrevista</p>
+            <div>
+              <label style={lbl}>Por que escolheu nossa empresa?</label>
+              <textarea value={form.respostas.porque} onChange={e => setRes('porque', e.target.value)} rows={3} style={taS} placeholder="O que o cliente disse..." />
+            </div>
+            <div>
+              <label style={lbl}>O que poderia ser melhor?</label>
+              <textarea value={form.respostas.melhor} onChange={e => setRes('melhor', e.target.value)} rows={3} style={taS} placeholder="Feedbacks e sugestões do cliente..." />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text2)' }}>
+              <input type="checkbox" checked={form.respostas.indicaria} onChange={e => setRes('indicaria', e.target.checked)} style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
+              Indicaria para alguém?
+            </label>
+            <div>
+              <label style={lbl}>Outras observações (opcional)</label>
+              <textarea value={form.respostas.observacoes} onChange={e => setRes('observacoes', e.target.value)} rows={2} style={taS} placeholder="Qualquer detalhe relevante..." />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border2)', borderRadius: 7, padding: '7px 14px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
+          <button onClick={handleSave} disabled={!canSave} style={{ background: canSave ? 'var(--accent)' : 'var(--bg4)', color: canSave ? '#fff' : 'var(--text3)', border: 'none', borderRadius: 7, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: canSave ? 'pointer' : 'default', fontFamily: 'var(--font-body)' }}>
+            {initial ? 'Salvar alterações' : 'Adicionar entrevista'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── EntrevistaCard ──────────────────────────────────────────────────────── */
+function EntrevistaCard({ entrevista, onEdit, onDelete }) {
+  const excerpt = (entrevista.respostas?.porque || '').slice(0, 60) +
+    ((entrevista.respostas?.porque || '').length > 60 ? '…' : '');
+  const dateStr = entrevista.data
+    ? new Date(entrevista.data + 'T12:00:00').toLocaleDateString('pt-BR')
+    : '';
+
+  return (
+    <div
+      style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', display: 'flex', alignItems: 'flex-start', gap: 12, position: 'relative' }}
+      onMouseEnter={e => e.currentTarget.querySelector('.ent-actions').style.opacity = '1'}
+      onMouseLeave={e => e.currentTarget.querySelector('.ent-actions').style.opacity = '0'}
+    >
+      <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(56,201,224,0.1)', border: '1px solid rgba(56,201,224,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14 }}>💬</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 3 }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{entrevista.clienteNome}</span>
+          {entrevista.cargo && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{entrevista.cargo}</span>}
+          {entrevista.respostas?.indicaria && (
+            <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, background: 'rgba(45,212,160,0.12)', color: 'var(--green)', border: '1px solid rgba(45,212,160,0.25)' }}>✓ Indicaria</span>
+          )}
+        </div>
+        {dateStr && (
+          <p style={{ fontSize: 11, color: 'var(--text3)', margin: '0 0 5px', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Clock size={10} /> {dateStr}
+          </p>
+        )}
+        {excerpt && (
+          <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0, lineHeight: 1.5, fontStyle: 'italic' }}>"{excerpt}"</p>
+        )}
+      </div>
+      <div className="ent-actions" style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 4, opacity: 0, transition: 'opacity .15s' }}>
+        <button onClick={() => onEdit(entrevista)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--text3)', padding: 5, display: 'flex' }}><Pencil size={11} /></button>
+        <button onClick={() => onDelete(entrevista.id)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--text3)', padding: 5, display: 'flex' }}><Trash2 size={11} /></button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── EntrevistasSection ──────────────────────────────────────────────────── */
+function EntrevistasSection({ openAI }) {
+  const [entrevistas, setEntrevistas] = useLocalStorage('diag_entrevistas', []);
+  const [modal, setModal] = useState(null);
+
+  function saveEntrevista(data) {
+    setEntrevistas(prev => {
+      const exists = prev.find(e => e.id === data.id);
+      return exists ? prev.map(e => e.id === data.id ? data : e) : [...prev, data];
+    });
+    setModal(null);
+  }
+
+  function handleAnalyzeIA() {
+    const n = entrevistas.length;
+    if (n === 0) {
+      openAI('Como conduzir entrevistas de clientes para identificar padrões de satisfação e pontos de melhoria no meu negócio?');
+      return;
+    }
+    const fmt = entrevistas.map((e, i) =>
+      `Entrevista ${i + 1} — ${e.clienteNome}${e.cargo ? ` (${e.cargo})` : ''}:\n` +
+      `• Por que nos escolheu: ${e.respostas?.porque || '—'}\n` +
+      `• O que poderia melhorar: ${e.respostas?.melhor || '—'}\n` +
+      `• Indicaria: ${e.respostas?.indicaria ? 'Sim' : 'Não'}` +
+      (e.respostas?.observacoes ? `\n• Observações: ${e.respostas.observacoes}` : ''),
+    ).join('\n\n');
+    openAI(
+      `Com base nas ${n} entrevistas de clientes registradas, quais são os 3 principais padrões de satisfação e os 3 principais pontos de melhoria?\n\n${fmt}`,
+    );
+  }
+
+  return (
+    <>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', margin: 0 }}>
+            Entrevistas de Clientes
+            <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400, marginLeft: 8 }}>
+              {entrevistas.length} {entrevistas.length === 1 ? 'registrada' : 'registradas'}
+            </span>
+          </p>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+            <button onClick={handleAnalyzeIA} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid var(--border2)', borderRadius: 7, padding: '6px 11px', fontSize: 11, color: 'var(--accent2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              <Bot size={12} /> IA: Analisar padrões
+            </button>
+            <button onClick={() => setModal('new')} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 7, padding: '6px 11px', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              <Plus size={12} /> Nova entrevista
+            </button>
+          </div>
+        </div>
+
+        {entrevistas.length === 0 ? (
+          <div style={{ padding: '20px 0', textAlign: 'center' }}>
+            <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 4 }}>Nenhuma entrevista registrada ainda.</p>
+            <p style={{ fontSize: 12, color: 'var(--text3)' }}>Entreviste 3 clientes reais — é a base mais sólida para qualquer diagnóstico.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {entrevistas.map(e => (
+              <EntrevistaCard key={e.id} entrevista={e} onEdit={setModal} onDelete={id => setEntrevistas(prev => prev.filter(e => e.id !== id))} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <EntrevistaModal
+          initial={modal === 'new' ? null : modal}
+          onSave={saveEntrevista}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </>
+  );
+}
+
 /* ─── Diagnostico (main) ─────────────────────────────────────────────────── */
 export default function Diagnostico() {
   const { openAI } = useUI();
@@ -3414,6 +3626,8 @@ export default function Diagnostico() {
         setLastUpdated={setPersonasUpdated}
         openAI={openAI}
       />
+
+      <EntrevistasSection openAI={openAI} />
     </div>
   );
 }

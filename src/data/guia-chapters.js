@@ -67,30 +67,44 @@ Este guia foi construído para ser prático. Cada capítulo tem teoria suficient
 
 **Análise SWOT simplificada**
 A SWOT é uma ferramenta de quatro quadrantes que organiza o que você sabe sobre o negócio:
-- **Forças (Strengths)**: o que você faz bem que os concorrentes não fazem. Pode ser atendimento, preço, especialização ou velocidade.
-- **Fraquezas (Weaknesses)**: onde você perde negócios ou onde a operação custa mais do que deveria.
-- **Oportunidades (Opportunities)**: tendências de mercado, nichos mal atendidos, tecnologias que você ainda não usa.
-- **Ameaças (Threats)**: concorrentes crescendo, mudanças regulatórias, dependência de poucos clientes.
+- **Forças (do inglês Strengths)**: o que você faz bem que os concorrentes não fazem. Pode ser atendimento, preço, especialização ou velocidade.
+- **Fraquezas (do inglês Weaknesses)**: onde você perde negócios ou onde a operação custa mais do que deveria.
+- **Oportunidades (do inglês Opportunities)**: tendências de mercado, nichos mal atendidos, tecnologias que você ainda não usa.
+- **Ameaças (do inglês Threats)**: concorrentes crescendo, mudanças regulatórias, dependência de poucos clientes.
 
 **Personas básicas**
-Persona é a representação semi-fictícia do seu cliente ideal. Não é "todo mundo que compra" — é quem você quer que compre mais. Uma boa persona tem: nome fictício, cargo ou situação, principal dor que seu produto resolve, e como ela toma a decisão de compra.
+Persona é o retrato do seu cliente ideal — não qualquer um que compra, mas aquele que você mais quer atender. Quanto mais você conhece esse cliente, mais fácil fica saber o que falar e como vender. Uma boa persona tem: nome fictício, cargo ou situação, principal dor que seu produto resolve, e como ela toma a decisão de compra.
 
 **Funil de vendas atual**
 Mesmo que informal, todo negócio tem um funil: alguém descobre você (topo), considera comprar (meio) e toma a decisão (fundo). O diagnóstico é mapear onde estão os gargalos: o problema é geração de leads, conversão ou retenção?
 
 **Os 4Ps do marketing**
-Produto (o que você vende e qual o diferencial), Preço (posicionamento e margem), Praça (onde e como entrega) e Promoção (como comunica e atrai). Entender os 4Ps ajuda a identificar qual alavanca tem mais impacto imediato no seu caso.`,
+Produto (o que você vende e qual o diferencial), Preço (posicionamento e margem), Praça (onde e como entrega) e Promoção (como comunica e atrai). Entender os 4Ps ajuda a identificar qual alavanca tem mais impacto imediato no seu caso.
+
+Se você vende serviço (e não produto físico), Pessoas (quem executa e atende) e Processos (como a entrega acontece na prática) costumam ter mais impacto do que Praça. Avalie os 6.`,
     checklist: [
+      { id: 'c1-5', texto: 'Entreviste 3 clientes atuais: por que escolheram você? O que poderia ser melhor?', concluido: false },
+      { id: 'c1-6', texto: 'Analise 2 concorrentes diretos: o que oferecem que você não oferece?', concluido: false },
       { id: 'c1-1', texto: 'Faça sua SWOT: liste pelo menos 3 itens em cada quadrante (Forças, Fraquezas, Oportunidades, Ameaças)', concluido: false },
       { id: 'c1-2', texto: 'Crie 2 ou 3 personas: nome fictício, cargo, principal dor e como decide a compra', concluido: false },
       { id: 'c1-3', texto: 'Desenhe o funil atual: como um lead chega até você hoje e quais são as etapas até a venda?', concluido: false },
-      { id: 'c1-4', texto: 'Analise os 4Ps: produto, preço, praça e promoção — onde está o maior gap?', concluido: false },
-      { id: 'c1-5', texto: 'Entreviste 3 clientes atuais: por que escolheram você? O que poderia ser melhor?', concluido: false },
-      { id: 'c1-6', texto: 'Analise 2 concorrentes diretos: o que oferecem que você não oferece?', concluido: false },
+      { id: 'c1-4', texto: 'Analise os 4Ps (ou 6Ps para serviços): produto, preço, praça, promoção — e se vender serviço, inclua pessoas e processos também', concluido: false },
     ],
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
+    promptsIA: [
+      'Completar minha análise SWOT',
+      'Criar minha primeira persona',
+      'Desenhar o funil atual da minha empresa',
+      'Transformar meu diagnóstico em 3 ações práticas',
+    ],
+    proximoPasso: {
+      modulo: 'diagnostico',
+      label: 'Diagnóstico',
+      mensagem: 'Agora formalize tudo no módulo Diagnóstico — SWOT, personas, concorrentes e entrevistas de clientes já têm campos prontos esperando por você.',
+      rota: '/diagnostico',
+    },
   },
 
   {
