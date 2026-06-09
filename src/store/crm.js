@@ -105,6 +105,7 @@ function clienteFromRow(r) {
     notes:           r.notes            ?? '',
     tarefas:         r.tarefas          ?? [],
     npsHistorico:    r.nps_historico    ?? [],
+    csatHistorico:   r.csat_historico   ?? [],
     createdAt:       r.criado_em        ?? null,
     responsavelId:   r.responsavel_id   ?? null,
     cnpj:            '',
@@ -138,6 +139,7 @@ function clienteToRow(c) {
   if ('tags'          in c) r.tags           = c.tags;
   if ('notes'         in c) r.notes          = c.notes;
   if ('npsHistorico'  in c) r.nps_historico  = c.npsHistorico;
+  if ('csatHistorico' in c) r.csat_historico = c.csatHistorico;
   if ('tarefas'       in c) r.tarefas        = c.tarefas;
   if ('responsavelId' in c) r.responsavel_id = c.responsavelId;
   return r;
@@ -301,7 +303,7 @@ export function CRMProvider({ children }) {
     const row = clienteToRow({
       ...clienteData,
       pedidos: [], historico: [], valorTotalGasto: 0,
-      tarefas: [], npsHistorico: [], npsLembreteDias: 90,
+      tarefas: [], npsHistorico: [], npsLembreteDias: 90, csatHistorico: [],
       createdAt: new Date().toISOString().split('T')[0],
     });
     delete row.empresa_id;
@@ -352,6 +354,15 @@ export function CRMProvider({ children }) {
     setClientes((prev) => prev.map((c) => c.id === clienteId ? { ...c, npsHistorico: newNps } : c));
   }
 
+  async function addCSAT(clienteId, csat) {
+    const cliente = clientesRef.current.find((c) => c.id === clienteId);
+    if (!cliente) return;
+    const newCsat = [...(cliente.csatHistorico ?? []), { ...csat, id: `csat${Date.now()}` }];
+    const { error } = await supabase.from('clientes').update({ csat_historico: newCsat }).eq('id', clienteId);
+    if (error) { setCrmError(error.message); return; }
+    setClientes((prev) => prev.map((c) => c.id === clienteId ? { ...c, csatHistorico: newCsat } : c));
+  }
+
   /* ── Converter lead em cliente ────────────────────────────────────────────── */
 
   async function converterLeadEmCliente(leadId) {
@@ -375,7 +386,7 @@ export function CRMProvider({ children }) {
       historico: [{ id:`h${Date.now()}`, data: today, tipo:'anotacao', descricao:`Convertido do pipeline. Valor estimado: R$ ${lead.value?.toLocaleString('pt-BR')}/mês.`, usuario:'Sistema' }],
       ultimoContato: today, proximoContato: null,
       valorTotalGasto: 0, createdAt: today,
-      tarefas: [kickoff], npsHistorico: [], npsLembreteDias: 90,
+      tarefas: [kickoff], npsHistorico: [], npsLembreteDias: 90, csatHistorico: [],
     };
 
     const clienteRow = clienteToRow(clienteData);
@@ -477,7 +488,7 @@ export function CRMProvider({ children }) {
       addAtividade, addTarefaLead, toggleTarefaLead,
       // Cliente actions
       addCliente, updateCliente,
-      addTarefaCliente, toggleTarefaCliente, addNPS,
+      addTarefaCliente, toggleTarefaCliente, addNPS, addCSAT,
       // Conversion
       converterLeadEmCliente,
       // Funil actions

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAI }          from '../../hooks/useAI.js';
 import { useCRM }         from '../../store/crm.js';
+import { useUI }          from '../../store/index.js';
 import PermissionGate     from '../Auth/PermissionGate.jsx';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
@@ -547,6 +548,149 @@ function NPSTab({ cliente }) {
   );
 }
 
+/* ─── CSAT tab ───────────────────────────────────────────────────────────────── */
+function CSATTab({ cliente }) {
+  const { addCSAT }  = useCRM();
+  const { openAI }   = useUI();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ nota: 5, entrega: '', comentario: '' });
+
+  const historico = cliente.csatHistorico ?? [];
+  const TRINTA_DIAS = 30 * 86400000;
+  const csatVencido = historico.length > 0 &&
+    !historico.some((r) => Date.now() - new Date(r.data).getTime() <= TRINTA_DIAS);
+
+  const csatColor = (n) => n >= 4 ? 'var(--green)' : n >= 3 ? 'var(--amber)' : 'var(--red)';
+  const csatLabel = (n) => n >= 4 ? 'Satisfeito' : n >= 3 ? 'Neutro' : 'Insatisfeito';
+
+  const media = historico.length > 0
+    ? (historico.reduce((s, r) => s + r.nota, 0) / historico.length).toFixed(1)
+    : null;
+
+  const aiPrompt = `Com base nas últimas avaliações de entrega (CSAT médio: ${media ?? 'sem dados'}), quais são os principais pontos de melhoria no atendimento a este cliente?`;
+
+  function salvarCSAT() {
+    if (!form.entrega.trim()) return;
+    addCSAT(cliente.id, { ...form, data: new Date().toISOString().split('T')[0] });
+    setForm({ nota: 5, entrega: '', comentario: '' });
+    setShowForm(false);
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Alert: no CSAT in last 30 days */}
+      {csatVencido && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(240,168,50,0.08)', border: '1px solid rgba(240,168,50,0.25)' }}>
+          <Bell size={14} style={{ color: 'var(--amber)', flexShrink: 0 }} />
+          <div style={{ fontSize: 12, color: 'var(--amber)', lineHeight: 1.4 }}>
+            Nenhuma avaliação de entrega nos últimos 30 dias
+          </div>
+        </div>
+      )}
+
+      {/* Average + AI button */}
+      {media && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg3)', borderRadius: 10, border: '1px solid var(--border)' }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 2 }}>CSAT médio</div>
+            <div style={{ fontSize: 24, fontWeight: 600, color: csatColor(parseFloat(media)), fontFamily: 'var(--font-display)', lineHeight: 1 }}>
+              {media}<span style={{ fontSize: 13, color: 'var(--text3)', fontFamily: 'var(--font-body)', fontWeight: 400 }}>/5</span>
+            </div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <button onClick={() => openAI(aiPrompt)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 8, background: 'rgba(91,110,245,0.1)', border: '1px solid rgba(91,110,245,0.2)', color: 'var(--accent2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            <Bot size={12} /> Análise IA
+          </button>
+        </div>
+      )}
+
+      {/* History list */}
+      {historico.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8, fontWeight: 500 }}>Histórico</div>
+          {[...historico].reverse().map((r) => (
+            <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: `color-mix(in srgb, ${csatColor(r.nota)} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: csatColor(r.nota), fontFamily: 'var(--font-display)' }}>{r.nota}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 2 }}>
+                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 20, background: `color-mix(in srgb, ${csatColor(r.nota)} 12%, transparent)`, color: csatColor(r.nota) }}>{csatLabel(r.nota)}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text3)' }}>{fmtDate(r.data)}</span>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text2)', margin: 0, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.entrega}</p>
+                {r.comentario && <p style={{ fontSize: 11, color: 'var(--text3)', margin: '2px 0 0', lineHeight: 1.4 }}>{r.comentario}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {historico.length === 0 && !showForm && (
+        <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>Nenhuma avaliação de entrega registrada ainda</div>
+      )}
+
+      {/* Register form */}
+      <PermissionGate module="crm" action="edit">
+        {showForm ? (
+          <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: 12, border: '1px solid var(--border)' }}>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Nota (1–5)</label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button key={n} onClick={() => setForm((p) => ({ ...p, nota: n }))}
+                    style={{ width: 36, height: 36, borderRadius: 6, border: `1px solid ${form.nota === n ? csatColor(n) : 'var(--border)'}`, background: form.nota === n ? `color-mix(in srgb, ${csatColor(n)} 15%, transparent)` : 'var(--bg4)', color: form.nota === n ? csatColor(n) : 'var(--text3)', fontSize: 14, fontWeight: form.nota === n ? 700 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>Qual entrega? *</label>
+              <input value={form.entrega} onChange={(e) => setForm((p) => ({ ...p, entrega: e.target.value }))}
+                placeholder="Ex: Entrega do projeto de abril, suporte do dia 05/06…"
+                style={inputStyle}
+                onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
+                onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
+              />
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>Comentário (opcional)</label>
+              <textarea value={form.comentario} onChange={(e) => setForm((p) => ({ ...p, comentario: e.target.value }))}
+                rows={2} placeholder="Observações adicionais..."
+                style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={salvarCSAT} disabled={!form.entrega.trim()}
+                style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: form.entrega.trim() ? 1 : 0.5 }}>
+                Registrar CSAT
+              </button>
+              <button onClick={() => setShowForm(false)}
+                style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setShowForm(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, padding: '8px 14px', fontSize: 12, color: 'var(--text3)', cursor: 'pointer', fontFamily: 'var(--font-body)', width: '100%', justifyContent: 'center' }}>
+            <Star size={13} /> Registrar CSAT
+          </button>
+        )}
+      </PermissionGate>
+
+      {/* AI button (when no average card shown) */}
+      {!media && (
+        <button onClick={() => openAI(aiPrompt)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, background: 'rgba(91,110,245,0.08)', border: '1px solid rgba(91,110,245,0.2)', color: 'var(--accent2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)', width: '100%', justifyContent: 'center' }}>
+          <Bot size={12} /> Analisar pontos de melhoria com IA
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ─── Histórico tab ──────────────────────────────────────────────────────────── */
 function HistoricoTab({ cliente, onUpdate }) {
   const [showForm, setShowForm] = useState(false);
@@ -743,6 +887,7 @@ export default function ClienteModal({ cliente: initialCliente, onClose }) {
     { id: 'historico',   label: 'Histórico'     },
     { id: 'tarefas',     label: 'Tarefas'       },
     { id: 'nps',         label: 'NPS'           },
+    { id: 'csat',        label: 'CSAT'          },
   ];
 
   const initials = cliente.empresaNome.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
@@ -802,6 +947,7 @@ export default function ClienteModal({ cliente: initialCliente, onClose }) {
                   {tab.id === 'historico' && <span style={{ marginLeft: 5, fontSize: 10, padding: '1px 5px', borderRadius: 10, background: 'var(--bg3)', color: 'var(--text3)' }}>{cliente.historico.length}</span>}
                   {tab.id === 'tarefas'   && <span style={{ marginLeft: 5, fontSize: 10, padding: '1px 5px', borderRadius: 10, background: 'var(--bg3)', color: 'var(--text3)' }}>{(cliente.tarefas ?? []).length}</span>}
                   {tab.id === 'nps'       && <span style={{ marginLeft: 5, fontSize: 10, padding: '1px 5px', borderRadius: 10, background: 'var(--bg3)', color: 'var(--text3)' }}>{(cliente.npsHistorico ?? []).length}</span>}
+                  {tab.id === 'csat'      && <span style={{ marginLeft: 5, fontSize: 10, padding: '1px 5px', borderRadius: 10, background: 'var(--bg3)', color: 'var(--text3)' }}>{(cliente.csatHistorico ?? []).length}</span>}
                 </button>
               ))}
             </div>
@@ -813,6 +959,7 @@ export default function ClienteModal({ cliente: initialCliente, onClose }) {
               {activeTab === 'historico'   && <HistoricoTab       cliente={cliente} onUpdate={handleUpdate} />}
               {activeTab === 'tarefas'     && <TarefasClienteTab  cliente={cliente} onUpdate={handleUpdate} />}
               {activeTab === 'nps'         && <NPSTab             cliente={cliente} />}
+              {activeTab === 'csat'        && <CSATTab            cliente={cliente} />}
             </div>
           </div>
 
