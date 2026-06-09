@@ -2,7 +2,7 @@ import { createElement, createContext, useContext, useEffect, useRef, useState }
 import { supabase } from '../services/supabase.js';
 import { useAuth }   from './auth.js';
 
-/* ─── Funis / campos — still in localStorage (migrar depois) ─────────────────── */
+/* ─── Seeds kept for reference only — no longer used as data source ──────────── */
 export const FUNIS_SEED = [
   {
     id: 'f1', nome: 'Vendas', cor: '#5b6ef5',
@@ -21,27 +21,6 @@ export const CAMPO_STD_LABEL = {
   phone: 'Telefone', value: 'Valor (R$)', sector: 'Setor', notes: 'Notas',
 };
 
-const CAMPOS_SEED = {
-  f1: [
-    { id: 'cp1', nome: 'Potencial de Upsell', tipo: 'moeda',    obrigatorio: false, visibilidade: 'lead',  opcoes: [] },
-    { id: 'cp2', nome: 'Canal de Origem',     tipo: 'select',   obrigatorio: false, visibilidade: 'ambos', opcoes: ['Indicação','LinkedIn','Google','Instagram','Prospecção Ativa'] },
-    { id: 'cp3', nome: 'Tem CNPJ Ativo?',     tipo: 'checkbox', obrigatorio: false, visibilidade: 'lead',  opcoes: [] },
-  ],
-};
-
-const LS_FUNIS  = 'crm_funis';
-const LS_CAMPOS = 'crm_campos';
-
-function load(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw !== null ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
-}
-function save(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-}
-
 /* ─── Row mappers (DB snake_case ↔ app camelCase) ────────────────────────────── */
 //
 // Real leads columns:
@@ -52,6 +31,10 @@ function save(key, value) {
 // Real clientes columns:
 //   id, empresa_id, responsavel_id, company, contact, email, phone, sector,
 //   value, tags, notes, nps_historico, tarefas, criado_em, atualizado_em
+//
+// Real funis columns:
+//   id, empresa_id, nome, cor, etapas (jsonb), campos_personalizados (jsonb),
+//   criado_em, atualizado_em
 
 function daysSince(isoDateStr) {
   if (!isoDateStr) return 0;
@@ -59,7 +42,6 @@ function daysSince(isoDateStr) {
 }
 
 function dateOrNull(v) {
-  // Reject empty strings so Postgres date columns never receive ''.
   return (v === '' || v == null) ? null : v;
 }
 
@@ -75,12 +57,10 @@ function leadFromRow(r) {
     sector:               r.sector                ?? '',
     tags:                 r.tags                  ?? [],
     value:                r.value                 ?? 0,
-    // daysSinceContact is derived — no DB column.
     daysSinceContact:     daysSince(r.criado_em),
     followUpDate:         r.follow_up_date        ?? null,
     notes:                r.notes                 ?? '',
     convertido:           r.convertido            ?? false,
-    // 'responsavel' (display name string) has no DB column; default to ''.
     responsavel:          '',
     responsavelId:        r.responsavel_id        ?? null,
     camposPersonalizados: r.campos_personalizados ?? {},
@@ -90,9 +70,6 @@ function leadFromRow(r) {
   };
 }
 
-// Allowlist: only these DB columns are writable (empresa_id/responsavel_id
-// excluded here — callers strip them before INSERT; responsavel_id allowed
-// in UPDATE for reassignment via the caller's explicit inclusion).
 function leadToRow(l) {
   const r = {};
   if ('funilId'              in l) r.funil_id              = l.funilId;
@@ -104,11 +81,9 @@ function leadToRow(l) {
   if ('sector'               in l) r.sector                = l.sector;
   if ('tags'                 in l) r.tags                  = l.tags;
   if ('value'                in l) r.value                 = l.value;
-  // daysSinceContact is never sent — it's derived client-side.
   if ('followUpDate'         in l) r.follow_up_date        = dateOrNull(l.followUpDate);
   if ('notes'                in l) r.notes                 = l.notes;
   if ('convertido'           in l) r.convertido            = l.convertido;
-  // 'responsavel' (string name) has no DB column — never send.
   if ('responsavelId'        in l) r.responsavel_id        = l.responsavelId;
   if ('camposPersonalizados' in l) r.campos_personalizados = l.camposPersonalizados;
   if ('atividades'           in l) r.atividades            = l.atividades;
@@ -120,7 +95,6 @@ function leadToRow(l) {
 function clienteFromRow(r) {
   return {
     id:              r.id,
-    // DB uses generic 'company'/'contact'/'phone'/'sector'; app calls them differently.
     empresaNome:     r.company          ?? '',
     contato:         r.contact          ?? '',
     email:           r.email            ?? '',
@@ -133,7 +107,6 @@ function clienteFromRow(r) {
     npsHistorico:    r.nps_historico    ?? [],
     createdAt:       r.criado_em        ?? null,
     responsavelId:   r.responsavel_id   ?? null,
-    // Fields not yet in the DB — kept in memory with safe defaults.
     cnpj:            '',
     porte:           'Pequena',
     status:          'ativo',
@@ -151,10 +124,8 @@ function clienteFromRow(r) {
 
 function clienteToRow(c) {
   const r = {};
-  // Map app field names → real DB columns (empresa_id/responsavel_id excluded
-  // from INSERT; responsavelId included here for UPDATE reassignment).
   if ('empresaNome'   in c) r.company        = c.empresaNome;
-  if ('company'       in c) r.company        = c.company;     // direct key also accepted
+  if ('company'       in c) r.company        = c.company;
   if ('contato'       in c) r.contact        = c.contato;
   if ('contact'       in c) r.contact        = c.contact;
   if ('email'         in c) r.email          = c.email;
@@ -163,15 +134,32 @@ function clienteToRow(c) {
   if ('segmento'      in c) r.sector         = c.segmento;
   if ('sector'        in c) r.sector         = c.sector;
   if ('value'         in c) r.value          = c.value;
-  if ('valorTotalGasto' in c) r.value        = c.valorTotalGasto; // fallback mapping
+  if ('valorTotalGasto' in c) r.value        = c.valorTotalGasto;
   if ('tags'          in c) r.tags           = c.tags;
   if ('notes'         in c) r.notes          = c.notes;
   if ('npsHistorico'  in c) r.nps_historico  = c.npsHistorico;
   if ('tarefas'       in c) r.tarefas        = c.tarefas;
   if ('responsavelId' in c) r.responsavel_id = c.responsavelId;
-  // All other app fields (cnpj, porte, status, origem, leadId, pedidos,
-  // historico, ultimoContato, proximoContato, prioridade, npsLembreteDias)
-  // have no DB column yet — intentionally not included.
+  return r;
+}
+
+function fromFunilRow(r) {
+  return {
+    id:                   r.id,
+    nome:                 r.nome                  ?? '',
+    cor:                  r.cor                   ?? '#5b6ef5',
+    etapas:               r.etapas                ?? [],
+    camposPersonalizados: r.campos_personalizados ?? [],
+  };
+}
+
+function toFunilRow(f) {
+  const r = {};
+  if ('nome'                 in f) r.nome                 = f.nome;
+  if ('cor'                  in f) r.cor                  = f.cor;
+  if ('etapas'               in f) r.etapas               = f.etapas;
+  if ('camposPersonalizados' in f) r.campos_personalizados = f.camposPersonalizados;
+  // empresa_id is never sent — set by DB default.
   return r;
 }
 
@@ -183,35 +171,36 @@ export function CRMProvider({ children }) {
 
   const [leads,           setLeads]          = useState([]);
   const [clientes,        setClientes]       = useState([]);
-  const [funis,           setFunis]          = useState(() => load(LS_FUNIS,  FUNIS_SEED));
-  const [campos,          setCampos]         = useState(() => load(LS_CAMPOS, CAMPOS_SEED));
+  const [funis,           setFunis]          = useState([]);
   const [loadingLeads,    setLoadingLeads]   = useState(false);
   const [loadingClientes, setLoadingClientes] = useState(false);
+  const [loadingFunis,    setLoadingFunis]   = useState(false);
   const [crmError,        setCrmError]       = useState(null);
   const [filtroLeads,     setFiltroLeads]    = useState('meus');
 
   // Refs keep async callbacks reading fresh state without needing them as deps.
   const leadsRef    = useRef([]);
   const clientesRef = useRef([]);
+  const funisRef    = useRef([]);
   useEffect(() => { leadsRef.current    = leads;    }, [leads]);
   useEffect(() => { clientesRef.current = clientes; }, [clientes]);
+  useEffect(() => { funisRef.current    = funis;    }, [funis]);
 
-  // Funis/campos still persist to localStorage.
-  useEffect(() => { save(LS_FUNIS,  funis);  }, [funis]);
-  useEffect(() => { save(LS_CAMPOS, campos); }, [campos]);
+  // campos is derived from funis (camposPersonalizados embedded in each funil row).
+  // Shape: { [funilId]: [...campos] } — same interface consumers already use.
+  const campos = Object.fromEntries(funis.map((f) => [f.id, f.camposPersonalizados ?? []]));
 
-  const ids = useRef({ campo: 4 });
-
-  /* ── Fetch leads + clientes when session is ready ───────────────────────────── */
+  /* ── Fetch leads, clientes and funis when session is ready ──────────────────── */
   useEffect(() => {
     if (authLoading) return;
 
     if (!empresaId) {
-      // Logged out or no profile — clear data.
       setLeads([]);
       setClientes([]);
+      setFunis([]);
       setLoadingLeads(false);
       setLoadingClientes(false);
+      setLoadingFunis(false);
       return;
     }
 
@@ -219,6 +208,7 @@ export function CRMProvider({ children }) {
 
     setLoadingLeads(true);
     setLoadingClientes(true);
+    setLoadingFunis(true);
     setCrmError(null);
 
     supabase.from('leads').select('*').then(({ data, error }) => {
@@ -235,6 +225,13 @@ export function CRMProvider({ children }) {
       setLoadingClientes(false);
     });
 
+    supabase.from('funis').select('*').then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) { setCrmError(error.message); setLoadingFunis(false); return; }
+      setFunis((data ?? []).map(fromFunilRow));
+      setLoadingFunis(false);
+    });
+
     return () => { cancelled = true; };
   }, [empresaId, authLoading]);
 
@@ -246,7 +243,6 @@ export function CRMProvider({ children }) {
       daysSinceContact: 0, convertido: false,
       atividades: [], tarefas: [], documentos: [], camposPersonalizados: {},
     });
-    // empresa_id and responsavel_id are set by the DB (via defaults/triggers).
     delete row.empresa_id;
     delete row.responsavel_id;
 
@@ -257,7 +253,6 @@ export function CRMProvider({ children }) {
 
   async function updateLead(form) {
     const row = leadToRow(form);
-    // empresa_id is never updated; responsavelId IS included (reassignment allowed).
     delete row.empresa_id;
 
     const { error } = await supabase.from('leads').update(row).eq('id', form.id);
@@ -399,29 +394,67 @@ export function CRMProvider({ children }) {
     return novoCliente;
   }
 
-  /* ── Funil actions (localStorage, unchanged) ──────────────────────────────── */
+  /* ── Funil actions ────────────────────────────────────────────────────────── */
 
-  function addFunil(funil) {
+  async function addFunil(funil) {
     if (funis.length >= 10) return;
-    setFunis((prev) => [...prev, funil]);
+    const row = toFunilRow({
+      nome:                 funil.nome,
+      cor:                  funil.cor,
+      etapas:               funil.etapas               ?? [],
+      camposPersonalizados: funil.camposPersonalizados ?? [],
+    });
+    const { data, error } = await supabase.from('funis').insert(row).select().single();
+    if (error) { setCrmError(error.message); return; }
+    setFunis((prev) => [...prev, fromFunilRow(data)]);
   }
-  function updateFunil(funil)      { setFunis((prev) => prev.map((f) => f.id === funil.id ? funil : f)); }
-  function deleteFunil(funilId)    { setFunis((prev) => prev.filter((f) => f.id !== funilId)); }
-  function reorderFunis(newOrder)  { setFunis(newOrder); }
 
-  /* ── Campo actions (localStorage, unchanged) ──────────────────────────────── */
+  async function updateFunil(funil) {
+    const row = toFunilRow(funil);
+    const { error } = await supabase.from('funis').update(row).eq('id', funil.id);
+    if (error) { setCrmError(error.message); return; }
+    setFunis((prev) => prev.map((f) => f.id === funil.id ? { ...f, ...funil } : f));
+  }
 
-  function addCampo(funilId, campo) {
-    setCampos((prev) => ({
-      ...prev,
-      [funilId]: [...(prev[funilId] ?? []), { ...campo, id: `cp${ids.current.campo++}` }],
-    }));
+  async function deleteFunil(funilId) {
+    if (funisRef.current.length <= 1) return; // always keep at least one funil
+    const { error } = await supabase.from('funis').delete().eq('id', funilId);
+    if (error) { setCrmError(error.message); return; }
+    setFunis((prev) => prev.filter((f) => f.id !== funilId));
   }
-  function updateCampo(funilId, campo) {
-    setCampos((prev) => ({ ...prev, [funilId]: (prev[funilId] ?? []).map((c) => c.id === campo.id ? campo : c) }));
+
+  function reorderFunis(newOrder) {
+    // No order column in DB — reorder is local-only (cosmetic, survives until next reload).
+    setFunis(newOrder);
   }
-  function deleteCampo(funilId, campoId) {
-    setCampos((prev) => ({ ...prev, [funilId]: (prev[funilId] ?? []).filter((c) => c.id !== campoId) }));
+
+  /* ── Campo actions (camposPersonalizados embedded in each funil row) ─────── */
+
+  async function addCampo(funilId, campo) {
+    const funil = funisRef.current.find((f) => f.id === funilId);
+    if (!funil) return;
+    const newCampos = [...(funil.camposPersonalizados ?? []), { ...campo, id: `cp${Date.now()}` }];
+    const { error } = await supabase.from('funis').update({ campos_personalizados: newCampos }).eq('id', funilId);
+    if (error) { setCrmError(error.message); return; }
+    setFunis((prev) => prev.map((f) => f.id === funilId ? { ...f, camposPersonalizados: newCampos } : f));
+  }
+
+  async function updateCampo(funilId, campo) {
+    const funil = funisRef.current.find((f) => f.id === funilId);
+    if (!funil) return;
+    const newCampos = (funil.camposPersonalizados ?? []).map((c) => c.id === campo.id ? campo : c);
+    const { error } = await supabase.from('funis').update({ campos_personalizados: newCampos }).eq('id', funilId);
+    if (error) { setCrmError(error.message); return; }
+    setFunis((prev) => prev.map((f) => f.id === funilId ? { ...f, camposPersonalizados: newCampos } : f));
+  }
+
+  async function deleteCampo(funilId, campoId) {
+    const funil = funisRef.current.find((f) => f.id === funilId);
+    if (!funil) return;
+    const newCampos = (funil.camposPersonalizados ?? []).filter((c) => c.id !== campoId);
+    const { error } = await supabase.from('funis').update({ campos_personalizados: newCampos }).eq('id', funilId);
+    if (error) { setCrmError(error.message); return; }
+    setFunis((prev) => prev.map((f) => f.id === funilId ? { ...f, camposPersonalizados: newCampos } : f));
   }
 
   /* ── Derived: filtered leads list ────────────────────────────────────────── */
@@ -436,7 +469,7 @@ export function CRMProvider({ children }) {
       clientes, setClientes,
       funis, campos,
       // Loading / error
-      loadingLeads, loadingClientes, crmError, setCrmError,
+      loadingLeads, loadingClientes, loadingFunis, crmError, setCrmError,
       // Filter
       filtroLeads, setFiltroLeads,
       // Lead actions
