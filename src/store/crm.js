@@ -43,32 +43,56 @@ function save(key, value) {
 }
 
 /* ─── Row mappers (DB snake_case ↔ app camelCase) ────────────────────────────── */
+//
+// Real leads columns:
+//   id, empresa_id, responsavel_id, funil_id, col, company, contact, email,
+//   phone, sector, value, tags, notes, convertido, follow_up_date,
+//   campos_personalizados, atividades, tarefas, documentos, criado_em, atualizado_em
+//
+// Real clientes columns:
+//   id, empresa_id, responsavel_id, company, contact, email, phone, sector,
+//   value, tags, notes, nps_historico, tarefas, criado_em, atualizado_em
+
+function daysSince(isoDateStr) {
+  if (!isoDateStr) return 0;
+  return Math.floor((Date.now() - new Date(isoDateStr).getTime()) / 86_400_000);
+}
+
+function dateOrNull(v) {
+  // Reject empty strings so Postgres date columns never receive ''.
+  return (v === '' || v == null) ? null : v;
+}
 
 function leadFromRow(r) {
   return {
     id:                   r.id,
     funilId:              r.funil_id,
     col:                  r.col,
-    company:              r.company              ?? '',
-    contact:              r.contact              ?? '',
-    email:                r.email                ?? '',
-    phone:                r.phone                ?? '',
-    sector:               r.sector               ?? '',
-    tags:                 r.tags                 ?? [],
-    value:                r.value                ?? 0,
-    daysSinceContact:     r.days_since_contact   ?? 0,
-    followUpDate:         r.follow_up_date       ?? null,
-    notes:                r.notes                ?? '',
-    convertido:           r.convertido           ?? false,
-    responsavel:          r.responsavel          ?? '',
-    responsavelId:        r.responsavel_id       ?? null,
+    company:              r.company               ?? '',
+    contact:              r.contact               ?? '',
+    email:                r.email                 ?? '',
+    phone:                r.phone                 ?? '',
+    sector:               r.sector                ?? '',
+    tags:                 r.tags                  ?? [],
+    value:                r.value                 ?? 0,
+    // daysSinceContact is derived — no DB column.
+    daysSinceContact:     daysSince(r.criado_em),
+    followUpDate:         r.follow_up_date        ?? null,
+    notes:                r.notes                 ?? '',
+    convertido:           r.convertido            ?? false,
+    // 'responsavel' (display name string) has no DB column; default to ''.
+    responsavel:          '',
+    responsavelId:        r.responsavel_id        ?? null,
     camposPersonalizados: r.campos_personalizados ?? {},
-    atividades:           r.atividades           ?? [],
-    tarefas:              r.tarefas              ?? [],
-    documentos:           r.documentos           ?? [],
+    atividades:           r.atividades            ?? [],
+    tarefas:              r.tarefas               ?? [],
+    documentos:           r.documentos            ?? [],
   };
 }
 
+// Allowlist: only these DB columns are writable (empresa_id/responsavel_id
+// excluded here — callers strip them before INSERT; responsavel_id allowed
+// in UPDATE for reassignment via the caller's explicit inclusion).
 function leadToRow(l) {
   const r = {};
   if ('funilId'              in l) r.funil_id              = l.funilId;
@@ -80,11 +104,11 @@ function leadToRow(l) {
   if ('sector'               in l) r.sector                = l.sector;
   if ('tags'                 in l) r.tags                  = l.tags;
   if ('value'                in l) r.value                 = l.value;
-  if ('daysSinceContact'     in l) r.days_since_contact    = l.daysSinceContact;
-  if ('followUpDate'         in l) r.follow_up_date        = l.followUpDate;
+  // daysSinceContact is never sent — it's derived client-side.
+  if ('followUpDate'         in l) r.follow_up_date        = dateOrNull(l.followUpDate);
   if ('notes'                in l) r.notes                 = l.notes;
   if ('convertido'           in l) r.convertido            = l.convertido;
-  if ('responsavel'          in l) r.responsavel           = l.responsavel;
+  // 'responsavel' (string name) has no DB column — never send.
   if ('responsavelId'        in l) r.responsavel_id        = l.responsavelId;
   if ('camposPersonalizados' in l) r.campos_personalizados = l.camposPersonalizados;
   if ('atividades'           in l) r.atividades            = l.atividades;
@@ -96,54 +120,58 @@ function leadToRow(l) {
 function clienteFromRow(r) {
   return {
     id:              r.id,
-    empresaNome:     r.empresa_nome      ?? '',
-    cnpj:            r.cnpj              ?? '',
-    contato:         r.contato           ?? '',
-    email:           r.email             ?? '',
-    telefone:        r.telefone          ?? '',
-    segmento:        r.segmento          ?? '',
-    porte:           r.porte             ?? '',
-    status:          r.status            ?? 'ativo',
-    origem:          r.origem            ?? '',
-    leadId:          r.lead_id           ?? null,
-    tags:            r.tags              ?? [],
-    prioridade:      r.prioridade        ?? 'B',
-    pedidos:         r.pedidos           ?? [],
-    historico:       r.historico         ?? [],
-    ultimoContato:   r.ultimo_contato    ?? null,
-    proximoContato:  r.proximo_contato   ?? null,
-    valorTotalGasto: r.valor_total_gasto ?? 0,
-    createdAt:       r.created_at        ?? null,
-    tarefas:         r.tarefas           ?? [],
-    npsHistorico:    r.nps_historico     ?? [],
-    npsLembreteDias: r.nps_lembrete_dias ?? 90,
-    responsavelId:   r.responsavel_id    ?? null,
+    // DB uses generic 'company'/'contact'/'phone'/'sector'; app calls them differently.
+    empresaNome:     r.company          ?? '',
+    contato:         r.contact          ?? '',
+    email:           r.email            ?? '',
+    telefone:        r.phone            ?? '',
+    segmento:        r.sector           ?? '',
+    value:           r.value            ?? 0,
+    tags:            r.tags             ?? [],
+    notes:           r.notes            ?? '',
+    tarefas:         r.tarefas          ?? [],
+    npsHistorico:    r.nps_historico    ?? [],
+    createdAt:       r.criado_em        ?? null,
+    responsavelId:   r.responsavel_id   ?? null,
+    // Fields not yet in the DB — kept in memory with safe defaults.
+    cnpj:            '',
+    porte:           'Pequena',
+    status:          'ativo',
+    origem:          '',
+    leadId:          null,
+    prioridade:      'B',
+    pedidos:         [],
+    historico:       [],
+    ultimoContato:   null,
+    proximoContato:  null,
+    valorTotalGasto: r.value            ?? 0,
+    npsLembreteDias: 90,
   };
 }
 
 function clienteToRow(c) {
   const r = {};
-  if ('empresaNome'     in c) r.empresa_nome      = c.empresaNome;
-  if ('cnpj'            in c) r.cnpj              = c.cnpj;
-  if ('contato'         in c) r.contato           = c.contato;
-  if ('email'           in c) r.email             = c.email;
-  if ('telefone'        in c) r.telefone          = c.telefone;
-  if ('segmento'        in c) r.segmento          = c.segmento;
-  if ('porte'           in c) r.porte             = c.porte;
-  if ('status'          in c) r.status            = c.status;
-  if ('origem'          in c) r.origem            = c.origem;
-  if ('leadId'          in c) r.lead_id           = c.leadId;
-  if ('tags'            in c) r.tags              = c.tags;
-  if ('prioridade'      in c) r.prioridade        = c.prioridade;
-  if ('pedidos'         in c) r.pedidos           = c.pedidos;
-  if ('historico'       in c) r.historico         = c.historico;
-  if ('ultimoContato'   in c) r.ultimo_contato    = c.ultimoContato;
-  if ('proximoContato'  in c) r.proximo_contato   = c.proximoContato;
-  if ('valorTotalGasto' in c) r.valor_total_gasto = c.valorTotalGasto;
-  if ('tarefas'         in c) r.tarefas           = c.tarefas;
-  if ('npsHistorico'    in c) r.nps_historico     = c.npsHistorico;
-  if ('npsLembreteDias' in c) r.nps_lembrete_dias = c.npsLembreteDias;
-  if ('responsavelId'   in c) r.responsavel_id    = c.responsavelId;
+  // Map app field names → real DB columns (empresa_id/responsavel_id excluded
+  // from INSERT; responsavelId included here for UPDATE reassignment).
+  if ('empresaNome'   in c) r.company        = c.empresaNome;
+  if ('company'       in c) r.company        = c.company;     // direct key also accepted
+  if ('contato'       in c) r.contact        = c.contato;
+  if ('contact'       in c) r.contact        = c.contact;
+  if ('email'         in c) r.email          = c.email;
+  if ('telefone'      in c) r.phone          = c.telefone;
+  if ('phone'         in c) r.phone          = c.phone;
+  if ('segmento'      in c) r.sector         = c.segmento;
+  if ('sector'        in c) r.sector         = c.sector;
+  if ('value'         in c) r.value          = c.value;
+  if ('valorTotalGasto' in c) r.value        = c.valorTotalGasto; // fallback mapping
+  if ('tags'          in c) r.tags           = c.tags;
+  if ('notes'         in c) r.notes          = c.notes;
+  if ('npsHistorico'  in c) r.nps_historico  = c.npsHistorico;
+  if ('tarefas'       in c) r.tarefas        = c.tarefas;
+  if ('responsavelId' in c) r.responsavel_id = c.responsavelId;
+  // All other app fields (cnpj, porte, status, origem, leadId, pedidos,
+  // historico, ultimoContato, proximoContato, prioridade, npsLembreteDias)
+  // have no DB column yet — intentionally not included.
   return r;
 }
 
