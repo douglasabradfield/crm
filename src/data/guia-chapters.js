@@ -93,6 +93,47 @@ Se você vende serviço (e não produto físico), Pessoas (quem executa e atende
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
+    exercicio: {
+      titulo: 'Registre seu diagnóstico',
+      instrucao: 'Preencha abaixo. Cada campo vai direto para o módulo Diagnóstico — você não precisará preencher de novo.',
+      campos: [
+        {
+          id: 'swot_forcas',
+          label: 'Forças do seu negócio',
+          placeholder: 'Liste pelo menos 3 forças. Ex: atendimento rápido, preço competitivo, expertise técnica.',
+          tipo: 'textarea',
+          destino: { modulo: 'diagnostico', secao: 'swot', quadrante: 'forcas' },
+        },
+        {
+          id: 'swot_fraquezas',
+          label: 'Fraquezas do seu negócio',
+          placeholder: 'Liste pelo menos 3 fraquezas. Ex: sem processo de follow-up, equipe pequena, sem presença digital.',
+          tipo: 'textarea',
+          destino: { modulo: 'diagnostico', secao: 'swot', quadrante: 'fraquezas' },
+        },
+        {
+          id: 'swot_oportunidades',
+          label: 'Oportunidades que você enxerga',
+          placeholder: 'Ex: mercado local pouco atendido, nova demanda por serviço que você oferece.',
+          tipo: 'textarea',
+          destino: { modulo: 'diagnostico', secao: 'swot', quadrante: 'oportunidades' },
+        },
+        {
+          id: 'swot_ameacas',
+          label: 'Ameaças no seu mercado',
+          placeholder: 'Ex: concorrente maior entrando na região, sazonalidade, dependência de poucos clientes.',
+          tipo: 'textarea',
+          destino: { modulo: 'diagnostico', secao: 'swot', quadrante: 'ameacas' },
+        },
+        {
+          id: 'persona_principal',
+          label: 'Descreva seu cliente ideal',
+          placeholder: 'Nome fictício, cargo ou situação, principal dor que você resolve, como decide comprar. Ex: João, dono de oficina, 42 anos, perde clientes por falta de follow-up.',
+          tipo: 'textarea',
+          destino: { modulo: 'diagnostico', secao: 'personas' },
+        },
+      ],
+    },
     promptsIA: [
       'Completar minha análise SWOT',
       'Criar minha primeira persona',
@@ -115,26 +156,74 @@ Se você vende serviço (e não produto físico), Pessoas (quem executa e atende
     teoria: `Um plano anual simples é melhor que um plano perfeito que ninguém executa. O objetivo aqui não é criar um documento de 50 páginas — é ter uma bússola clara que a equipe consulte toda semana.
 
 **Metas SMART**
-SMART é um acrônimo para metas bem definidas: **S**pecífica (o que exatamente você quer atingir?), **M**ensurável (como vai saber que atingiu?), **A**tingível (é realista dado o contexto?), **R**elevante (impacta o negócio de verdade?) e **T**emporal (qual o prazo?). Uma meta genérica como "crescer as vendas" vira SMART quando se torna "aumentar o faturamento mensal em 20% até o fim do Q3 através de 15 novos clientes no segmento de saúde".
+Uma meta bem definida tem 5 características: Específica (Specific — o que exatamente você quer atingir?), Mensurável (Measurable — como vai saber que atingiu?), Atingível (Attainable — é realista dado o seu contexto?), Relevante (Relevant — impacta o negócio de verdade?) e Temporal (Time-bound — qual o prazo?). Uma meta genérica como "crescer as vendas" vira uma meta bem definida quando se torna: "aumentar o faturamento mensal em 20% até dezembro, conquistando 15 novos clientes no segmento de saúde".
 
-**Product/Market Fit**
-Antes de escalar, valide se o que você vende resolve um problema real para as pessoas certas. O sinal mais claro de PMF é quando clientes indicam sem você pedir e ficam frustrados quando você fala que pode parar. Se ainda não chegou nesse ponto, o foco do plano deve ser validação, não escala.
+**Valide antes de escalar**
+Antes de investir mais em marketing, confirme que o que você vende resolve um problema real para as pessoas certas. O sinal mais claro: clientes que indicam sua empresa sem você pedir. Se ainda não chegou nesse ponto, o foco do plano deve ser ajustar a oferta — não aumentar o volume de ações.
 
 **Orçamento de marketing**
 A referência do mercado é alocar entre 5% e 10% do faturamento bruto para marketing. Para empresas em crescimento acelerado, pode chegar a 15%. Divida em três categorias: criação de conteúdo, mídia paga e ferramentas/tecnologia. Comece simples e aumente conforme mede o retorno.
 
+Se você está começando e ainda não tem faturamento consistente, defina um valor fixo mensal que cabe no seu bolso — mesmo que seja R$ 200. O que importa é ter uma linha reservada e medir o retorno.
+
 **Revisão trimestral**
 O mercado muda rápido demais para planos rígidos. Reserve 2 horas a cada 90 dias para revisar o que funcionou, o que não funcionou e ajustar as metas do trimestre seguinte. Isso é gestão ágil aplicada ao comercial.`,
     checklist: [
-      { id: 'c2-1', texto: 'Defina 3 metas SMART para os próximos 12 meses: vendas, geração de leads e retenção de clientes', concluido: false },
+      { id: 'c2-1', texto: 'Defina 3 metas bem definidas para os próximos 12 meses: vendas, geração de leads e retenção de clientes', concluido: false },
       { id: 'c2-2', texto: 'Calcule quanto é 5-10% do seu faturamento atual e aloque como orçamento de marketing', concluido: false },
-      { id: 'c2-3', texto: 'Crie um cronograma trimestral: quais ações serão priorizadas em Q1, Q2, Q3 e Q4?', concluido: false },
-      { id: 'c2-4', texto: 'Valide o product/market fit: você tem clientes que indicam ativamente? Colete depoimentos', concluido: false },
+      { id: 'c2-3', texto: 'Crie um cronograma trimestral: quais ações serão priorizadas no 1º, 2º, 3º e 4º trimestre?', concluido: false },
+      { id: 'c2-4', texto: 'Valide a oferta: você tem clientes que indicam ativamente? Colete depoimentos', concluido: false },
       { id: 'c2-5', texto: 'Agende a primeira revisão trimestral no calendário agora — 90 dias a partir de hoje', concluido: false },
     ],
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
+    exercicio: {
+      titulo: 'Defina suas metas',
+      instrucao: 'Preencha suas 3 principais metas. Elas vão direto para o módulo KPIs & Metas como OKRs — você não precisará preencher de novo.',
+      campos: [
+        {
+          id: 'meta_1',
+          label: 'Meta principal (o que você mais quer atingir nos próximos 12 meses)',
+          placeholder: 'Ex: Aumentar faturamento mensal de R$ 15.000 para R$ 25.000 até dezembro, conquistando 10 novos clientes.',
+          tipo: 'textarea',
+          destino: { modulo: 'kpis', secao: 'okrs', campo: 'objetivo_1' },
+        },
+        {
+          id: 'meta_2',
+          label: 'Meta de geração de clientes',
+          placeholder: 'Ex: Gerar 20 novos leads qualificados por mês a partir do 2º trimestre.',
+          tipo: 'textarea',
+          destino: { modulo: 'kpis', secao: 'okrs', campo: 'objetivo_2' },
+        },
+        {
+          id: 'meta_3',
+          label: 'Meta de retenção',
+          placeholder: 'Ex: Manter pelo menos 80% dos clientes ativos por mais de 6 meses.',
+          tipo: 'textarea',
+          destino: { modulo: 'kpis', secao: 'okrs', campo: 'objetivo_3' },
+        },
+        {
+          id: 'orcamento_marketing',
+          label: 'Orçamento mensal de marketing',
+          placeholder: 'Ex: R$ 500/mês divididos em: R$ 200 em anúncios, R$ 200 em criação de conteúdo, R$ 100 em ferramentas.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Planejamento — Orçamento de Marketing' },
+        },
+      ],
+    },
+    promptsIA: [
+      'Criar metas para o próximo trimestre',
+      'Calcular e dividir meu orçamento de marketing',
+      'Montar meu calendário de ações por canal',
+      'Gerar plano trimestral com base nas minhas respostas',
+    ],
+    proximoPasso: {
+      modulo: 'kpis',
+      label: 'KPIs & Metas',
+      mensagem: 'Agora formalize suas metas no módulo KPIs & Metas — crie seus OKRs com os objetivos que você acabou de definir.',
+      rota: '/kpis',
+    },
   },
 
   {
