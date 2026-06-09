@@ -2824,12 +2824,32 @@ function FunilVendasSection({ openAI }) {
 
 /* ─── ScoreMaturidadeSection ─────────────────────────────────────────────── */
 function ScoreMaturidadeSection() {
-  const [scoreHistory, setScoreHistory] = useLocalStorage('diag_maturity_score_history', []);
-  const [phase, setPhase] = useState(() => scoreHistory.length > 0 ? 'result' : 'quiz');
+  const { empresaId } = useAuth();
+  const [scoreHistory, setScoreHistory] = useState([]);
+  const [loadingMat, setLoadingMat] = useState(true);
+  const [phase, setPhase] = useState('quiz');
   const [answers, setAnswers] = useState(() =>
     Object.fromEntries(MATURITY_QUESTIONS.map(d => [d.dim, [null, null, null, null]]))
   );
   const [quizError, setQuizError] = useState(false);
+  const [saveErr, setSaveErr] = useState(null);
+
+  // Fetch history on mount
+  useEffect(() => {
+    if (!empresaId) { setLoadingMat(false); return; }
+    let cancelled = false;
+    supabase.from('diagnostico_maturidade').select('*')
+      .eq('empresa_id', empresaId).order('criado_em', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (!error && data?.length) {
+          setScoreHistory(data.map(maturidadeFromRow));
+          setPhase('result');
+        }
+        setLoadingMat(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
 
   const lastEntry = scoreHistory[0] || null;
 
@@ -2846,16 +2866,22 @@ function ScoreMaturidadeSection() {
     if (quizError) setQuizError(false);
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const allAnswered = MATURITY_QUESTIONS.every(d => answers[d.dim].every(a => a !== null));
     if (!allAnswered) { setQuizError(true); return; }
     setQuizError(false);
+    setSaveErr(null);
     const dims = Object.fromEntries(
       MATURITY_QUESTIONS.map(d => [d.dim, getDimScore(d.dim, answers[d.dim])])
     );
     const total = Math.round(Object.values(dims).reduce((s, v) => s + v, 0) / 5);
-    const entry = { id: `ms${Date.now()}`, date: nowISO(), score: total, dims };
-    setScoreHistory(prev => [entry, ...prev].slice(0, 20));
+    const label = total >= 70 ? 'Maduro' : total >= 45 ? 'Em desenvolvimento' : 'Inicial';
+    const { data, error } = await supabase
+      .from('diagnostico_maturidade')
+      .insert({ score: total, score_label: label, respostas: answers, scores_por_dimensao: dims })
+      .select().single();
+    if (error) { setSaveErr(error.message); return; }
+    setScoreHistory(prev => [maturidadeFromRow(data), ...prev].slice(0, 20));
     setPhase('result');
   }
 
@@ -2886,6 +2912,8 @@ function ScoreMaturidadeSection() {
         .sort((a, b) => a.score - b.score)
         .slice(0, 2)
     : [];
+
+  if (loadingMat) return <SkeletonLoader rows={4} />;
 
   /* ── Quiz phase ── */
   if (phase === 'quiz') {
@@ -2982,6 +3010,11 @@ function ScoreMaturidadeSection() {
               Responda as {20 - answeredCount} perguntas restantes antes de concluir.
             </span>
           </div>
+        )}
+        {saveErr && (
+          <p style={{ fontSize: 12, color: 'var(--red)', alignSelf: 'flex-end' }}>
+            Erro ao salvar: {saveErr}
+          </p>
         )}
 
         <button
