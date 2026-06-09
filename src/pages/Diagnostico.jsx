@@ -122,6 +122,18 @@ const INITIAL_4PS = {
     estrategiaConteudo: 'Conteúdo educacional sobre vendas B2B para PMEs. 3 posts/semana.',
     investimentoMensal: 'R$1.500/mês em tráfego pago (fase de validação).',
   },
+  pessoas: {
+    quemAtende: '',
+    perfil: '',
+    treinamento: '',
+    diferencialHumano: '',
+  },
+  processos: {
+    comoEntrega: '',
+    etapas: '',
+    padraoQualidade: '',
+    gargalos: '',
+  },
 };
 
 const INITIAL_PERSONAS = [
@@ -231,6 +243,28 @@ const FOUR_PS_CFG = [
       { key: 'campanhas',          label: 'Campanhas ativas',       rows: 2 },
       { key: 'estrategiaConteudo', label: 'Estratégia de conteúdo', rows: 2 },
       { key: 'investimentoMensal', label: 'Investimento mensal',    rows: 1 },
+    ],
+  },
+  {
+    key: 'pessoas', label: 'Pessoas', Icon: Users,
+    color: 'var(--purple)', border: 'rgba(176,110,245,0.2)', bg: 'rgba(176,110,245,0.06)',
+    descricao: 'Quem executa e atende — especialmente importante para empresas de serviço.',
+    fields: [
+      { key: 'quemAtende',        label: 'Quem atende o cliente',         rows: 2 },
+      { key: 'perfil',            label: 'Perfil ideal da equipe',        rows: 2 },
+      { key: 'treinamento',       label: 'Como a equipe é treinada',      rows: 2 },
+      { key: 'diferencialHumano', label: 'Diferencial humano do negócio', rows: 2 },
+    ],
+  },
+  {
+    key: 'processos', label: 'Processos', Icon: Layers,
+    color: 'var(--teal)', border: 'rgba(56,201,224,0.2)', bg: 'rgba(56,201,224,0.06)',
+    descricao: 'Como a entrega acontece na prática — o que o cliente experiencia.',
+    fields: [
+      { key: 'comoEntrega',     label: 'Como o serviço é entregue',        rows: 2 },
+      { key: 'etapas',          label: 'Etapas do atendimento ao cliente', rows: 3 },
+      { key: 'padraoQualidade', label: 'Como você garante a qualidade',    rows: 2 },
+      { key: 'gargalos',        label: 'Principais gargalos hoje',         rows: 2 },
     ],
   },
 ];
@@ -1039,7 +1073,10 @@ function FourPsSection({ fourPs, setFourPs, lastUpdated, setLastUpdated, version
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>4Ps do Marketing</p>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>4Ps + Pessoas e Processos</p>
+          <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+            Se você vende serviço, Pessoas e Processos costumam ter mais impacto que Praça. Avalie os 6.
+          </p>
           {lastUpdated && (
             <span style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <Clock size={10} /> {fmtDate(lastUpdated)}
@@ -1068,7 +1105,7 @@ function FourPsSection({ fourPs, setFourPs, lastUpdated, setLastUpdated, version
               fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
             }}
           >
-            <Bot size={12} /> IA: Analisar 4Ps
+            <Bot size={12} /> IA: Analisar mix de marketing
           </button>
         </div>
       </div>
@@ -3527,6 +3564,14 @@ export default function Diagnostico() {
   const [fourPs, setFourPs] = useLocalStorage('diag_4ps', INITIAL_4PS);
   const [fourPsUpdated, setFourPsUpdated] = useLocalStorage('diag_4ps_updated', null);
   const [fourPsVersions, setFourPsVersions] = useLocalStorage('diag_4ps_versions', []);
+
+  // One-time migration: add pessoas/processos to existing saved data that only had 4 fields.
+  useEffect(() => {
+    if (!fourPs.pessoas || !fourPs.processos) {
+      setFourPs(prev => ({ ...INITIAL_4PS, ...prev }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [personas, setPersonas] = useLocalStorage('diag_personas', INITIAL_PERSONAS);
   const [personasUpdated, setPersonasUpdated] = useLocalStorage('diag_personas_updated', null);
