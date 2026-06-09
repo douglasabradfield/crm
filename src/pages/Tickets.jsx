@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   Search, AlertTriangle, CheckCircle2, Clock, Loader2,
-  ChevronDown, User, Calendar, Flag,
+  ChevronDown, User, Calendar, Flag, Star,
 } from 'lucide-react';
 
 const LS_TICKETS = 'crm_tickets';
@@ -16,6 +16,7 @@ const MOCK_TICKETS = [
     responsavel: { nome: 'Ana Lima', avatar: 'AL' },
     abertura: '2026-05-20', prazo: '2026-05-24',
     descricao: 'Cliente relata que o PDF exportado apresenta colunas desalinhadas.',
+    csat: { nota: null, comentario: '', data: null, avaliado: false },
   },
   {
     id: 2, num: '002',
@@ -25,6 +26,7 @@ const MOCK_TICKETS = [
     responsavel: { nome: 'Douglas Admin', avatar: 'DA' },
     abertura: '2026-05-21', prazo: '2026-05-27',
     descricao: 'Cliente questiona cobrança duplicada identificada em abril.',
+    csat: { nota: null, comentario: '', data: null, avaliado: false },
   },
   {
     id: 3, num: '003',
@@ -34,6 +36,7 @@ const MOCK_TICKETS = [
     responsavel: { nome: 'Carlos Melo', avatar: 'CM' },
     abertura: '2026-05-22', prazo: '2026-05-30',
     descricao: 'Aguardando assinatura do aditivo pelo cliente.',
+    csat: { nota: null, comentario: '', data: null, avaliado: false },
   },
   // Internos
   {
@@ -44,6 +47,7 @@ const MOCK_TICKETS = [
     responsavel: { nome: 'Ana Lima', avatar: 'AL' },
     abertura: '2026-05-18', prazo: '2026-05-22',
     descricao: 'Template atual está desatualizado com a nova identidade visual.',
+    csat: { nota: null, comentario: '', data: null, avaliado: false },
   },
   {
     id: 5, num: '005',
@@ -53,6 +57,7 @@ const MOCK_TICKETS = [
     responsavel: { nome: 'Douglas Admin', avatar: 'DA' },
     abertura: '2026-05-19', prazo: '2026-05-25',
     descricao: 'Definir teto de desconto por perfil de vendedor.',
+    csat: { nota: null, comentario: '', data: null, avaliado: false },
   },
   {
     id: 6, num: '006',
@@ -62,6 +67,7 @@ const MOCK_TICKETS = [
     responsavel: { nome: 'Douglas Admin', avatar: 'DA' },
     abertura: '2026-05-15', prazo: '2026-05-20',
     descricao: 'Removido acesso a Configurações para perfil Gestor.',
+    csat: { nota: null, comentario: '', data: null, avaliado: false },
   },
   {
     id: 7, num: '007',
@@ -71,6 +77,7 @@ const MOCK_TICKETS = [
     responsavel: { nome: 'Carlos Melo', avatar: 'CM' },
     abertura: '2026-05-23', prazo: '2026-05-28',
     descricao: 'Mapear endpoints do ERP para sincronização de clientes e pedidos.',
+    csat: { nota: null, comentario: '', data: null, avaliado: false },
   },
   {
     id: 8, num: '008',
@@ -80,8 +87,14 @@ const MOCK_TICKETS = [
     responsavel: { nome: 'Ana Lima', avatar: 'AL' },
     abertura: '2026-05-10', prazo: '2026-05-17',
     descricao: 'NPS Q1: 72 pontos. Relatório enviado para diretoria.',
+    csat: { nota: null, comentario: '', data: null, avaliado: false },
   },
 ];
+
+function normalizeTicket(t) {
+  if (t.csat) return t;
+  return { ...t, csat: { nota: null, comentario: '', data: null, avaliado: false } };
+}
 
 // Seed on module load so sidebar badge is immediately accurate
 (function () {
@@ -93,10 +106,13 @@ const MOCK_TICKETS = [
 function loadTickets() {
   try {
     const saved = localStorage.getItem(LS_TICKETS);
-    if (saved) return JSON.parse(saved);
-    localStorage.setItem(LS_TICKETS, JSON.stringify(MOCK_TICKETS));
-    return MOCK_TICKETS;
-  } catch { return MOCK_TICKETS; }
+    const base = saved ? JSON.parse(saved) : MOCK_TICKETS;
+    return base.map(normalizeTicket);
+  } catch { return MOCK_TICKETS.map(normalizeTicket); }
+}
+
+function saveTickets(list) {
+  try { localStorage.setItem(LS_TICKETS, JSON.stringify(list)); } catch {}
 }
 
 const TODAY = '2026-05-24';
@@ -179,97 +195,191 @@ function FilterSelect({ value, onChange, options }) {
 }
 
 /* ─── Ticket Card ─────────────────────────────────────────────────────────── */
-function TicketCard({ ticket }) {
+function TicketCard({ ticket, onEvaluate }) {
   const vencido = isVencido(ticket);
   const stCfg = STATUS_CFG[ticket.status];
   const prCfg = PRIORIDADE_CFG[ticket.prioridade];
+
+  const csat = ticket.csat ?? { nota: null, comentario: '', data: null, avaliado: false };
+  const [formVisible, setFormVisible] = useState(
+    ticket.status === 'concluido' && !csat.avaliado,
+  );
+  const [formNota, setFormNota] = useState(5);
+  const [formComentario, setFormComentario] = useState('');
+
+  const csatColor = (n) => n >= 4 ? 'var(--green)' : n >= 3 ? 'var(--amber)' : 'var(--red)';
+
+  function submitEvaluation() {
+    onEvaluate(ticket.id, { nota: formNota, comentario: formComentario, data: TODAY, avaliado: true });
+    setFormVisible(false);
+  }
 
   return (
     <div style={{
       background: 'var(--bg2)',
       border: `1px solid ${vencido ? 'rgba(240,92,92,0.35)' : 'var(--border)'}`,
-      borderRadius: 12, padding: '14px 18px',
-      display: 'flex', gap: 16, alignItems: 'flex-start',
+      borderRadius: 12, overflow: 'hidden',
       transition: 'border-color 0.15s',
     }}>
-      {/* ID + prioridade stripe */}
-      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 42 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', fontFamily: 'monospace' }}>#{ticket.num}</span>
-        <div style={{ width: 3, flex: 1, borderRadius: 2, minHeight: 32, background: prCfg.color, opacity: 0.7 }} />
-      </div>
-
-      {/* Main content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap', marginBottom: 7 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: vencido ? 'var(--red)' : 'var(--text)', flex: 1, minWidth: 200 }}>
-            {ticket.titulo}
-            {vencido && (
-              <AlertTriangle size={13} style={{ color: 'var(--red)', marginLeft: 7, verticalAlign: 'middle', display: 'inline' }} />
-            )}
-          </span>
-          {/* Status badge */}
-          <span style={{
-            fontSize: 11, padding: '2px 9px', borderRadius: 20, fontWeight: 500, whiteSpace: 'nowrap',
-            background: stCfg.bg, color: stCfg.color, border: `1px solid ${stCfg.border}`,
-          }}>
-            {stCfg.label}
-          </span>
+      <div style={{ padding: '14px 18px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        {/* ID + prioridade stripe */}
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 42 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', fontFamily: 'monospace' }}>#{ticket.num}</span>
+          <div style={{ width: 3, flex: 1, borderRadius: 2, minHeight: 32, background: prCfg.color, opacity: 0.7 }} />
         </div>
 
-        {/* Tags row */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-          <span style={{
-            fontSize: 11, padding: '1px 8px', borderRadius: 20, fontWeight: 600,
-            background: ticket.tipo === 'externo' ? 'rgba(56,201,224,0.1)' : 'rgba(176,110,245,0.1)',
-            color: ticket.tipo === 'externo' ? 'var(--teal)' : 'var(--purple)',
-            border: `1px solid ${ticket.tipo === 'externo' ? 'rgba(56,201,224,0.2)' : 'rgba(176,110,245,0.2)'}`,
-            textTransform: 'uppercase', letterSpacing: '0.04em',
-          }}>
-            {ticket.tipo === 'externo' ? 'Externo' : 'Interno'}
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>{CATEGORIA_LABELS[ticket.categoria]}</span>
-          <span style={{ fontSize: 12, color: prCfg.color, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Flag size={11} />
-            {prCfg.label}
-          </span>
-          {ticket.cliente && (
-            <span style={{ fontSize: 12, color: 'var(--text2)' }}>· {ticket.cliente}</span>
-          )}
-        </div>
-
-        {/* Footer row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          {/* Responsável */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{
-              width: 22, height: 22, borderRadius: '50%', fontSize: 9, fontWeight: 600,
-              background: 'var(--accent-bg)', color: 'var(--accent2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+        {/* Main content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap', marginBottom: 7 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: vencido ? 'var(--red)' : 'var(--text)', flex: 1, minWidth: 200 }}>
+              {ticket.titulo}
+              {vencido && (
+                <AlertTriangle size={13} style={{ color: 'var(--red)', marginLeft: 7, verticalAlign: 'middle', display: 'inline' }} />
+              )}
+            </span>
+            <span style={{
+              fontSize: 11, padding: '2px 9px', borderRadius: 20, fontWeight: 500, whiteSpace: 'nowrap',
+              background: stCfg.bg, color: stCfg.color, border: `1px solid ${stCfg.border}`,
             }}>
-              {ticket.responsavel.avatar}
+              {stCfg.label}
+            </span>
+          </div>
+
+          {/* Tags row */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+            <span style={{
+              fontSize: 11, padding: '1px 8px', borderRadius: 20, fontWeight: 600,
+              background: ticket.tipo === 'externo' ? 'rgba(56,201,224,0.1)' : 'rgba(176,110,245,0.1)',
+              color: ticket.tipo === 'externo' ? 'var(--teal)' : 'var(--purple)',
+              border: `1px solid ${ticket.tipo === 'externo' ? 'rgba(56,201,224,0.2)' : 'rgba(176,110,245,0.2)'}`,
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}>
+              {ticket.tipo === 'externo' ? 'Externo' : 'Interno'}
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--text3)' }}>{CATEGORIA_LABELS[ticket.categoria]}</span>
+            <span style={{ fontSize: 12, color: prCfg.color, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Flag size={11} />
+              {prCfg.label}
+            </span>
+            {ticket.cliente && (
+              <span style={{ fontSize: 12, color: 'var(--text2)' }}>· {ticket.cliente}</span>
+            )}
+          </div>
+
+          {/* Footer row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', fontSize: 9, fontWeight: 600,
+                background: 'var(--accent-bg)', color: 'var(--accent2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {ticket.responsavel.avatar}
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>{ticket.responsavel.nome}</span>
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text3)' }}>{ticket.responsavel.nome}</span>
-          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text3)' }}>
-            <Calendar size={12} />
-            Aberto em {fmtDate(ticket.abertura)}
-          </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text3)' }}>
+              <Calendar size={12} />
+              Aberto em {fmtDate(ticket.abertura)}
+            </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: vencido ? 'var(--red)' : 'var(--text3)' }}>
-            <Clock size={12} />
-            Prazo: {fmtDate(ticket.prazo)}
-            {vencido && <span style={{ fontWeight: 600 }}> — Vencido</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: vencido ? 'var(--red)' : 'var(--text3)' }}>
+              <Clock size={12} />
+              Prazo: {fmtDate(ticket.prazo)}
+              {vencido && <span style={{ fontWeight: 600 }}> — Vencido</span>}
+            </div>
+
+            {/* CSAT display after evaluation */}
+            {csat.avaliado && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+                <span style={{ fontSize: 14, color: csatColor(csat.nota), letterSpacing: 1 }}>
+                  {'★'.repeat(csat.nota)}{'☆'.repeat(5 - csat.nota)}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtDate(csat.data)}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Inline CSAT evaluation form */}
+      {ticket.status === 'concluido' && formVisible && (
+        <div style={{
+          borderTop: '1px solid var(--border)', padding: '14px 18px 16px',
+          background: 'var(--bg3)',
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 10 }}>
+            Como foi o atendimento?
+          </div>
+
+          {/* Nota buttons */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} onClick={() => setFormNota(n)}
+                style={{
+                  width: 36, height: 36, borderRadius: 6, cursor: 'pointer',
+                  border: `1px solid ${formNota === n ? csatColor(n) : 'var(--border)'}`,
+                  background: formNota === n ? `color-mix(in srgb, ${csatColor(n)} 15%, transparent)` : 'var(--bg4)',
+                  color: formNota === n ? csatColor(n) : 'var(--text3)',
+                  fontSize: 14, fontWeight: formNota === n ? 700 : 400,
+                  fontFamily: 'var(--font-body)',
+                }}>
+                {n}
+              </button>
+            ))}
+            <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 4 }}>
+              {formNota >= 4 ? 'Satisfeito' : formNota >= 3 ? 'Neutro' : 'Insatisfeito'}
+            </span>
+          </div>
+
+          {/* Comentário */}
+          <textarea
+            value={formComentario}
+            onChange={(e) => setFormComentario(e.target.value.slice(0, 200))}
+            placeholder="Comentário opcional..."
+            rows={2}
+            style={{
+              width: '100%', boxSizing: 'border-box', resize: 'vertical',
+              background: 'var(--bg4)', border: '1px solid var(--border)',
+              borderRadius: 8, padding: '7px 10px', color: 'var(--text)',
+              fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', lineHeight: 1.5,
+            }}
+          />
+          {formComentario.length > 0 && (
+            <div style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'right', marginTop: 3, marginBottom: 4 }}>
+              {formComentario.length}/200
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+            <button onClick={submitEvaluation}
+              style={{
+                background: 'var(--accent)', color: '#fff', border: 'none',
+                borderRadius: 8, padding: '7px 16px', fontSize: 12, cursor: 'pointer',
+                fontFamily: 'var(--font-body)', fontWeight: 500,
+              }}>
+              Enviar avaliação
+            </button>
+            <button onClick={() => setFormVisible(false)}
+              style={{
+                background: 'none', border: 'none', color: 'var(--text3)',
+                fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                textDecoration: 'underline', padding: 0,
+              }}>
+              Pular
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 export default function Tickets() {
-  const [tickets] = useState(loadTickets);
+  const [tickets, setTickets] = useState(loadTickets);
   const [filtros, setFiltros] = useState({
     tipo: 'todos', status: 'todos', prioridade: 'todos', categoria: 'todos', busca: '',
   });
@@ -279,13 +389,37 @@ export default function Tickets() {
     setFiltros(f => ({ ...f, [key]: val }));
   }
 
-  const metricas = useMemo(() => ({
-    abertos:    tickets.filter(t => t.status === 'aberto').length,
-    andamento:  tickets.filter(t => t.status === 'em_andamento').length,
-    aguardando: tickets.filter(t => t.status === 'aguardando_cliente').length,
-    concluidos: tickets.filter(t => t.status === 'concluido').length,
-    vencidos:   tickets.filter(t => isVencido(t)).length,
-  }), [tickets]);
+  function handleEvaluate(ticketId, evaluation) {
+    setTickets((prev) => {
+      const next = prev.map((t) =>
+        t.id === ticketId ? { ...t, csat: { ...t.csat, ...evaluation } } : t,
+      );
+      saveTickets(next);
+      return next;
+    });
+  }
+
+  const metricas = useMemo(() => {
+    const currentMonth = TODAY.substring(0, 7);
+    const csatAvaliados = tickets.filter(
+      (t) => t.status === 'concluido' && t.csat?.avaliado && t.csat?.data?.startsWith(currentMonth),
+    );
+    const csatMedia = csatAvaliados.length > 0
+      ? (csatAvaliados.reduce((s, t) => s + t.csat.nota, 0) / csatAvaliados.length).toFixed(1)
+      : null;
+    return {
+      abertos:    tickets.filter(t => t.status === 'aberto').length,
+      andamento:  tickets.filter(t => t.status === 'em_andamento').length,
+      aguardando: tickets.filter(t => t.status === 'aguardando_cliente').length,
+      concluidos: tickets.filter(t => t.status === 'concluido').length,
+      vencidos:   tickets.filter(t => isVencido(t)).length,
+      csatMedia,
+    };
+  }, [tickets]);
+
+  const csatColor = metricas.csatMedia !== null
+    ? (parseFloat(metricas.csatMedia) >= 4 ? '#2dd4a0' : parseFloat(metricas.csatMedia) >= 3 ? '#f0a832' : '#f05c5c')
+    : '#f0a832';
 
   const filtered = useMemo(() => {
     let list = tickets.filter(t => {
@@ -311,16 +445,17 @@ export default function Tickets() {
     return list;
   }, [tickets, filtros, ordem]);
 
-  const selectStyle = { fontSize: 12 };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${metricas.csatMedia !== null ? 5 : 4}, 1fr)`, gap: 14 }}>
         <MetCard label="Total abertos"      value={metricas.abertos}    icon={AlertTriangle}  color="#f05c5c" sub={metricas.vencidos > 0 ? `${metricas.vencidos} vencido(s)` : undefined} />
         <MetCard label="Em andamento"       value={metricas.andamento}  icon={Loader2}        color="#5b6ef5" />
         <MetCard label="Aguardando cliente" value={metricas.aguardando} icon={Clock}          color="#f0a832" />
         <MetCard label="Concluídos"         value={metricas.concluidos} icon={CheckCircle2}   color="#2dd4a0" />
+        {metricas.csatMedia !== null && (
+          <MetCard label="CSAT do mês" value={metricas.csatMedia} icon={Star} color={csatColor} sub="/5.0" />
+        )}
       </div>
 
       {/* Filters */}
@@ -422,7 +557,7 @@ export default function Tickets() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {filtered.map(t => <TicketCard key={t.id} ticket={t} />)}
+          {filtered.map(t => <TicketCard key={t.id} ticket={t} onEvaluate={handleEvaluate} />)}
         </div>
       )}
     </div>
