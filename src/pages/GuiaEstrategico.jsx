@@ -1422,52 +1422,6 @@ function ChapterEditPanel({ cap, draft, onChange, onReset }) {
   );
 }
 
-/* ─── Bloco A: Exercício (missão / visão / valores) ─────────────────────────── */
-function BlocoExercicio({ exercicio, capId }) {
-  const lsKey = (campoId) => `guia_exercicio_${capId}_${campoId}`;
-  const [vals, setVals] = useState(() =>
-    Object.fromEntries((exercicio.campos ?? []).map((c) => [c.id, loadLS(lsKey(c.id), '')])),
-  );
-
-  function handleChange(campoId, value) {
-    setVals((prev) => {
-      const next = { ...prev, [campoId]: value };
-      saveLS(lsKey(campoId), value);
-      return next;
-    });
-  }
-
-  return (
-    <div style={{ margin: '0 20px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 14 }}>✏️</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.04em' }}>EXERCÍCIO</span>
-        <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
-        <span style={{ fontSize: 12, color: 'var(--text2)' }}>{exercicio.titulo}</span>
-      </div>
-      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <p style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.55, margin: 0 }}>{exercicio.instrucao}</p>
-        {(exercicio.campos ?? []).map((campo) => (
-          <div key={campo.id}>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text2)', marginBottom: 6, letterSpacing: '0.04em' }}>
-              {campo.label}
-            </label>
-            <textarea
-              value={vals[campo.id] ?? ''}
-              onChange={(e) => handleChange(campo.id, e.target.value)}
-              placeholder={campo.placeholder}
-              rows={3}
-              style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 11px', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
-              onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
-              onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ─── Bloco B: Prompts fixos de IA ──────────────────────────────────────────── */
 function BlocoPromptsIA({ promptsIA }) {
   const { openAI } = useUI();
@@ -1627,11 +1581,6 @@ function CapituloCard({ cap, progress, autoChecked, onToggle, onSaveComplete, on
                 <Bot size={13} /> Consultar IA
               </button>
             </div>
-
-            {/* Bloco A: Exercício */}
-            {cap.exercicio && (
-              <BlocoExercicio exercicio={cap.exercicio} capId={cap.id} />
-            )}
 
             {/* Bloco B: Prompts de IA */}
             {cap.promptsIA?.length > 0 && (
