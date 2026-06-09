@@ -5,6 +5,7 @@ import {
   Target, Zap, Users, TrendingUp, BarChart2, Megaphone,
   LayoutDashboard, Star, Clock, ArrowRight, Lightbulb, List,
   Pencil, X, Plus, GripVertical, Trash2, RotateCcw, Shield, Save,
+  Send, MapPin,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
 import { useAuth } from '../store/auth.js';
@@ -1402,6 +1403,101 @@ function ChapterEditPanel({ cap, draft, onChange, onReset }) {
   );
 }
 
+/* ─── Bloco A: Exercício (missão / visão / valores) ─────────────────────────── */
+function BlocoExercicio({ exercicio, capId }) {
+  const lsKey = (campoId) => `guia_exercicio_${capId}_${campoId}`;
+  const [vals, setVals] = useState(() =>
+    Object.fromEntries((exercicio.campos ?? []).map((c) => [c.id, loadLS(lsKey(c.id), '')])),
+  );
+
+  function handleChange(campoId, value) {
+    setVals((prev) => {
+      const next = { ...prev, [campoId]: value };
+      saveLS(lsKey(campoId), value);
+      return next;
+    });
+  }
+
+  return (
+    <div style={{ margin: '0 20px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 14 }}>✏️</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.04em' }}>EXERCÍCIO</span>
+        <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
+        <span style={{ fontSize: 12, color: 'var(--text2)' }}>{exercicio.titulo}</span>
+      </div>
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.55, margin: 0 }}>{exercicio.instrucao}</p>
+        {(exercicio.campos ?? []).map((campo) => (
+          <div key={campo.id}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text2)', marginBottom: 6, letterSpacing: '0.04em' }}>
+              {campo.label}
+            </label>
+            <textarea
+              value={vals[campo.id] ?? ''}
+              onChange={(e) => handleChange(campo.id, e.target.value)}
+              placeholder={campo.placeholder}
+              rows={3}
+              style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 11px', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
+              onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
+              onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Bloco B: Prompts fixos de IA ──────────────────────────────────────────── */
+function BlocoPromptsIA({ promptsIA }) {
+  const { openAI } = useUI();
+  return (
+    <div style={{ margin: '0 20px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 14 }}>🤖</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.04em' }}>PERGUNTAR À IA</span>
+      </div>
+      <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {promptsIA.map((prompt, i) => (
+          <button
+            key={i}
+            onClick={() => openAI(prompt)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 13px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)', textAlign: 'left', transition: 'all .13s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--text2)'; }}
+          >
+            <span>{prompt}</span>
+            <Send size={12} style={{ flexShrink: 0, color: 'var(--accent)' }} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Bloco C: Próximo passo no app ─────────────────────────────────────────── */
+function BlocoProximoPasso({ proximoPasso }) {
+  const navigate = useNavigate();
+  return (
+    <div style={{ margin: '0 20px 20px', background: 'color-mix(in srgb, var(--accent) 8%, var(--bg2))', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)', borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ width: 40, height: 40, borderRadius: 10, background: 'color-mix(in srgb, var(--accent) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <MapPin size={18} style={{ color: 'var(--accent2)' }} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent2)', letterSpacing: '0.07em', marginBottom: 3 }}>PRÓXIMO PASSO</div>
+        <p style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, margin: '0 0 10px' }}>{proximoPasso.mensagem}</p>
+        <button
+          onClick={() => navigate(proximoPasso.rota)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+        >
+          <ArrowRight size={12} /> Ir para {proximoPasso.label}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Capitulo card ──────────────────────────────────────────────────────────── */
 function CapituloCard({ cap, progress, autoChecked, onToggle, onSaveComplete, onOpen, isOpen, editMode, editDraft, onEditChange, onReset }) {
   const { openAI } = useUI();
@@ -1512,6 +1608,21 @@ function CapituloCard({ cap, progress, autoChecked, onToggle, onSaveComplete, on
                 <Bot size={13} /> Consultar IA
               </button>
             </div>
+
+            {/* Bloco A: Exercício */}
+            {cap.exercicio && (
+              <BlocoExercicio exercicio={cap.exercicio} capId={cap.id} />
+            )}
+
+            {/* Bloco B: Prompts de IA */}
+            {cap.promptsIA?.length > 0 && (
+              <BlocoPromptsIA promptsIA={cap.promptsIA} />
+            )}
+
+            {/* Bloco C: Próximo passo */}
+            {cap.proximoPasso && (
+              <BlocoProximoPasso proximoPasso={cap.proximoPasso} />
+            )}
           </div>
         )
       )}

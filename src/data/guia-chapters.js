@@ -21,6 +21,41 @@ Este guia foi construído para ser prático. Cada capítulo tem teoria suficient
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
+    exercicio: {
+      titulo: 'Defina a base da sua empresa',
+      instrucao: 'Antes de qualquer estratégia, você precisa saber por que sua empresa existe. Responda com clareza e simplicidade — sem texto corporativo.',
+      campos: [
+        {
+          id: 'missao',
+          label: 'Missão',
+          placeholder: 'Por que sua empresa existe além de gerar dinheiro? Ex: "Ajudar pequenos comerciantes a vender mais com menos esforço."',
+          tipo: 'textarea',
+        },
+        {
+          id: 'visao',
+          label: 'Visão',
+          placeholder: 'Onde você quer que sua empresa esteja daqui a 3 anos? Ex: "Ser referência em consultoria comercial para PMEs no interior de SP."',
+          tipo: 'textarea',
+        },
+        {
+          id: 'valores',
+          label: 'Valores',
+          placeholder: 'Quais princípios guiam as decisões da sua empresa? Ex: "Honestidade, resultado prático, respeito ao tempo do cliente."',
+          tipo: 'textarea',
+        },
+      ],
+    },
+    promptsIA: [
+      'Identificar minhas principais dores comerciais',
+      'Definir minha prioridade nos próximos 30 dias',
+      'Criar meu primeiro plano de prioridades',
+    ],
+    proximoPasso: {
+      modulo: 'diretorio',
+      label: 'Diretório Interno',
+      mensagem: 'Agora registre a missão, visão e valores da sua empresa no Diretório — o repositório central do seu negócio.',
+      rota: '/diretorio',
+    },
   },
 
   {
