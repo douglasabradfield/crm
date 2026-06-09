@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   X, Bot, Send, Pencil, Check, Plus, Phone, Mail,
@@ -748,7 +749,7 @@ export default function ClienteModal({ cliente: initialCliente, onClose }) {
   const st       = STATUS_CFG[cliente.status] ?? STATUS_CFG.ativo;
   const pr       = PRIORIDADE_CFG[cliente.prioridade] ?? PRIORIDADE_CFG.B;
 
-  return (
+  return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto' }}>
       <div style={{ width: '85vw', maxHeight: '90vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>
 
@@ -819,6 +820,7 @@ export default function ClienteModal({ cliente: initialCliente, onClose }) {
           <InlineAI cliente={cliente} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X, Phone, Mail, Building2, Tag, DollarSign, Calendar, FileText,
   Clock, User, Plus, Check, Trash2, AlertCircle, Upload,
@@ -461,7 +462,7 @@ export default function LeadModal({ lead: initialLead, onClose, funil }) {
     { id: 'documentos',   label: 'Documentos'   },
   ];
 
-  return (
+  return createPortal(
     <div onClick={onClose}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()}
@@ -518,6 +519,7 @@ export default function LeadModal({ lead: initialLead, onClose, funil }) {
           {activeTab === 'documentos'  && <DocumentosTab lead={lead} />}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

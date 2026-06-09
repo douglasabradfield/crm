@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
   Plus, Search, X, Bot, Clock, Calendar, ChevronDown,
@@ -40,7 +41,7 @@ function BlockedMoveModal({ pending, etapa, onFillNow, onCancel }) {
     return !v || String(v).trim() === '';
   });
 
-  return (
+  return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 380, background: 'var(--bg2)', borderRadius: 14, border: '1px solid var(--border)', padding: 24, maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -73,7 +74,8 @@ function BlockedMoveModal({ pending, etapa, onFillNow, onCancel }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -195,7 +197,7 @@ function NewLeadModal({ funilId, defaultCol, onSave, onClose }) {
     if (!form.company.trim()) return;
     onSave({ ...form, tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean), value: parseInt(form.value, 10) || 0 });
   }
-  return (
+  return createPortal(
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 26, maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -217,7 +219,8 @@ function NewLeadModal({ funilId, defaultCol, onSave, onClose }) {
           <button onClick={onClose} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 14px', color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -274,7 +277,7 @@ function NovoClienteModal({ onSave, onClose }) {
     if (!form.empresaNome.trim()) return;
     onSave({ ...form, tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean), origem: 'manual', leadId: null, pedidos: [], historico: [], ultimoContato: null, proximoContato: null, valorTotalGasto: 0 });
   }
-  return (
+  return createPortal(
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 26, maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -305,7 +308,8 @@ function NovoClienteModal({ onSave, onClose }) {
           <button onClick={onClose} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 14px', color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

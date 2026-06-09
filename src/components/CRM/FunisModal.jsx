@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { X, Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Check } from 'lucide-react';
 import { useCRM } from '../../store/crm.js';
@@ -303,7 +304,7 @@ export default function FunisModal({ onClose }) {
     });
   }
 
-  return (
+  return createPortal(
     <div onClick={onClose}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()}
@@ -357,6 +358,7 @@ export default function FunisModal({ onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
