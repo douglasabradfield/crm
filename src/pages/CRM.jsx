@@ -42,7 +42,7 @@ function BlockedMoveModal({ pending, etapa, onFillNow, onCancel }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 380, background: 'var(--bg2)', borderRadius: 14, border: '1px solid var(--border)', padding: 24 }}>
+      <div style={{ width: 380, background: 'var(--bg2)', borderRadius: 14, border: '1px solid var(--border)', padding: 24, maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(240,168,50,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AlertCircle size={18} style={{ color: 'var(--amber)' }} />
@@ -196,8 +196,8 @@ function NewLeadModal({ funilId, defaultCol, onSave, onClose }) {
     onSave({ ...form, tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean), value: parseInt(form.value, 10) || 0 });
   }
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 26, maxHeight: '88vh', overflowY: 'auto' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 26, maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h2 style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Novo lead</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}><X size={15} /></button>
@@ -275,8 +275,8 @@ function NovoClienteModal({ onSave, onClose }) {
     onSave({ ...form, tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean), origem: 'manual', leadId: null, pedidos: [], historico: [], ultimoContato: null, proximoContato: null, valorTotalGasto: 0 });
   }
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 26, maxHeight: '88vh', overflowY: 'auto' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 26, maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h2 style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Novo cliente</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}><X size={15} /></button>
