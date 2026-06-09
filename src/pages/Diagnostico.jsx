@@ -2123,7 +2123,10 @@ function ConcorrenteCard({ comp, onEdit, onDelete }) {
 
 /* ─── ConcorrentesSection ────────────────────────────────────────────────── */
 function ConcorrentesSection({ openAI }) {
-  const [competitors, setCompetitors] = useLocalStorage('diag_competitors', INITIAL_COMPETITORS);
+  const { empresaId } = useAuth();
+  const [competitors, setCompetitors] = useState([]);
+  const [loadingConc, setLoadingConc] = useState(true);
+  const [saveErr, setSaveErr] = useState(null);
   const [swot] = useLocalStorage('diag_swot', INITIAL_SWOT);
   const [modal, setModal] = useState(null);
   const [showTable, setShowTable] = useState(false);
@@ -2136,15 +2139,40 @@ function ConcorrentesSection({ openAI }) {
     saveConcVersion(competitors);
   }, [_concStr]);
 
-  function saveCompetitor(data) {
-    setCompetitors(prev => {
-      const exists = prev.find(c => c.id === data.id);
-      return exists ? prev.map(c => c.id === data.id ? data : c) : [...prev, data];
-    });
+  useEffect(() => {
+    if (!empresaId) { setLoadingConc(false); return; }
+    let cancelled = false;
+    supabase.from('diagnostico_concorrentes').select('*')
+      .eq('empresa_id', empresaId).order('criado_em', { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (!error) setCompetitors(data?.length ? data.map(concorrenteFromRow) : INITIAL_COMPETITORS);
+        setLoadingConc(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  async function saveCompetitor(data) {
+    setSaveErr(null);
+    const isNew = !competitors.find(c => c.id === data.id);
+    if (isNew) {
+      const { data: created, error } = await supabase
+        .from('diagnostico_concorrentes').insert(concorrenteToRow(data)).select().single();
+      if (error) { setSaveErr(error.message); return; }
+      setCompetitors(prev => [...prev, concorrenteFromRow(created)]);
+    } else {
+      const { error } = await supabase
+        .from('diagnostico_concorrentes').update(concorrenteToRow(data)).eq('id', data.id);
+      if (error) { setSaveErr(error.message); return; }
+      setCompetitors(prev => prev.map(c => c.id === data.id ? { ...c, ...data } : c));
+    }
     setModal(null);
   }
 
-  function deleteCompetitor(id) {
+  async function deleteCompetitor(id) {
+    const { error } = await supabase
+      .from('diagnostico_concorrentes').delete().eq('id', id);
+    if (error) { setSaveErr(error.message); return; }
     setCompetitors(prev => prev.filter(c => c.id !== id));
   }
 
@@ -2372,16 +2400,19 @@ function ConcorrentesSection({ openAI }) {
         )}
 
         {/* Competitor cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-          {competitors.map(c => (
-            <ConcorrenteCard key={c.id} comp={c} onEdit={setModal} onDelete={deleteCompetitor} />
-          ))}
-          {competitors.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic', gridColumn: '1 / -1', padding: '20px 0' }}>
-              Nenhum concorrente cadastrado. Clique em "+ Novo concorrente" para começar.
-            </p>
-          )}
-        </div>
+        {saveErr && <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 8 }}>Erro: {saveErr}</p>}
+        {loadingConc ? <SkeletonLoader rows={2} /> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            {competitors.map(c => (
+              <ConcorrenteCard key={c.id} comp={c} onEdit={setModal} onDelete={deleteCompetitor} />
+            ))}
+            {competitors.length === 0 && (
+              <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic', gridColumn: '1 / -1', padding: '20px 0' }}>
+                Nenhum concorrente cadastrado. Clique em "+ Novo concorrente" para começar.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {modal && (
