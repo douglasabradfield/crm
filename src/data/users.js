@@ -1,0 +1,59 @@
+export const ROLES = {
+  superadmin:   'Super Administrador',
+  admin:        'Administrador',
+  gestor:       'Gestor Comercial',
+  vendedor:     'Vendedor',
+  marketing:    'Marketing',
+  visualizador: 'Visualizador',
+};
+
+export const MOCK_USERS = [
+  {
+    id:       'u0',
+    name:     'Douglas',
+    email:    'douglasabradfield@gmail.com',
+    role:     'superadmin',
+    avatar:   'D',
+    password: 'super123',
+  },
+  {
+    id:     'u1',
+    name:   'Douglas Admin',
+    email:  'douglas@empresa.com',
+    role:   'admin',
+    avatar: 'DA',
+    password: 'admin',
+  },
+  {
+    id:     'u2',
+    name:   'Gestor Comercial',
+    email:  'gestor@empresa.com',
+    role:   'gestor',
+    avatar: 'GC',
+    password: 'gestor',
+  },
+  {
+    id:     'u3',
+    name:   'João Vendedor',
+    email:  'joao@empresa.com',
+    role:   'vendedor',
+    avatar: 'JV',
+    password: 'vendedor',
+  },
+  {
+    id:     'u4',
+    name:   'Maria Marketing',
+    email:  'maria@empresa.com',
+    role:   'marketing',
+    avatar: 'MM',
+    password: 'marketing',
+  },
+  {
+    id:     'u5',
+    name:   'Carlos Diretor',
+    email:  'carlos@empresa.com',
+    role:   'visualizador',
+    avatar: 'CD',
+    password: 'visualizador',
+  },
+];

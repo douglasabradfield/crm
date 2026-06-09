@@ -1,0 +1,249 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design System ────────────────────────────────────────────────────────── */
+
+/* Shared tokens (same in both themes) */
+:root {
+  --accent:    #5b6ef5;
+  --accent2:   #7c8ff7;
+  --green:     #2dd4a0;
+  --amber:     #f0a832;
+  --red:       #f05c5c;
+  --purple:    #b06ef5;
+  --teal:      #38c9e0;
+
+  --font-body:    'DM Sans', sans-serif;
+  --font-display: 'DM Serif Display', serif;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+}
+
+/* Dark theme (default) */
+:root,
+[data-theme="dark"] {
+  --bg:        #0e0f12;
+  --bg2:       #16181e;
+  --bg3:       #1e2028;
+  --bg4:       #252830;
+  --border:    #2e3040;
+  --border2:   #3a3d52;
+  --text:      #e8eaf0;
+  --text2:     #9498b0;
+  --text3:     #5c6080;
+  --accent-bg: rgba(91, 110, 245, 0.12);
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg:        #f4f5f7;
+  --bg2:       #ffffff;
+  --bg3:       #f0f1f4;
+  --bg4:       #e8eaef;
+  --border:    #e2e4ec;
+  --border2:   #c8ccd8;
+  --text:      #111318;
+  --text2:     #4a4f6a;
+  --text3:     #8b90a8;
+  --accent-bg: #eef0fe;
+}
+
+/* ─── Base Reset ────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ─── Animations ────────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+@keyframes bounce-dot {
+  0%, 60%, 100% { transform: translateY(0); }
+  30%            { transform: translateY(-5px); }
+}
+
+.page-enter { animation: fadeIn 0.18s ease forwards; }
+.pulse-dot  { animation: pulse-dot 2s ease-in-out infinite; }
+
+/* ─── App Shell ─────────────────────────────────────────────────────────────── */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg);
+}
+
+.sidebar {
+  width: 228px;
+  flex-shrink: 0;
+  background-color: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px;
+}
+
+/* ─── Navigation Items ──────────────────────────────────────────────────────── */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1px;
+  text-decoration: none;
+  color: var(--text2);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 400;
+  font-family: var(--font-body);
+  transition: background 0.13s ease, color 0.13s ease;
+  width: 100%;
+  cursor: pointer;
+  border: none;
+}
+
+.nav-item:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+.nav-item:hover .nav-icon { color: var(--text2); }
+
+.nav-item.active {
+  background: var(--accent-bg);
+  color: var(--accent2);
+  font-weight: 500;
+}
+
+.nav-item.active .nav-icon { color: var(--accent); }
+
+.nav-icon { color: var(--text3); flex-shrink: 0; transition: color 0.13s ease; }
+
+/* ─── Buttons ───────────────────────────────────────────────────────────────── */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text2);
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
+}
+
+.btn-ghost:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.13s ease;
+}
+
+.btn-primary:hover { background: var(--accent2); }
+
+/* ─── AI Button (sidebar footer) ───────────────────────────────────────────── */
+.ai-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text2);
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
+}
+
+.ai-btn:hover {
+  background: var(--bg3);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* ─── Placeholder Pages ─────────────────────────────────────────────────────── */
+.page-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 40vh;
+  gap: 8px;
+  color: var(--text3);
+}
+
+.page-placeholder span { font-size: 13px; }
+
+/* ─── Animations ────────────────────────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
