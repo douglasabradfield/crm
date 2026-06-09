@@ -401,7 +401,7 @@ function ClientesTab({ clientes, onOpenCliente, onAddCliente }) {
 ═══════════════════════════════════════════════════════════════ */
 export default function CRM() {
   const { openAI }  = useUI();
-  const { leads, setLeads, clientes, funis, addLead, addCliente, converterLeadEmCliente } = useCRM();
+  const { leads, setLeads, clientes, funis, addLead, updateLead, addCliente, converterLeadEmCliente } = useCRM();
 
   const [activeTab,      setActiveTab]      = useState('pipeline');
   const [activeFunilId,  setActiveFunilId]  = useState(() => funis[0]?.id ?? 'f1');
@@ -428,6 +428,8 @@ export default function CRM() {
       destLeads.splice(destination.index, 0, updated);
       return [...without.filter((l) => !(l.funilId === activeFunilId && l.col === destination.droppableId)), ...destLeads];
     });
+    // Persist the column change to the DB (optimistic update above, DB sync here).
+    updateLead({ id: draggableId, col: destination.droppableId });
   }
 
   function onDragEnd({ source, destination, draggableId }) {
