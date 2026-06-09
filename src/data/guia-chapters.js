@@ -231,32 +231,78 @@ O mercado muda rápido demais para planos rígidos. Reserve 2 horas a cada 90 di
     numero: 3,
     titulo: 'Equipe e Papéis — Marketing',
     subtitulo: 'Monte a estrutura mínima de marketing sem estourar o orçamento',
-    teoria: `O erro mais comum é contratar alguém antes de saber o que essa pessoa vai fazer. Marketing começa com clareza de papéis, não com headcount.
+    teoria: `O erro mais comum é contratar alguém antes de saber o que essa pessoa vai fazer. Marketing começa com clareza de papéis, não com número de pessoas.
 
 **Estrutura mínima funcional**
 Para a maioria das PMEs, a estrutura inicial de marketing precisa de três funções — não necessariamente três pessoas:
 - **Head de Marketing / Estrategista**: define o que comunicar, para quem e por quê. Pode ser o próprio dono no início.
 - **Produtor de Conteúdo**: escreve, filma ou grava o que vai ser publicado. Freelancer funciona bem aqui.
-- **Gestor de Social Media**: agenda, publica, responde comentários e monitora métricas. VA (Virtual Assistant) cobre bem essa função.
+- **Gestor de Social Media**: agenda, publica, responde comentários e monitora métricas. Assistente virtual (VA, do inglês Virtual Assistant) cobre bem essa função.
 
 **Por que começar com freelancers**
-Freelancers permitem testar formatos e canais sem compromisso de CLT. Você descobre o que funciona para o seu público antes de contratar fixo. Plataformas como Workana, 99Freelas e LinkedIn têm bons profissionais a partir de R$800/mês para tarefas específicas.
+Freelancers permitem testar formatos e canais sem compromisso de contratação formal (CLT). Você descobre o que funciona para o seu público antes de contratar fixo. Plataformas como Workana, 99Freelas e LinkedIn têm bons profissionais a partir de R$800/mês para tarefas específicas.
 
 **Organograma por funções**
-Desenhe o organograma baseado em responsabilidades, não em cargos. Cada função deve ter: o que produz (entregável), com que frequência e como o sucesso é medido. Isso evita ambiguidade e facilita o onboarding de qualquer pessoa, CLT ou freelancer.
+Desenhe o organograma baseado em responsabilidades, não em cargos. Cada função deve ter: o que produz (entregável), com que frequência e como o sucesso é medido. Isso evita ambiguidade e facilita a entrada de qualquer pessoa, CLT ou freelancer.
 
 **Templates como acelerador**
-Antes de contratar, crie templates para as principais entregas: post de feed, story, e-mail de nurturing, proposta comercial. Quando a pessoa entrar, o padrão já estará definido e o tempo de ramp-up cai pela metade.`,
+Antes de contratar, crie templates para as principais entregas: post de feed, story, e-mail de nutrição de contatos, proposta comercial. Quando a pessoa entrar, o padrão já estará definido e o tempo para a pessoa começar a produzir cai pela metade.`,
     checklist: [
       { id: 'c3-1', texto: 'Mapeie os 3 papéis essenciais: estratégia/conteúdo, social media e análise de dados', concluido: false },
-      { id: 'c3-2', texto: 'Contrate o primeiro recurso: VA para redes sociais (R$800–R$1.500/mês no modelo freelancer)', concluido: false },
-      { id: 'c3-3', texto: 'Crie templates básicos: template de post, story e e-mail para padronizar a produção', concluido: false },
-      { id: 'c3-4', texto: 'Defina as métricas de cada papel: o que mede o sucesso da pessoa contratada?', concluido: false },
       { id: 'c3-5', texto: 'Desenhe o organograma de marketing mesmo que seja só você + 1 freelancer', concluido: false },
+      { id: 'c3-4', texto: 'Defina as métricas de cada papel: o que mede o sucesso da pessoa contratada?', concluido: false },
+      { id: 'c3-3', texto: 'Crie templates básicos: template de post, story e e-mail para padronizar a produção', concluido: false },
+      { id: 'c3-2', texto: 'Contrate o primeiro recurso: assistente virtual (VA) para redes sociais (R$800–R$1.500/mês no modelo freelancer)', concluido: false },
     ],
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
+    exercicio: {
+      titulo: 'Monte a estrutura de marketing',
+      instrucao: 'Defina os papéis e responsabilidades. Essas informações vão para o Diretório Interno como documento da equipe de marketing.',
+      campos: [
+        {
+          id: 'papel_estrategista',
+          label: 'Quem cuida da estratégia de marketing?',
+          placeholder: 'Pode ser você mesmo agora. Ex: Douglas — define o que comunicar, revisa os conteúdos e aprova campanhas.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Estrutura da Equipe de Marketing' },
+        },
+        {
+          id: 'papel_conteudo',
+          label: 'Quem produz o conteúdo?',
+          placeholder: 'Ex: Freelancer contratado via Workana — responsável por posts e stories, entrega 3x por semana.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Estrutura da Equipe de Marketing' },
+        },
+        {
+          id: 'papel_social',
+          label: 'Quem gerencia as redes sociais?',
+          placeholder: 'Ex: Assistente virtual (VA) — agenda posts, responde comentários e envia relatório semanal.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Estrutura da Equipe de Marketing' },
+        },
+        {
+          id: 'metricas_marketing',
+          label: 'Como você vai medir o resultado de marketing?',
+          placeholder: 'Ex: número de seguidores, alcance das publicações, leads gerados por mês, taxa de abertura de e-mail.',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Estrutura da Equipe de Marketing' },
+        },
+      ],
+    },
+    promptsIA: [
+      'Definir papéis de marketing para minha equipe atual',
+      'Criar descrição de cargo para primeiro contratado',
+      'Montar rotina de marketing da semana',
+      'Criar briefing para contratar um freelancer de conteúdo',
+    ],
+    proximoPasso: {
+      modulo: 'diretorio',
+      label: 'Diretório Interno',
+      mensagem: 'Registre o organograma e os templates de marketing no Diretório — o repositório central da sua empresa.',
+      rota: '/diretorio',
+    },
   },
 
   {
@@ -267,34 +313,76 @@ Antes de contratar, crie templates para as principais entregas: post de feed, st
     teoria: `Vendas é a função que mais sofre com a falta de clareza de papéis. Quando "todo mundo vende um pouco", ninguém vende direito. A solução é dividir o processo comercial em etapas e ter responsáveis claros por cada uma.
 
 **As três funções do comercial**
-- **SDR (Sales Development Representative / Pré-vendas)**: prospecta, faz o primeiro contato, qualifica o lead e agenda a reunião. É o trabalho mais repetitivo e escalável — ideal para automação e cadências de outbound.
-- **Closer / Executivo de Contas**: apresenta a solução, negocia e fecha o contrato. Precisa de habilidade de escuta, gestão de objeções e conhecimento profundo do produto.
-- **CS (Customer Success / Pós-venda)**: garante que o cliente alcance o resultado prometido, faz check-ins periódicos e identifica oportunidades de upsell. É quem previne o churn.
+- **Pré-vendedor ou SDR (do inglês Sales Development Representative)**: prospecta, faz o primeiro contato, qualifica o lead e agenda a reunião. É o trabalho mais repetitivo e escalável — ideal para automação e cadências de prospecção ativa.
+- **Closer (executivo de fechamento)**: apresenta a solução, negocia e fecha o contrato. Precisa de habilidade de escuta, gestão de objeções e conhecimento profundo do produto.
+- **Pós-venda ou CS (do inglês Customer Success)**: garante que o cliente alcance o resultado prometido, faz check-ins periódicos e identifica oportunidades de expansão. É quem previne o cancelamento (churn).
+
+**Qualificação de leads**
+Antes de apresentar sua solução, vale descobrir se o lead vale o seu tempo. Use quatro perguntas concretas: (1) O cliente tem orçamento disponível? (2) Estou falando com quem decide a compra? (3) Ele tem a necessidade real que resolvo? (4) Qual o prazo dele para tomar a decisão? Em inglês, esse modelo é chamado BANT (Budget, Authority, Need, Timeline).
 
 **Modelo híbrido por território ou produto**
-Para empresas menores, um vendedor pode acumular SDR e closer. O importante é que a divisão seja clara dentro da semana: manhãs para prospecção (SDR) e tardes para negociações ativas (closer). Dividir por produto ou segmento de mercado também funciona bem quando o portfólio é diversificado.
+Para empresas menores, um vendedor pode acumular as funções de pré-vendedor e executivo de fechamento. O importante é que a divisão seja clara dentro da semana: manhãs para prospecção e tardes para negociações ativas. Dividir por produto ou segmento de mercado também funciona bem quando o portfólio é diversificado.
 
 **Automação como primeiro funcionário**
-Antes de contratar o segundo vendedor, automatize o máximo possível: sequências de e-mail, mensagens de WhatsApp para follow-up, notificações de CRM para leads parados. Uma boa automação pode substituir 30% do trabalho manual de um SDR.`,
+CRM (do inglês Customer Relationship Management, ou Gestão do Relacionamento com o Cliente) é o sistema onde você registra e acompanha cada contato, proposta e negociação — para nunca perder um cliente por falta de acompanhamento (follow-up). Antes de contratar o segundo vendedor, automatize o máximo possível: sequências de e-mail, mensagens de WhatsApp para follow-up e notificações do CRM para leads parados. Uma boa automação pode substituir 30% do trabalho manual de um pré-vendedor.`,
     checklist: [
       { id: 'c4-1', texto: 'Mapeie o funil completo: como qualificar leads, apresentar a solução e fechar o contrato', concluido: false },
-      { id: 'c4-2', texto: 'Defina quem é o SDR (pré-venda) e quem é o closer — mesmo que seja a mesma pessoa', concluido: false },
-      { id: 'c4-3', texto: 'Configure 1 automação básica: sequência de follow-up por WhatsApp ou e-mail para leads frios', concluido: false },
-      { id: 'c4-4', texto: 'Crie o script de pré-qualificação com perguntas BANT (Budget, Authority, Need, Timeline)', concluido: false },
-      { id: 'c4-5', texto: 'Estabeleça política de comissionamento: base + % sobre faturamento líquido', concluido: false },
+      { id: 'c4-2', texto: 'Defina quem é o pré-vendedor (SDR) e o executivo de fechamento (closer) — mesmo que seja a mesma pessoa', concluido: false },
+      { id: 'c4-4', texto: 'Crie o script de qualificação com as 4 perguntas-chave (BANT)', concluido: false },
+      { id: 'c4-3', texto: 'Configure 1 automação básica: sequência de acompanhamento (follow-up) por WhatsApp ou e-mail para leads frios', concluido: false },
+      { id: 'c4-5', texto: 'Se você já tem ou planeja contratar vendedores: estabeleça política de comissionamento — base + % sobre faturamento líquido', concluido: false },
       { id: 'c4-6', texto: 'Implante o pós-venda: WhatsApp de check-in em D+7, D+30 e D+90 após a venda', concluido: false },
     ],
     tabela: {
       colunas: ['Perfil', 'Responsabilidade', 'Remuneração estimada'],
       linhas: [
-        ['SDR (Pré-venda)',      'Prospecção e qualificação de leads',       'R$2.000–R$2.800 + comissão por reunião agendada'],
-        ['Closer',              'Apresentação, negociação e fechamento',     'R$3.000–R$5.000 + 3–8% sobre negócios fechados'],
-        ['CS (Customer Success)', 'Onboarding, retenção e upsell',           'R$2.500–R$3.500 + bônus por NPS e renovações'],
-        ['VA Comercial',        'Suporte administrativo e follow-ups',       'R$1.000–R$1.500 (freelancer/part-time)'],
+        ['Pré-vendedor (SDR)',    'Prospecção e qualificação de leads',       'R$2.000–R$2.800 + comissão por reunião agendada'],
+        ['Closer',               'Apresentação, negociação e fechamento',    'R$3.000–R$5.000 + 3–8% sobre negócios fechados'],
+        ['Pós-venda (CS)',        'Onboarding, retenção e expansão',          'R$2.500–R$3.500 + bônus por satisfação e renovações'],
+        ['Assistente comercial',  'Suporte administrativo e acompanhamentos', 'R$1.000–R$1.500 (freelancer/part-time)'],
       ],
     },
     status: 'nao_iniciado',
     progresso: 0,
+    exercicio: {
+      titulo: 'Monte seu funil de vendas',
+      instrucao: 'Defina as etapas do seu processo comercial. Esses dados vão direto para o CRM — quando você clicar em "Ir para o CRM", as etapas já estarão prontas para usar.',
+      campos: [
+        {
+          id: 'funil_etapas',
+          label: 'Quais são as etapas do seu processo de venda?',
+          placeholder: 'Liste uma por linha. Ex:\n1. Prospecção — primeiro contato e identificação de interesse\n2. Qualificação — verificar se tem necessidade e orçamento\n3. Proposta — envio e apresentação da solução\n4. Fechamento — negociação final e contrato\n5. Cliente ganho',
+          tipo: 'textarea',
+          destino: { modulo: 'crm', secao: 'funis', campo: 'etapas' },
+        },
+        {
+          id: 'script_qualificacao',
+          label: 'Suas 4 perguntas de qualificação (BANT)',
+          placeholder: 'Ex:\n1. Orçamento: "Você tem um valor reservado para resolver esse problema?"\n2. Decisão: "Além de você, alguém mais precisa aprovar?"\n3. Necessidade: "Qual o maior problema que isso resolve hoje?"\n4. Prazo: "Quando você precisa ter isso funcionando?"',
+          tipo: 'textarea',
+          destino: { modulo: 'diretorio', secao: 'documentos', arquivo: 'Script de Pré-venda' },
+        },
+        {
+          id: 'politica_posvenda',
+          label: 'Como será seu pós-venda?',
+          placeholder: 'Ex: WhatsApp de check-in em D+7 ("Está tudo certo com o início?"), D+30 ("Está tendo resultado?") e D+90 ("Vamos renovar?").',
+          tipo: 'textarea',
+          destino: { modulo: 'regua', secao: 'sequencias', campo: 'pos_venda' },
+        },
+      ],
+    },
+    promptsIA: [
+      'Criar funil de vendas para minha empresa',
+      'Gerar script de primeiro contato comercial',
+      'Definir processo de acompanhamento (follow-up)',
+      'Montar as etapas do meu pipeline de vendas',
+    ],
+    proximoPasso: {
+      modulo: 'crm',
+      label: 'CRM',
+      mensagem: 'Agora configure seu pipeline no CRM — as etapas que você definiu no exercício já estão prontas para usar.',
+      rota: '/crm',
+    },
   },
 
   {
