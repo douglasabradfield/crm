@@ -331,42 +331,42 @@ const MATURITY_QUESTIONS = [
     dim: 'processos', label: 'Processos', color: 'var(--accent2)',
     questions: [
       'Você tem um processo de vendas documentado e seguido pela equipe?',
-      'Existe um fluxo claro de qualificação de leads (ex: BANT, SPIN)?',
-      'Você usa um playbook com scripts e objeções mapeadas?',
-      'Há um processo formal de onboarding para novos clientes após a venda?',
+      'Existem critérios definidos para qualificar potenciais clientes (leads) — orçamento disponível, quem decide, qual a necessidade real e qual o prazo (em inglês, esse método é chamado BANT)?',
+      'Você usa um guia de vendas (playbook) com scripts e objeções mapeadas?',
+      'Há um processo formal de entrada (onboarding) para novos clientes após a venda?',
     ],
     recs: [
-      'Documente o processo comercial em um playbook simples — até 2 páginas já resolvem.',
-      'Adote critérios de qualificação BANT (Budget, Authority, Need, Timeline) para cada lead.',
-      'Crie templates de mensagens para as 3 etapas mais críticas do seu funil.',
+      'Documente o processo comercial em um guia de vendas (playbook) simples — até 2 páginas já resolvem.',
+      'Defina suas 4 perguntas de qualificação: o cliente tem orçamento? Você está falando com quem decide? Ele tem a necessidade real? Qual o prazo dele? (esse método é chamado BANT em inglês)',
+      'Crie modelos prontos (templates) de mensagens para as 3 etapas mais críticas do seu funil.',
     ],
   },
   {
     dim: 'ferramentas', label: 'Ferramentas', color: 'var(--teal)',
     questions: [
-      'Você usa um CRM para registrar e acompanhar todos os leads e oportunidades?',
-      'Sua equipe usa ferramentas de automação de e-mail ou de prospecção?',
+      'Você usa um CRM (sistema de gestão de clientes) para registrar e acompanhar todos os contatos/potenciais clientes (leads) e oportunidades?',
+      'Você usa alguma ferramenta para automatizar o envio de e-mails ou a prospecção de novos clientes?',
       'Você tem dashboards com relatórios automáticos de vendas?',
-      'Existe integração entre suas ferramentas de marketing e vendas?',
+      'Suas ferramentas de marketing e vendas se comunicam entre si (ex: quando alguém preenche um formulário, o contato já entra no seu CRM automaticamente)?',
     ],
     recs: [
       'Comece com um CRM simples — o mais importante é centralizar todos os leads em um único lugar.',
       'Configure ao menos um relatório semanal automático: leads, conversão e receita.',
-      'Integre o WhatsApp Business ao fluxo de follow-up para reduzir o tempo de resposta.',
+      'Integre o WhatsApp Business ao fluxo de acompanhamento (follow-up) para reduzir o tempo de resposta.',
     ],
   },
   {
     dim: 'equipe', label: 'Equipe', color: 'var(--green)',
     questions: [
-      'Sua equipe comercial recebe treinamentos regulares (ao menos trimestrais)?',
-      'Há metas individuais claras com acompanhamento semanal de resultados?',
+      'Você ou sua equipe comercial se dedicam a aprender sobre vendas regularmente (cursos, leituras, troca de experiências)?',
+      'Você tem metas claras definidas e acompanha os resultados ao menos uma vez por semana?',
       'Existe divisão de papéis clara (prospecção, fechamento, pós-venda)?',
-      'O processo de entrada de novos vendedores é estruturado e documentado?',
+      'Se você contratar alguém para vendas amanhã, existe um roteiro documentado de como essa pessoa deve trabalhar?',
     ],
     recs: [
-      'Implemente reuniões semanais de pipeline review — 30 min é suficiente para times pequenos.',
-      'Defina metas individuais mensais com check-ins quinzenais, não só no final do mês.',
-      'Crie um roteiro de onboarding de 30 dias para novos vendedores com checkpoints semanais.',
+      'Reserve 30 minutos toda segunda-feira para revisar seu funil de vendas — sozinho ou com a equipe. Consistência vale mais que duração.',
+      'Defina metas mensais com conversas periódicas de acompanhamento a cada 15 dias, não só no final do mês.',
+      'Crie um roteiro de 30 dias para quem entrar na área comercial — com o processo de entrada (onboarding) documentado e pontos de verificação semanais.',
     ],
   },
   {
@@ -374,27 +374,27 @@ const MATURITY_QUESTIONS = [
     questions: [
       'Você acompanha a taxa de conversão em cada etapa do funil de vendas?',
       'Sabe qual é o seu CAC (Custo de Aquisição de Cliente) atual?',
-      'Monitora o churn rate e o LTV (Lifetime Value) dos seus clientes?',
+      'Monitora a taxa de cancelamento (churn) e o LTV (valor total que um cliente gera enquanto permanece com você) dos seus clientes?',
       'Faz previsão de receita (forecast) mensal com base em dados do pipeline?',
     ],
     recs: [
       'Defina 4-5 métricas essenciais para o negócio e acompanhe-as toda semana.',
       'Calcule o CAC: investimento total em vendas e marketing ÷ clientes adquiridos no período.',
-      'Implemente um forecast simples: valor do deal × probabilidade de fechamento por etapa.',
+      'Implemente uma previsão de receita (forecast) simples: valor da negociação × probabilidade de fechamento por etapa.',
     ],
   },
   {
     dim: 'comunicacao', label: 'Comunicação', color: 'var(--purple)',
     questions: [
-      'Você tem uma régua de comunicação definida para follow-up de leads?',
+      'Você tem uma régua de comunicação definida para acompanhamento (follow-up) de leads?',
       'Existe uma estratégia de nutrição para leads que ainda não estão prontos?',
-      'Usa templates e scripts padronizados para abordagem e follow-up?',
-      'Há um processo de comunicação pós-venda focado em retenção e upsell?',
+      'Usa modelos prontos (templates) e scripts padronizados para abordagem e follow-up?',
+      'Há um processo de comunicação pós-venda focado em retenção e vendas adicionais para clientes atuais (upsell)?',
     ],
     recs: [
       'Defina uma cadência de follow-up padrão: D+0, D+3, D+7, D+14 e D+30.',
       'Crie ao menos 3 templates de mensagens: primeiro contato, follow-up e reativação.',
-      'Implemente um check-in mensal com clientes ativos — reduz churn e abre oportunidades de upsell.',
+      'Implemente uma conversa periódica de acompanhamento mensal com clientes ativos — reduz o cancelamento (churn) e abre oportunidades de upsell.',
     ],
   },
 ];
@@ -2378,8 +2378,7 @@ function FunilVendasSection({ openAI }) {
         <div>
           <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>Funil de Vendas Atual</p>
           <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>
-            {stages.length} etapas · {stages[0]?.volume || 0} leads entrada →{' '}
-            {stages[stages.length - 1]?.volume || 0} fechados · {totalConv}% conversão geral
+            Como seus leads avançam hoje — diagnóstico do processo atual, não o pipeline operacional do CRM
           </p>
         </div>
         <button
@@ -3011,336 +3010,6 @@ function ScoreMaturidadeSection() {
   );
 }
 
-/* ─── Canvas de Proposta de Valor — dados e config ──────────────────────── */
-const INITIAL_VPC = {
-  tarefas: [
-    'Estruturar o processo de vendas da empresa',
-    'Acompanhar métricas e resultados do time comercial',
-    'Prospectar novos clientes de forma consistente',
-  ],
-  dores: [
-    'Falta de tempo para organizar o processo comercial',
-    'Dificuldade em saber quais leads priorizar',
-    'Perda de negócios por ausência de follow-up no momento certo',
-  ],
-  ganhos: [
-    'Aumentar a taxa de conversão de leads em menos de 90 dias',
-    'Ter previsibilidade de receita mensal',
-    'Equipe mais produtiva e autônoma com metas claras',
-  ],
-  produtos: [
-    'Plataforma SaaS com CRM integrado',
-    'Guia em 8 capítulos para estruturar o comercial',
-    'Assistente IA contextual para vendas B2B',
-  ],
-  aliviadores: [
-    'Configuração simples — menos de 1 hora para começar',
-    'Alertas automáticos de follow-up no momento certo',
-    'Pipeline visual para priorizar leads com clareza',
-  ],
-  criadores: [
-    'Dashboard de KPIs e forecast em tempo real',
-    'Templates prontos de prospecção e follow-up',
-    'Régua de comunicação automatizada para nutrição de leads',
-  ],
-};
-
-const VPC_LEFT_CFG = [
-  { key: 'tarefas',  label: 'Tarefas do cliente', color: 'var(--teal)',  subtitle: 'O que o cliente tenta realizar ou resolver' },
-  { key: 'dores',    label: 'Dores',               color: 'var(--red)',   subtitle: 'Frustrações, obstáculos e riscos que quer evitar' },
-  { key: 'ganhos',   label: 'Ganhos desejados',    color: 'var(--green)', subtitle: 'Resultados e benefícios que o cliente quer alcançar' },
-];
-
-const VPC_RIGHT_CFG = [
-  { key: 'produtos',    label: 'Produtos / Serviços',  color: 'var(--accent2)', subtitle: 'O que você oferece ao cliente' },
-  { key: 'aliviadores', label: 'Aliviadores de dor',   color: 'var(--amber)',   subtitle: 'Como você elimina ou reduz as dores do cliente' },
-  { key: 'criadores',   label: 'Criadores de ganho',   color: 'var(--purple)',  subtitle: 'Como você gera benefícios e resultados' },
-];
-
-function calcVpcFit(vpc) {
-  const all = ['tarefas', 'dores', 'ganhos', 'produtos', 'aliviadores', 'criadores'];
-  // 10 pts por seção com ao menos 1 item = máx 60
-  let score = all.reduce((s, k) => s + (vpc[k]?.filter(i => i.trim()).length > 0 ? 10 : 0), 0);
-  // Cobertura aliviadores vs dores = até 20 pts
-  const doresN = vpc.dores?.filter(i => i.trim()).length || 0;
-  const aliviN = vpc.aliviadores?.filter(i => i.trim()).length || 0;
-  if (doresN > 0 && aliviN > 0) score += Math.round(Math.min(aliviN / doresN, 1) * 20);
-  // Cobertura criadores vs ganhos = até 20 pts
-  const ganhosN = vpc.ganhos?.filter(i => i.trim()).length || 0;
-  const criaN = vpc.criadores?.filter(i => i.trim()).length || 0;
-  if (ganhosN > 0 && criaN > 0) score += Math.round(Math.min(criaN / ganhosN, 1) * 20);
-  return Math.min(score, 100);
-}
-
-/* ─── VpcList ────────────────────────────────────────────────────────────── */
-function VpcList({ items, color, onUpdate }) {
-  const [editIdx, setEditIdx] = useState(null);
-  const [draft, setDraft] = useState('');
-
-  function startEdit(idx) { setEditIdx(idx); setDraft(items[idx]); }
-
-  function commitEdit() {
-    if (draft.trim()) {
-      onUpdate(items.map((it, i) => i === editIdx ? draft.trim() : it));
-    } else {
-      onUpdate(items.filter((_, i) => i !== editIdx));
-    }
-    setEditIdx(null);
-  }
-
-  function cancelEdit() {
-    if (items[editIdx] === '') onUpdate(items.filter((_, i) => i !== editIdx));
-    setEditIdx(null);
-  }
-
-  function addItem() {
-    const next = [...items, ''];
-    onUpdate(next);
-    setEditIdx(next.length - 1);
-    setDraft('');
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {items.map((item, i) =>
-        editIdx === i ? (
-          <div key={i} style={{ display: 'flex', gap: 5, alignItems: 'flex-start' }}>
-            <textarea
-              autoFocus
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(); }
-                if (e.key === 'Escape') cancelEdit();
-              }}
-              rows={2}
-              style={{
-                flex: 1, background: 'var(--bg4)', border: `1px solid ${color}`,
-                borderRadius: 6, padding: '5px 8px', color: 'var(--text)',
-                fontSize: 12, fontFamily: 'var(--font-body)', resize: 'none',
-                outline: 'none', lineHeight: 1.45,
-              }}
-            />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 2 }}>
-              <button onClick={commitEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--green)', padding: 3, display: 'flex' }}>
-                <Check size={13} />
-              </button>
-              <button onClick={cancelEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 3, display: 'flex' }}>
-                <X size={13} />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            key={i}
-            style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '4px 5px', borderRadius: 6, cursor: 'pointer' }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-              e.currentTarget.querySelector('.vpc-del').style.opacity = '1';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.querySelector('.vpc-del').style.opacity = '0';
-            }}
-            onClick={() => startEdit(i)}
-          >
-            <span style={{ width: 4, height: 4, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 7 }} />
-            <span style={{ flex: 1, fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>{item}</span>
-            <button
-              className="vpc-del"
-              onClick={e => { e.stopPropagation(); onUpdate(items.filter((_, j) => j !== i)); }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2, display: 'flex', opacity: 0, transition: 'opacity 0.1s', flexShrink: 0 }}
-            >
-              <Trash2 size={10} />
-            </button>
-          </div>
-        )
-      )}
-      <button
-        onClick={addItem}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 4, marginTop: 3,
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: color, fontFamily: 'var(--font-body)', fontSize: 11,
-          padding: '3px 5px', opacity: 0.7, transition: 'opacity 0.15s',
-        }}
-        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-        onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
-      >
-        <Plus size={11} /> Adicionar
-      </button>
-    </div>
-  );
-}
-
-/* ─── CanvasPropostaValorSection ─────────────────────────────────────────── */
-function CanvasPropostaValorSection({ openAI }) {
-  const [vpc, setVpc] = useLocalStorage('diag_vpc', INITIAL_VPC);
-  const { versions: vpcVersions, saveVersion: saveVpcVersion } = useVersionHistory('diag_vpc_versions');
-  const _vpcStr = JSON.stringify(vpc);
-  const _vpcMounted = useRef(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!_vpcMounted.current) { _vpcMounted.current = true; return; }
-    saveVpcVersion(vpc);
-  }, [_vpcStr]);
-
-  const fit = calcVpcFit(vpc);
-  const fitColor = fit >= 70 ? 'var(--green)' : fit >= 40 ? 'var(--amber)' : 'var(--red)';
-  const fitLabel = fit >= 70 ? 'Excelente fit' : fit >= 40 ? 'Fit parcial' : 'Fit fraco';
-
-  function updateSection(key, items) {
-    setVpc(prev => ({ ...prev, [key]: items }));
-  }
-
-  function handleAvaliarFit() {
-    const fmt = arr => arr.filter(i => i.trim()).map(i => `• ${i}`).join('\n') || '• (sem itens)';
-    openAI(
-      `Avalie o fit da minha Proposta de Valor com o Segmento de Clientes.\n\n` +
-      `SEGMENTO DE CLIENTES:\n` +
-      `Tarefas:\n${fmt(vpc.tarefas)}\n\n` +
-      `Dores:\n${fmt(vpc.dores)}\n\n` +
-      `Ganhos desejados:\n${fmt(vpc.ganhos)}\n\n` +
-      `PROPOSTA DE VALOR:\n` +
-      `Produtos/Serviços:\n${fmt(vpc.produtos)}\n\n` +
-      `Aliviadores de dor:\n${fmt(vpc.aliviadores)}\n\n` +
-      `Criadores de ganho:\n${fmt(vpc.criadores)}\n\n` +
-      `Analise: (1) Qual o grau de fit atual (0-10) e por quê? ` +
-      `(2) Quais dores NÃO estão sendo endereçadas pelos aliviadores? ` +
-      `(3) Quais ganhos NÃO estão sendo gerados pelos criadores? ` +
-      `(4) 3 ajustes concretos e prioritários para melhorar o fit.`
-    );
-  }
-
-  const renderSide = (cfgList) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {cfgList.map(cfg => (
-        <div key={cfg.key} style={{
-          background: `color-mix(in srgb, ${cfg.color} 5%, var(--bg3))`,
-          border: `1px solid color-mix(in srgb, ${cfg.color} 20%, transparent)`,
-          borderRadius: 10, padding: 14,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: cfg.color }}>{cfg.label}</span>
-          </div>
-          <p style={{ fontSize: 10, color: 'var(--text3)', paddingLeft: 12, marginBottom: 10 }}>{cfg.subtitle}</p>
-          <VpcList
-            items={vpc[cfg.key] || []}
-            color={cfg.color}
-            onUpdate={(items) => updateSection(cfg.key, items)}
-          />
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <div style={{
-      background: 'var(--bg2)', border: '1px solid var(--border)',
-      borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 14,
-    }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <div>
-          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>Canvas de Proposta de Valor</p>
-          <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>
-            Segmento de clientes × proposta de valor — fit atual: {fit}/100
-          </p>
-        </div>
-        <button
-          onClick={handleAvaliarFit}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--accent)', color: '#fff', border: 'none',
-            borderRadius: 8, padding: '8px 14px', fontSize: 12,
-            fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
-          }}
-        >
-          <Bot size={13} /> IA: Avaliar fit
-        </button>
-      </div>
-
-      <VersionDropdown
-        versions={vpcVersions}
-        currentData={vpc}
-        onRestore={(data) => setVpc(data)}
-        renderPreview={(data) => (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            {['tarefas', 'dores', 'ganhos', 'produtos', 'aliviadores', 'criadores'].map(key => (
-              <div key={key}>
-                <span style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'capitalize' }}>{key}: </span>
-                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text2)' }}>
-                  {(data[key] || []).filter(i => i.trim()).length} itens
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      />
-
-      {/* Column labels */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 1fr' }}>
-        <div style={{
-          background: 'var(--bg3)', border: '1px solid var(--border)',
-          borderRadius: '10px 0 0 10px', borderRight: 'none', padding: '8px 16px',
-        }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Segmento de Clientes
-          </p>
-        </div>
-        <div style={{
-          background: 'var(--bg3)',
-          borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <span style={{ fontSize: 10, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>← fit →</span>
-        </div>
-        <div style={{
-          background: 'var(--bg3)', border: '1px solid var(--border)',
-          borderRadius: '0 10px 10px 0', borderLeft: 'none', padding: '8px 16px', textAlign: 'right',
-        }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Proposta de Valor
-          </p>
-        </div>
-      </div>
-
-      {/* 3-column canvas */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 1fr', alignItems: 'stretch' }}>
-        {/* Left */}
-        {renderSide(VPC_LEFT_CFG)}
-
-        {/* Center — Fit gauge */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', padding: '16px 12px', gap: 10,
-        }}>
-          <div style={{ width: 1, flex: 1, minHeight: 20, background: `color-mix(in srgb, ${fitColor} 35%, var(--border))` }} />
-          <ScoreGauge score={fit} size={96} />
-          <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: 9, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
-              FIT
-            </p>
-            <span style={{
-              fontSize: 10, padding: '2px 8px', borderRadius: 20, display: 'inline-block',
-              color: fitColor,
-              background: `color-mix(in srgb, ${fitColor} 12%, transparent)`,
-              border: `1px solid color-mix(in srgb, ${fitColor} 30%, transparent)`,
-            }}>
-              {fitLabel}
-            </span>
-          </div>
-          <div style={{ width: 1, flex: 1, minHeight: 20, background: `color-mix(in srgb, ${fitColor} 35%, var(--border))` }} />
-        </div>
-
-        {/* Right */}
-        {renderSide(VPC_RIGHT_CFG)}
-      </div>
-    </div>
-  );
-}
-
 /* ─── EntrevistaModal ─────────────────────────────────────────────────────── */
 let _entrevistaId = 2000;
 
@@ -3634,6 +3303,16 @@ export default function Diagnostico() {
         onReport={handleReport}
       />
 
+      <PersonasSection
+        personas={personas}
+        setPersonas={setPersonas}
+        lastUpdated={personasUpdated}
+        setLastUpdated={setPersonasUpdated}
+        openAI={openAI}
+      />
+
+      <EntrevistasSection openAI={openAI} />
+
       <SwotSection
         swot={swot}
         setSwot={setSwot}
@@ -3643,6 +3322,10 @@ export default function Diagnostico() {
         setVersions={setSwotVersions}
         openAI={openAI}
       />
+
+      <FunilVendasSection openAI={openAI} />
+
+      <ConcorrentesSection openAI={openAI} />
 
       <FourPsSection
         fourPs={fourPs}
@@ -3657,22 +3340,6 @@ export default function Diagnostico() {
       <MaturitySection score={totalScore} scoreLabel={scoreLabel} scoreColor={scoreColor} />
 
       <ScoreMaturidadeSection />
-
-      <FunilVendasSection openAI={openAI} />
-
-      <ConcorrentesSection openAI={openAI} />
-
-      <CanvasPropostaValorSection openAI={openAI} />
-
-      <PersonasSection
-        personas={personas}
-        setPersonas={setPersonas}
-        lastUpdated={personasUpdated}
-        setLastUpdated={setPersonasUpdated}
-        openAI={openAI}
-      />
-
-      <EntrevistasSection openAI={openAI} />
     </div>
   );
 }
