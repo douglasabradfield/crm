@@ -175,9 +175,6 @@ const FILE_TYPE_CFG = {
   'application/vnd.openxmlformats-officedocument.presentationml.presentation':{ label: 'PPTX', color: 'var(--amber)', isImage: false },
 };
 
-let _fileId = 2000;
-function newFileId() { return `fil${_fileId++}`; }
-
 function fmtSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -189,54 +186,102 @@ function fmtUploadDate(iso) {
   return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
 }
 
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+function fileFromRow(r) {
+  return {
+    id: r.id,
+    name: r.nome,
+    mimeType: r.mime_type,
+    ext: r.nome.split('.').pop().toLowerCase(),
+    size: r.tamanho_bytes,
+    uploadedAt: r.criado_em,
+    tags: r.tags ?? [],
+    storagePath: r.storage_path,
+  };
 }
 
 function useFilesForFolder(folderId) {
-  const key = `dir_files_${folderId}`;
-  const [files, setFiles] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
-  });
+  const { empresaId, user } = useAuth();
+  const [files,       setFiles]       = useState([]);
+  const [uploading,   setUploading]   = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
   useEffect(() => {
-    try { localStorage.setItem(key, JSON.stringify(files)); } catch {}
-  }, [files, key]);
+    if (!empresaId || !folderId) return;
+    let cancelled = false;
+    supabase
+      .from('diretorio_arquivos')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .eq('pasta_id', folderId)
+      .order('criado_em', { ascending: false })
+      .then(({ data }) => {
+        if (!cancelled && data) setFiles(data.map(fileFromRow));
+      });
+    return () => { cancelled = true; };
+  }, [folderId, empresaId]);
 
   async function addFiles(fileList) {
-    const toAdd = [];
-    for (const file of Array.from(fileList)) {
-      if (!ACCEPTED_MIME.includes(file.type)) continue;
+    const MAX = 10 * 1024 * 1024;
+    const valid     = Array.from(fileList).filter(f => ACCEPTED_MIME.includes(f.type));
+    const oversized = valid.filter(f => f.size > MAX);
+    const toUpload  = valid.filter(f => f.size <= MAX);
+
+    if (!toUpload.length && !oversized.length) return;
+    setUploading(true);
+    setUploadError('');
+    const failures = [];
+
+    for (const file of toUpload) {
       try {
-        const data = await readFileAsBase64(file);
-        toAdd.push({
-          id: newFileId(),
-          name: file.name,
-          mimeType: file.type,
-          ext: file.name.split('.').pop().toLowerCase(),
-          size: file.size,
-          data,
-          uploadedAt: new Date().toISOString(),
-          tags: [],
-        });
-      } catch {}
+        const path = `${empresaId}/${folderId}/${Date.now()}-${file.name}`;
+        const { error: storageErr } = await supabase.storage.from('diretorio-arquivos').upload(path, file);
+        if (storageErr) throw storageErr;
+        const { data: row, error: dbErr } = await supabase
+          .from('diretorio_arquivos')
+          .insert({ pasta_id: folderId, nome: file.name, mime_type: file.type, tamanho_bytes: file.size, storage_path: path, enviado_por: user.id })
+          .select()
+          .single();
+        if (dbErr) throw dbErr;
+        setFiles(prev => [fileFromRow(row), ...prev]);
+      } catch (err) {
+        console.error('Upload falhou:', file.name, err);
+        failures.push(file.name);
+      }
     }
-    if (toAdd.length) setFiles(prev => [...prev, ...toAdd]);
+
+    const parts = [];
+    if (oversized.length) parts.push(`Excedem 10 MB: ${oversized.map(f => f.name).join(', ')}`);
+    if (failures.length)  parts.push(`Falhou: ${failures.join(', ')}`);
+    if (parts.length) {
+      const success = toUpload.length - failures.length;
+      const prefix  = toUpload.length > 1 ? `${success} de ${toUpload.length} enviados. ` : '';
+      setUploadError(prefix + parts.join(' · '));
+    }
+
+    setUploading(false);
   }
 
-  function removeFile(id) {
+  async function removeFile(id) {
+    const file = files.find(f => f.id === id);
+    if (!file) return;
+    const { error: storageErr } = await supabase.storage.from('diretorio-arquivos').remove([file.storagePath]);
+    if (storageErr) { console.error('Storage delete falhou:', storageErr); return; }
+    const { error: dbErr } = await supabase.from('diretorio_arquivos').delete().eq('id', id);
+    if (dbErr) { console.error('DB delete falhou:', dbErr); return; }
     setFiles(prev => prev.filter(f => f.id !== id));
   }
 
-  function updateFileTags(id, tags) {
-    setFiles(prev => prev.map(f => f.id === id ? { ...f, tags } : f));
+  async function updateFileTags(id, tags) {
+    const { error } = await supabase.from('diretorio_arquivos').update({ tags }).eq('id', id);
+    if (!error) setFiles(prev => prev.map(f => f.id === id ? { ...f, tags } : f));
   }
 
-  return { files, addFiles, removeFile, updateFileTags };
+  return { files, uploading, uploadError, addFiles, removeFile, updateFileTags };
+}
+
+async function getFileUrl(storagePath) {
+  const { data } = await supabase.storage.from('diretorio-arquivos').createSignedUrl(storagePath, 3600);
+  return data?.signedUrl ?? null;
 }
 
 /* ─── Permissions & global search ──────────────────────────────────────── */
@@ -299,10 +344,6 @@ function getAllFolderIds(folders) {
     if (f.children?.length) ids.push(...getAllFolderIds(f.children));
   }
   return ids;
-}
-
-function readFolderFiles(folderId) {
-  try { return JSON.parse(localStorage.getItem(`dir_files_${folderId}`)) || []; } catch { return []; }
 }
 
 function highlightText(text, term) {
@@ -1066,13 +1107,9 @@ function FileCard({ file, onDelete, onUpdateTags }) {
     >
       {/* Preview area */}
       <div style={{ height: 110, background: 'var(--bg4)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-        {cfg.isImage ? (
-          <img src={file.data} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
           <div style={{ width: 44, height: 52, borderRadius: 6, background: `color-mix(in srgb, ${cfg.color} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${cfg.color} 25%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: cfg.color }}>{cfg.label}</span>
           </div>
-        )}
         {/* Type badge */}
         <span style={{ position: 'absolute', top: 6, left: 6, fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 20, background: `color-mix(in srgb, ${cfg.color} 15%, var(--bg4))`, color: cfg.color, border: `1px solid color-mix(in srgb, ${cfg.color} 30%, transparent)` }}>
           {cfg.label}
@@ -1102,10 +1139,19 @@ function FileCard({ file, onDelete, onUpdateTags }) {
       {/* Meta area */}
       <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }} title={file.name}>{file.name}</p>
-        <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'var(--text3)' }}>
+        <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'var(--text3)', alignItems: 'center' }}>
           <span>{fmtSize(file.size)}</span>
           <span>·</span>
           <span>{fmtUploadDate(file.uploadedAt)}</span>
+          <button
+            onClick={async () => { const url = await getFileUrl(file.storagePath); if (url) window.open(url, '_blank'); }}
+            title="Abrir arquivo"
+            style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 0, fontFamily: 'var(--font-body)', fontSize: 10 }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--accent2)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text3)'}
+          >
+            <ExternalLink size={10} /> Abrir
+          </button>
         </div>
         {/* Tags */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', minHeight: 22 }}>
@@ -1145,7 +1191,7 @@ function FileCard({ file, onDelete, onUpdateTags }) {
 
 /* ─── FolderFilesSection ────────────────────────────────────────────────── */
 function FolderFilesSection({ folderId }) {
-  const { files, addFiles, removeFile, updateFileTags } = useFilesForFolder(folderId);
+  const { files, uploading, uploadError, addFiles, removeFile, updateFileTags } = useFilesForFolder(folderId);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -1169,12 +1215,13 @@ function FolderFilesSection({ folderId }) {
           )}
         </p>
         <button
-          onClick={() => fileInputRef.current?.click()}
-          style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 11px', color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'border-color 0.13s, color 0.13s' }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent2)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)'; }}
+          onClick={() => !uploading && fileInputRef.current?.click()}
+          disabled={uploading}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 11px', color: uploading ? 'var(--text3)' : 'var(--text2)', fontSize: 11, cursor: uploading ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', transition: 'border-color 0.13s, color 0.13s', opacity: uploading ? 0.7 : 1 }}
+          onMouseEnter={e => { if (!uploading) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent2)'; } }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = uploading ? 'var(--text3)' : 'var(--text2)'; }}
         >
-          <Upload size={11} /> Adicionar arquivo
+          <Upload size={11} /> {uploading ? 'Enviando…' : 'Adicionar arquivo'}
         </button>
         <input
           ref={fileInputRef}
@@ -1185,6 +1232,9 @@ function FolderFilesSection({ folderId }) {
           style={{ display: 'none' }}
         />
       </div>
+      {uploadError && (
+        <p style={{ fontSize: 11, color: 'var(--amber)', margin: 0, padding: '4px 0' }}>{uploadError}</p>
+      )}
 
       {/* Drop zone */}
       <div
@@ -1263,7 +1313,7 @@ function GlobalSearchResults({ query, folderInfos }) {
 
   const groups = [];
   for (const { folderId, folderLabel, folderEmoji } of folderInfos) {
-    const files = readFolderFiles(folderId);
+    const files = [];
     const matched = files.filter(f =>
       f.name.toLowerCase().includes(term) ||
       (f.tags || []).some(t => t.toLowerCase().includes(term))
@@ -1871,16 +1921,7 @@ export default function DiretorioInterno() {
     }),
   ];
 
-  // 5 most recently uploaded files across all folders (sorted by uploadedAt)
-  const recentFiles = (() => {
-    const all = [];
-    for (const { folderId, folderLabel, folderEmoji } of allFolderInfos) {
-      for (const f of readFolderFiles(folderId)) {
-        all.push({ ...f, folderId, folderLabel, folderEmoji });
-      }
-    }
-    return all.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)).slice(0, 5);
-  })();
+  const recentFiles = [];
 
   function openDoc(doc, docType) { setDocModal({ doc, docType }); }
   function closeDoc()            { setDocModal(null); }
