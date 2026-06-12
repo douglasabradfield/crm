@@ -8,6 +8,9 @@ import {
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
 import { useAI } from '../hooks/useAI.js';
+import { useAuth } from '../store/auth.js';
+import { supabase } from '../services/supabase.js';
+import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 import PermissionGate from '../components/Auth/PermissionGate.jsx';
 
 /* ─── Config ─────────────────────────────────────────────────────────────────── */
@@ -73,7 +76,7 @@ const FLUXOS_INIT = [
       { id: 's1a', type: 'email',    delay: 0, assunto: 'Obrigado pela atenção + resumo da demo', corpo: 'Olá [Nome],\n\nFoi ótimo conversar! Segue o resumo do que abordamos na demo...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 23, responded: 16 },
       { id: 's1b', type: 'whatsapp', delay: 1, template: 'Oi [Nome]! Ficou alguma dúvida da demo? Posso te ajudar!', roteiro: 'Verificar objeções levantadas na demo e oferecer esclarecimento.', responsavel: 'Douglas', hasBranch: true, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 20, responded: 9 },
       { id: 's1c', type: 'email',    delay: 2, assunto: 'Case de sucesso de cliente similar', corpo: 'Olá [Nome],\n\nQueria te contar como a [Empresa Similar] resolveu o mesmo desafio...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 17, responded: 8 },
-      { id: 's1d', type: 'email',    delay: 4, assunto: 'Sua equipe já tem meta de vendas para Q3?', corpo: 'Olá [Nome],\n\nMuitas equipes ainda estão definindo metas para o segundo semestre...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 14, responded: 5 },
+      { id: 's1d', type: 'email',    delay: 4, assunto: 'Sua equipe já tem meta de vendas para o próximo trimestre?', corpo: 'Olá [Nome],\n\nMuitas equipes ainda estão definindo metas para o segundo semestre...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 14, responded: 5 },
       { id: 's1e', type: 'ligacao',  delay: 7, objetivo: 'Oferecer trial ou reunião de alinhamento', script: 'Verificar interesse em fechar até o fim do trimestre. Oferecer trial de 14 dias.', responsavel: 'Douglas', hasBranch: true, branchA: { action: 'add_crm' }, branchB: { action: 'end_flow' }, reached: 9, responded: 4 },
     ],
     leads: [
@@ -161,6 +164,29 @@ function makeStep(type) {
   if (type === 'email')    return { ...base, assunto: '', corpo: '', integration: 'resend', condition: 'auto' };
   if (type === 'whatsapp') return { ...base, template: '', roteiro: '', responsavel: '' };
   return { ...base, objetivo: '', script: '', responsavel: '' };
+}
+
+/* ─── Row mappers ────────────────────────────────────────────────────────────── */
+
+function ddmmyyyyR(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+}
+function parseBRDateR(s) {
+  if (!s || !s.includes('/')) return new Date().toISOString();
+  const [d, m, y] = s.split('/');
+  return new Date(`${y}-${m}-${d}`).toISOString();
+}
+
+function fluxoFromRow(r) {
+  return { id: r.id, color: r.cor, nome: r.nome, descricao: r.descricao, trigger: r.trigger_texto, status: r.status, steps: r.steps ?? [], leads: [], contacts: 0, responseRate: 0, crmConversion: 0, dropOffStep: 0 };
+}
+function fluxoLeadFromRow(r) {
+  return { id: r.id, company: r.company, contact: r.contact, stepIdx: r.step_idx, daysInStep: r.days_in_step, responsavel: r.responsavel, status: r.status };
+}
+function templateFromRow(r) {
+  return { id: r.id, channel: r.channel, nome: r.nome, assunto: r.assunto, corpo: r.corpo, preview: r.preview, tags: r.tags ?? [], openRate: r.open_rate, responseRate: r.response_rate, uses: r.uses, status: r.status, updatedAt: ddmmyyyyR(r.atualizado_em), content: r.corpo };
 }
 
 /* ─── Small components ───────────────────────────────────────────────────────── */
@@ -986,7 +1012,7 @@ function TemplateCard({ tpl, onOpen }) {
 
 /* ─── TemplateModal ──────────────────────────────────────────────────────────── */
 
-function TemplateModal({ tpl, onClose }) {
+function TemplateModal({ tpl, onSave, onClose }) {
   const cfg = CHANNEL_CFG[tpl.channel];
   const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(tpl.content);
@@ -1035,7 +1061,7 @@ function TemplateModal({ tpl, onClose }) {
             )}
             <span style={{ fontSize: 12, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4 }}><MousePointerClick size={11} />{tpl.responseRate}% resposta</span>
             <PermissionGate module="regua" action="edit">
-              <button onClick={() => setEditing((v) => !v)}
+              <button onClick={() => { if (editing) onSave(tpl.id, content); setEditing((v) => !v); }}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, background: editing ? 'var(--accent)' : 'transparent', border: '1px solid var(--border2)', borderRadius: 8, padding: '5px 10px', fontSize: 12, color: editing ? '#fff' : 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                 <Pencil size={12} />{editing ? 'Salvar' : 'Editar'}
               </button>
@@ -1167,19 +1193,11 @@ function TemplateModal({ tpl, onClose }) {
 
 /* ─── Sections ───────────────────────────────────────────────────────────────── */
 
-function FluxosSection({ query, fluxos, setFluxos }) {
+function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads }) {
   const { openAI } = useUI();
   const filtered = fluxos.filter((f) =>
     !query || f.nome.toLowerCase().includes(query.toLowerCase()) || f.trigger.toLowerCase().includes(query.toLowerCase())
   );
-
-  function updateSteps(fluxoId, steps) {
-    setFluxos((prev) => prev.map((f) => f.id === fluxoId ? { ...f, steps } : f));
-  }
-
-  function updateLeads(fluxoId, leads) {
-    setFluxos((prev) => prev.map((f) => f.id === fluxoId ? { ...f, leads } : f));
-  }
 
   return (
     <div>
@@ -1198,8 +1216,8 @@ function FluxosSection({ query, fluxos, setFluxos }) {
           <FluxoCard
             key={f.id}
             fluxo={f}
-            onUpdateSteps={(steps) => updateSteps(f.id, steps)}
-            onUpdateLeads={(leads) => updateLeads(f.id, leads)}
+            onUpdateSteps={(steps) => onUpdateSteps(f.id, steps)}
+            onUpdateLeads={(leads) => onUpdateLeads(f.id, leads)}
           />
         ))}
       </div>
@@ -1207,14 +1225,14 @@ function FluxosSection({ query, fluxos, setFluxos }) {
   );
 }
 
-function TemplatesSection({ query, onOpen }) {
+function TemplatesSection({ query, templates, onOpen }) {
   const { openAI } = useUI();
   const [channelFilter, setChannelFilter] = useState('todos');
   const channels = [
     { id: 'todos', label: 'Todos' }, { id: 'email', label: 'E-mail' },
     { id: 'whatsapp', label: 'WhatsApp' }, { id: 'linkedin', label: 'LinkedIn' }, { id: 'phone', label: 'Ligação' },
   ];
-  const filtered = TEMPLATES.filter((t) => {
+  const filtered = templates.filter((t) => {
     const q = !query || t.nome.toLowerCase().includes(query.toLowerCase()) || t.tags.some((tag) => tag.toLowerCase().includes(query.toLowerCase()));
     const ch = channelFilter === 'todos' || t.channel === channelFilter;
     return q && ch;
@@ -1253,14 +1271,100 @@ function TemplatesSection({ query, onOpen }) {
 /* ─── Page ───────────────────────────────────────────────────────────────────── */
 
 export default function ReguaComunicacao() {
+  const { empresaId } = useAuth();
   const [activeTab, setActiveTab] = useState('fluxos');
   const [query, setQuery] = useState('');
-  const [fluxos, setFluxos] = useState(FLUXOS_INIT);
+  const [fluxos, setFluxos] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [loadingRegua, setLoadingRegua] = useState(true);
   const [activeTemplate, setActiveTemplate] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    async function load() {
+      const [fluxosRes, leadsRes, tplsRes] = await Promise.all([
+        supabase.from('regua_fluxos').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true }),
+        supabase.from('regua_fluxo_leads').select('*').eq('empresa_id', empresaId),
+        supabase.from('regua_templates').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true }),
+      ]);
+      if (cancelled) return;
+      let fluxoRows = fluxosRes.data ?? [];
+      let leadRows = leadsRes.data ?? [];
+      let tplRows = tplsRes.data ?? [];
+
+      if (fluxoRows.length === 0) {
+        const seedFluxos = FLUXOS_INIT.map(f => ({ cor: f.color, nome: f.nome, descricao: f.descricao, trigger_texto: f.trigger, status: f.status, steps: f.steps }));
+        const { data: ins } = await supabase.from('regua_fluxos').insert(seedFluxos).select();
+        if (cancelled) return;
+        fluxoRows = ins ?? [];
+        const seedLeads = [];
+        FLUXOS_INIT.forEach((f, i) => {
+          const realId = fluxoRows[i]?.id;
+          if (!realId) return;
+          (f.leads || []).forEach(l => {
+            seedLeads.push({ fluxo_id: realId, step_idx: l.stepIdx, days_in_step: l.daysInStep, status: l.status, company: l.company, contact: l.contact, responsavel: l.responsavel });
+          });
+        });
+        if (seedLeads.length) {
+          const { data: insL } = await supabase.from('regua_fluxo_leads').insert(seedLeads).select();
+          if (cancelled) return;
+          leadRows = insL ?? [];
+        }
+      }
+
+      if (tplRows.length === 0) {
+        const seedTpls = TEMPLATES.map(t => ({ channel: t.channel, nome: t.nome, assunto: t.assunto ?? null, corpo: t.content, preview: t.preview ?? null, tags: t.tags, open_rate: t.openRate ?? null, response_rate: t.responseRate ?? 0, uses: t.uses ?? 0, status: t.status, atualizado_em: parseBRDateR(t.updatedAt) }));
+        const { data: insT } = await supabase.from('regua_templates').insert(seedTpls).select();
+        if (cancelled) return;
+        tplRows = insT ?? [];
+      }
+
+      const leadsGrouped = {};
+      leadRows.forEach(r => {
+        if (!leadsGrouped[r.fluxo_id]) leadsGrouped[r.fluxo_id] = [];
+        leadsGrouped[r.fluxo_id].push(fluxoLeadFromRow(r));
+      });
+      const mappedFluxos = fluxoRows.map(r => ({ ...fluxoFromRow(r), leads: leadsGrouped[r.id] ?? [] }));
+
+      if (!cancelled) {
+        setFluxos(mappedFluxos);
+        setTemplates(tplRows.map(templateFromRow));
+        setLoadingRegua(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  async function handleUpdateSteps(fluxoId, steps) {
+    setFluxos(prev => prev.map(f => f.id === fluxoId ? { ...f, steps } : f));
+    await supabase.from('regua_fluxos').update({ steps }).eq('id', fluxoId);
+  }
+
+  async function handleUpdateLeads(fluxoId, leads) {
+    setFluxos(prev => prev.map(f => f.id === fluxoId ? { ...f, leads } : f));
+    await supabase.from('regua_fluxo_leads').delete().eq('fluxo_id', fluxoId);
+    if (leads.length > 0) {
+      const rows = leads.map(l => ({ fluxo_id: fluxoId, step_idx: l.stepIdx, days_in_step: l.daysInStep, status: l.status ?? 'ativo', company: l.company ?? null, contact: l.contact ?? null, responsavel: l.responsavel ?? null }));
+      await supabase.from('regua_fluxo_leads').insert(rows);
+    }
+  }
+
+  async function handleSaveTemplate(id, content) {
+    const { data } = await supabase.from('regua_templates').update({ corpo: content, atualizado_em: new Date().toISOString() }).eq('id', id).select().single();
+    if (data) {
+      const updated = templateFromRow(data);
+      setTemplates(prev => prev.map(t => t.id === id ? updated : t));
+      if (activeTemplate?.id === id) setActiveTemplate(updated);
+    }
+  }
+
+  if (loadingRegua) return <SkeletonLoader rows={6} />;
 
   const TABS = [
     { id: 'fluxos',    label: 'Fluxos de Nurturing', count: fluxos.length },
-    { id: 'templates', label: 'Templates',            count: TEMPLATES.length },
+    { id: 'templates', label: 'Templates',            count: templates.length },
   ];
 
   return (
@@ -1300,11 +1404,11 @@ export default function ReguaComunicacao() {
       </div>
 
       {activeTab === 'fluxos'
-        ? <FluxosSection query={query} fluxos={fluxos} setFluxos={setFluxos} />
-        : <TemplatesSection query={query} onOpen={setActiveTemplate} />
+        ? <FluxosSection query={query} fluxos={fluxos} onUpdateSteps={handleUpdateSteps} onUpdateLeads={handleUpdateLeads} />
+        : <TemplatesSection query={query} templates={templates} onOpen={setActiveTemplate} />
       }
 
-      {activeTemplate && <TemplateModal tpl={activeTemplate} onClose={() => setActiveTemplate(null)} />}
+      {activeTemplate && <TemplateModal tpl={activeTemplate} onSave={handleSaveTemplate} onClose={() => setActiveTemplate(null)} />}
     </div>
   );
 }
