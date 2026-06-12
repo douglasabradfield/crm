@@ -153,6 +153,8 @@ function pastaFromRow(r) { return { id: r.id, pastaPaiId: r.pasta_pai_id, emoji:
 function pastaToRow(p) { return { pasta_pai_id: p.pastaPaiId ?? null, emoji: p.emoji, nome: p.nome, ordem: p.ordem ?? 0, shortcuts: p.shortcuts ?? [] }; }
 function docFromRow(r) { return { id: r.id, tipo: r.tipo, pasta_id: r.pasta_id, color: r.cor, nome: r.nome, responsavel: r.responsavel, versao: r.versao, formato: r.formato, status: r.status, partes: r.partes, passos: r.passos, uso: r.uso, descricao: r.descricao, tags: r.tags ?? [], updatedAt: ddmmyyyy(r.atualizado_em) }; }
 function docToRow(d, tipo, pasta_id) { return { tipo, pasta_id, cor: d.color, nome: d.nome, responsavel: d.responsavel ?? null, versao: d.versao ?? null, formato: d.formato ?? null, status: d.status, partes: d.partes ?? null, passos: d.passos ?? null, uso: d.uso ?? null, descricao: d.descricao ?? '', tags: d.tags ?? [], atualizado_em: parseBRDate(d.updatedAt) }; }
+function senhaFromRow(r) { return { id: r.id, plataforma: r.plataforma, icone: r.icone, usuario: r.usuario, senha: r.senha, categoria: r.categoria }; }
+function senhaToRow(s) { return { plataforma: s.plataforma, icone: s.icone ?? '', usuario: s.usuario ?? '', senha: s.senha ?? '', categoria: s.categoria ?? '' }; }
 
 /* ─── File upload constants & helpers ──────────────────────────────────── */
 const ACCEPTED_MIME = [
@@ -949,11 +951,77 @@ function ProcessosContent({ sops, query, onOpen }) {
   );
 }
 
-function SenhasContent({ query, isAdmin, showAdd, setShowAdd }) {
-  const items = SENHAS.filter((s) => !query || s.plataforma.toLowerCase().includes(query) || s.categoria.toLowerCase().includes(query));
-  const [newEntry, setNewEntry] = useState({ plataforma: '', usuario: '', senha: '', categoria: '' });
+function SenhasContent({ senhas, loadingSenhas, query, isAdmin, showAdd, setShowAdd, onSave, onDelete }) {
+  const items = senhas.filter((s) => !query || s.plataforma.toLowerCase().includes(query) || s.categoria.toLowerCase().includes(query));
+  const [newEntry,      setNewEntry]      = useState({ plataforma: '', icone: '🔑', usuario: '', senha: '', categoria: '' });
+  const [editEntry,     setEditEntry]     = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  function handleAdd() {
+    if (!newEntry.plataforma || !newEntry.senha) return;
+    onSave(newEntry);
+    setNewEntry({ plataforma: '', icone: '🔑', usuario: '', senha: '', categoria: '' });
+    setShowAdd(false);
+  }
+
+  function handleEditSave() {
+    if (!editEntry?.plataforma || !editEntry?.senha) return;
+    onSave(editEntry);
+    setEditEntry(null);
+  }
+
+  function handleDelete(id) {
+    if (deleteConfirm === id) {
+      onDelete(id);
+      setDeleteConfirm(null);
+    } else {
+      setDeleteConfirm(id);
+      setTimeout(() => setDeleteConfirm(c => c === id ? null : c), 3000);
+    }
+  }
+
+  if (loadingSenhas) return <SkeletonLoader rows={4} />;
+
+  const FIELDS = [
+    { key: 'plataforma', label: 'Plataforma', ph: 'Ex: Salesforce' },
+    { key: 'categoria',  label: 'Categoria',  ph: 'Ex: CRM' },
+    { key: 'usuario',    label: 'Usuário',     ph: 'email@empresa.com' },
+    { key: 'senha',      label: 'Senha',       ph: '••••••••', type: 'password' },
+  ];
+
+  function EntryForm({ entry, setEntry, onConfirm, onCancel, title }) {
+    return (
+      <div style={{ background: 'var(--bg3)', border: '1px solid var(--accent)', borderRadius: 10, padding: 16 }}>
+        <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', marginBottom: 12 }}>{title}</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {FIELDS.map(({ key, label, ph, type }) => (
+            <div key={key}>
+              <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>{label}</label>
+              <input type={type || 'text'} value={entry[key] ?? ''} onChange={(e) => setEntry(p => ({ ...p, [key]: e.target.value }))} placeholder={ph}
+                style={{ width: '100%', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
+                onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
+              />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button onClick={onConfirm} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Salvar</button>
+          <button onClick={onCancel}  style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Security warning */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(240,168,50,0.06)', border: '1px solid rgba(240,168,50,0.22)' }}>
+        <AlertCircle size={14} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 2 }} />
+        <p style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.6, margin: 0 }}>
+          <strong style={{ color: 'var(--amber)' }}>Atenção:</strong> as senhas aqui ainda não são criptografadas. Evite cadastrar credenciais muito sensíveis (bancos, sistemas financeiros) até essa proteção ser implementada. Use para acessos operacionais do dia a dia (ferramentas de marketing, plataformas de uso da equipe).
+        </p>
+      </div>
       {isAdmin && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(240,168,50,0.08)', border: '1px solid rgba(240,168,50,0.25)' }}>
           <Shield size={14} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
@@ -985,29 +1053,39 @@ function SenhasContent({ query, isAdmin, showAdd, setShowAdd }) {
                 </td>
                 <td style={{ padding: '11px 14px' }}><TagChip label={pw.categoria} /></td>
                 <td style={{ padding: '11px 14px', textAlign: 'right' }}>
-                  {isAdmin && <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4, display: 'flex', borderRadius: 6 }} onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text2)'; }} onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text3)'; }}><ExternalLink size={12} /></button>}
+                  {isAdmin && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                      <button onClick={() => setEditEntry(editEntry?.id === pw.id ? null : { ...pw })} title="Editar"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: editEntry?.id === pw.id ? 'var(--accent2)' : 'var(--text3)', padding: 4, display: 'flex', borderRadius: 6 }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent2)'; }}
+                        onMouseLeave={(e) => { if (editEntry?.id !== pw.id) e.currentTarget.style.color = 'var(--text3)'; }}
+                      ><Pencil size={12} /></button>
+                      <button onClick={() => handleDelete(pw.id)} title={deleteConfirm === pw.id ? 'Clique novamente para confirmar' : 'Excluir'}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: deleteConfirm === pw.id ? 'var(--red)' : 'var(--text3)', padding: 4, display: 'flex', borderRadius: 6 }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--red)'; }}
+                        onMouseLeave={(e) => { if (deleteConfirm !== pw.id) e.currentTarget.style.color = 'var(--text3)'; }}
+                      ><X size={12} /></button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {editEntry && isAdmin && (
+        <EntryForm
+          entry={editEntry} setEntry={setEditEntry}
+          onConfirm={handleEditSave} onCancel={() => setEditEntry(null)}
+          title={`Editar — ${editEntry.plataforma}`}
+        />
+      )}
       {showAdd && isAdmin && (
-        <div style={{ background: 'var(--bg3)', border: '1px solid var(--accent)', borderRadius: 10, padding: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', marginBottom: 12 }}>Nova entrada</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {[{ key: 'plataforma', label: 'Plataforma', ph: 'Ex: Salesforce' }, { key: 'categoria', label: 'Categoria', ph: 'Ex: CRM' }, { key: 'usuario', label: 'Usuário', ph: 'email@empresa.com' }, { key: 'senha', label: 'Senha', ph: '••••••••', type: 'password' }].map(({ key, label, ph, type }) => (
-              <div key={key}>
-                <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>{label}</label>
-                <input type={type || 'text'} value={newEntry[key]} onChange={(e) => setNewEntry((p) => ({ ...p, [key]: e.target.value }))} placeholder={ph} style={{ width: '100%', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }} onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }} onBlur={(e) => { e.target.style.borderColor = 'var(--border)'; }} />
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button onClick={() => setShowAdd(false)} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Salvar</button>
-            <button onClick={() => setShowAdd(false)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
-          </div>
-        </div>
+        <EntryForm
+          entry={newEntry} setEntry={setNewEntry}
+          onConfirm={handleAdd} onCancel={() => setShowAdd(false)}
+          title="Nova entrada"
+        />
       )}
     </div>
   );
@@ -1837,6 +1915,8 @@ export default function DiretorioInterno() {
   const [fluxogramas,      setFluxogramas]      = useState([]);
   const [contratos,        setContratos]        = useState([]);
   const [loadingDiretorio, setLoadingDiretorio] = useState(true);
+  const [senhas,           setSenhas]           = useState([]);
+  const [loadingSenhas,    setLoadingSenhas]    = useState(true);
 
   useEffect(() => {
     if (!empresaId) return;
@@ -1893,9 +1973,46 @@ export default function DiretorioInterno() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    async function loadSenhas() {
+      const { data } = await supabase.from('diretorio_senhas').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true });
+      if (cancelled) return;
+      let rows = data ?? [];
+      if (rows.length === 0) {
+        const seed = SENHAS.map(s => ({ plataforma: s.plataforma, icone: s.icone, usuario: s.usuario, senha: s.senha, categoria: s.categoria }));
+        const { data: inserted } = await supabase.from('diretorio_senhas').insert(seed).select();
+        if (cancelled) return;
+        rows = inserted ?? [];
+      }
+      if (!cancelled) {
+        setSenhas(rows.map(senhaFromRow));
+        setLoadingSenhas(false);
+      }
+    }
+    loadSenhas();
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  async function saveSenha(entry) {
+    if (entry.id) {
+      const { data } = await supabase.from('diretorio_senhas').update(senhaToRow(entry)).eq('id', entry.id).select().single();
+      if (data) setSenhas(prev => prev.map(s => s.id === entry.id ? senhaFromRow(data) : s));
+    } else {
+      const { data } = await supabase.from('diretorio_senhas').insert(senhaToRow(entry)).select().single();
+      if (data) setSenhas(prev => [...prev, senhaFromRow(data)]);
+    }
+  }
+
+  async function deleteSenha(id) {
+    const { error } = await supabase.from('diretorio_senhas').delete().eq('id', id);
+    if (!error) setSenhas(prev => prev.filter(s => s.id !== id));
+  }
+
   const counts = {
     processos: sops.length,
-    senhas: SENHAS.length,
+    senhas: senhas.length,
     templates: templates.length,
     fluxogramas: fluxogramas.length,
     contratos: contratos.length,
@@ -2165,7 +2282,7 @@ export default function DiretorioInterno() {
             ) : (
               <>
                 {activeFolder === 'processos'   && <ProcessosContent sops={sops} query={query} onOpen={openDoc} />}
-                {activeFolder === 'senhas'      && <SenhasContent query={query} isAdmin={isAdmin} showAdd={showSenhaAdd} setShowAdd={setShowSenhaAdd} />}
+                {activeFolder === 'senhas'      && <SenhasContent senhas={senhas} loadingSenhas={loadingSenhas} query={query} isAdmin={isAdmin} showAdd={showSenhaAdd} setShowAdd={setShowSenhaAdd} onSave={saveSenha} onDelete={deleteSenha} />}
                 {activeFolder === 'templates'   && <TemplatesContent templates={templates} query={query} onOpen={openDoc} />}
                 {activeFolder === 'fluxogramas' && <GenericContent items={fluxogramas} query={query} docType="fluxograma" onOpen={openDoc} />}
                 {activeFolder === 'contratos'   && <GenericContent items={contratos}   query={query} docType="contrato"   onOpen={openDoc} />}
