@@ -1,3 +1,12 @@
+> ⚠️ DOCUMENTO HISTÓRICO — NÃO É INSTRUÇÃO ATUAL
+> Este guia descreve a construção ORIGINAL do MVP (React 18, localStorage,
+> chave de IA no navegador, dados mockados). O projeto EVOLUIU muito desde então.
+> Para o estado e as regras ATUAIS do projeto, use SOMENTE o CLAUDE.md.
+> Mudanças desde este guia: migração completa para Supabase (auth + Postgres +
+> Storage), multi-tenant com RLS, chave de IA movida para função serverless
+> (/api/chat), guia revisado, e mais. Este arquivo serve apenas como memória
+> histórica da fase inicial.
+
 # Comercial PME — Guia de Build com Claude Code
 
 ---
