@@ -1,4 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../store/auth.js';
+import { supabase } from '../services/supabase.js';
+import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 import {
   Camera, Briefcase, Play, AtSign, TrendingUp, TrendingDown,
   Users, Heart, MessageCircle, Eye, Share2, Plus, Bot,
@@ -74,10 +77,6 @@ const CALENDAR_POSTS = [
 
 const FORMATOS = ['Feed', 'Stories', 'Reels', 'Carrossel', 'Vídeo', 'Artigo', 'Thread', 'Documento', 'Tweet', 'Shorts'];
 
-const MONTH_NAME = 'Maio 2026';
-const DAYS_IN_MONTH = 31;
-const FIRST_DAY_DOW = 4; // Friday = 4 (0=Sun)
-
 const REDES_OAUTH = [
   { id: 'instagram', label: 'Instagram', api: 'Meta Business API',      Icon: Camera,    color: '--purple', bg: 'rgba(176,110,245,0.12)' },
   { id: 'facebook',  label: 'Facebook',  api: 'Meta Business API',      Icon: Globe,     color: '--accent', bg: 'rgba(91,110,245,0.12)'  },
@@ -85,6 +84,56 @@ const REDES_OAUTH = [
   { id: 'youtube',   label: 'YouTube',   api: 'YouTube Data API',       Icon: Play,      color: '--red',    bg: 'rgba(240,92,92,0.12)'   },
   { id: 'tiktok',    label: 'TikTok',    api: 'TikTok Business API',    Icon: Music,     color: '--green',  bg: 'rgba(45,212,160,0.12)'  },
 ];
+
+/* ─── Helpers & mappers ──────────────────────────────────────────────────────── */
+const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function dateToISO(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function monthLabel(year, month) {
+  return `${MONTH_NAMES[month]} ${year}`;
+}
+
+function postFromRow(r) {
+  const met = r.metricas ?? {};
+  return {
+    id: r.id,
+    data: r.data,
+    redes: r.redes ?? [],
+    titulo: r.titulo ?? '',
+    status: r.status ?? 'ideia',
+    formato: r.formato ?? 'Feed',
+    conteudo: r.conteudo ?? '',
+    imagemUrl: r.imagem_url ?? null,
+    metricas: { alcance: met.alcance ?? '', curtidas: met.curtidas ?? '', comentarios: met.comentarios ?? '' },
+    horario: met.horario ?? '12:00',
+  };
+}
+
+function postToRow(p) {
+  return {
+    data: p.data,
+    redes: p.redes ?? [],
+    titulo: p.titulo ?? '',
+    status: p.status ?? 'ideia',
+    formato: p.formato ?? 'Feed',
+    conteudo: p.conteudo ?? '',
+    imagem_url: p.imagemUrl ?? null,
+    metricas: {
+      alcance: p.metricas?.alcance ?? '',
+      curtidas: p.metricas?.curtidas ?? '',
+      comentarios: p.metricas?.comentarios ?? '',
+      horario: p.horario ?? '12:00',
+    },
+  };
+}
 
 /* ─── Components ─────────────────────────────────────────────────────────────── */
 function MiniBar({ value, max, color }) {
@@ -195,14 +244,13 @@ function RedeDetail({ rede }) {
 }
 
 /* ─── Calendar ───────────────────────────────────────────────────────────────── */
-function CalendarCell({ day, posts, onPostClick, onNewPost }) {
+function CalendarCell({ day, isoDate, posts, onPostClick, isToday, curMonthLabel }) {
   const { openAI } = useUI();
-  const isToday = day === 22;
   return (
     <div style={{ minHeight: 90, background: isToday ? 'color-mix(in srgb, var(--accent) 8%, var(--bg2))' : 'var(--bg2)', border: `1px solid ${isToday ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ fontSize: 11, fontWeight: isToday ? 600 : 400, color: isToday ? 'var(--accent)' : 'var(--text3)', marginBottom: 2 }}>{day}</div>
       {posts.map((p) => {
-        const redeId = (p.redes && p.redes[0]) || p.rede;
+        const redeId = p.redes && p.redes[0];
         const rede = REDES.find((r) => r.id === redeId);
         const st   = POST_STATUS[p.status] || POST_STATUS.ideia;
         return (
@@ -214,7 +262,7 @@ function CalendarCell({ day, posts, onPostClick, onNewPost }) {
         );
       })}
       {posts.length === 0 && (
-        <button onClick={() => openAI(`Sugira um conteúdo para postar nas redes sociais no dia ${day} de ${MONTH_NAME}. Empresa B2B para PMEs brasileiras. Sugestões para: Instagram (carrossel ou reels) e LinkedIn (artigo ou post). Inclua: tema, formato, legenda de exemplo e hashtags relevantes.`)}
+        <button onClick={() => openAI(`Sugira um conteúdo para postar nas redes sociais no dia ${day} de ${curMonthLabel}. Empresa B2B para PMEs brasileiras. Sugestões para: Instagram (carrossel ou reels) e LinkedIn (artigo ou post). Inclua: tema, formato, legenda de exemplo e hashtags relevantes.`)}
           style={{ marginTop: 'auto', opacity: 0, transition: 'opacity .15s', padding: '2px 4px', borderRadius: 4, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text3)', fontSize: 9, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
           onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
           onMouseLeave={(e) => e.currentTarget.style.opacity = 0}>
@@ -225,19 +273,33 @@ function CalendarCell({ day, posts, onPostClick, onNewPost }) {
   );
 }
 
-function CalendarGrid({ posts, filterRede, onPostClick }) {
+function CalendarGrid({ posts, filterRede, onPostClick, viewDate }) {
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay();
+  const todayStr = todayISO();
+  const curMonthLabel = monthLabel(year, month);
+
   const postsByDay = {};
   posts.forEach((p) => {
-    const redeIds = p.redes || [p.rede];
+    if (!p.data) return;
+    const parts = p.data.split('-');
+    if (parseInt(parts[0]) !== year || parseInt(parts[1]) !== month + 1) return;
+    const redeIds = p.redes || [];
     if (filterRede !== 'todas' && !redeIds.includes(filterRede)) return;
-    if (!postsByDay[p.day]) postsByDay[p.day] = [];
-    postsByDay[p.day].push(p);
+    const d = parseInt(parts[2]);
+    if (!postsByDay[d]) postsByDay[d] = [];
+    postsByDay[d].push(p);
   });
 
   const DOW = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   const cells = [];
-  for (let i = 0; i < FIRST_DAY_DOW; i++) cells.push({ empty: true, key: `e${i}` });
-  for (let d = 1; d <= DAYS_IN_MONTH; d++) cells.push({ day: d, posts: postsByDay[d] ?? [] });
+  for (let i = 0; i < firstDow; i++) cells.push({ empty: true, key: `e${i}` });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isoDate = dateToISO(year, month, d);
+    cells.push({ day: d, isoDate, posts: postsByDay[d] ?? [], isToday: isoDate === todayStr });
+  }
 
   return (
     <div>
@@ -250,7 +312,7 @@ function CalendarGrid({ posts, filterRede, onPostClick }) {
         {cells.map((cell) =>
           cell.empty
             ? <div key={cell.key} />
-            : <CalendarCell key={cell.day} day={cell.day} posts={cell.posts} onPostClick={onPostClick} />
+            : <CalendarCell key={cell.day} day={cell.day} isoDate={cell.isoDate} posts={cell.posts} isToday={cell.isToday} curMonthLabel={curMonthLabel} onPostClick={onPostClick} />
         )}
       </div>
     </div>
@@ -276,11 +338,12 @@ function PostModal({ post, onSave, onDelete, onDuplicate, onClose, openAI }) {
   const fileRef = useRef(null);
   const isEdit = !!post?.id;
   const [form, setForm] = useState(() => ({
-    titulo: '', legenda: '', redes: ['instagram'], day: 23,
+    titulo: '', conteudo: '', redes: ['instagram'],
+    data: todayISO(),
     horario: '12:00', formato: 'Feed', status: 'ideia',
-    imagem: null, metricas: { alcance: '', curtidas: '', comentarios: '' },
+    imagemUrl: null, metricas: { alcance: '', curtidas: '', comentarios: '' },
     ...post,
-    redes: post?.redes || (post?.rede ? [post.rede] : ['instagram']),
+    redes: post?.redes?.length ? post.redes : ['instagram'],
   }));
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -290,13 +353,13 @@ function PostModal({ post, onSave, onDelete, onDuplicate, onClose, openAI }) {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => set('imagem', ev.target.result);
+    reader.onload = ev => set('imagemUrl', ev.target.result);
     reader.readAsDataURL(file);
   }
 
   function handleAI() {
     const labels = form.redes.map(id => REDES.find(r => r.id === id)?.label || id).join(', ');
-    openAI(`Crie um post para ${labels}. Formato: ${form.formato}. Data: dia ${form.day}. ${form.titulo ? `Tema: ${form.titulo}.` : ''} Gere: título chamativo, legenda completa com CTA e 5 hashtags para empresa B2B de serviços para PMEs.`);
+    openAI(`Crie um post para ${labels}. Formato: ${form.formato}. Data: ${form.data}. ${form.titulo ? `Tema: ${form.titulo}.` : ''} Gere: título chamativo, legenda completa com CTA e 5 hashtags para empresa B2B de serviços para PMEs.`);
     onClose();
   }
 
@@ -335,8 +398,8 @@ function PostModal({ post, onSave, onDelete, onDuplicate, onClose, openAI }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>DIA DO MÊS</label>
-              <input type="number" min={1} max={31} style={inp} value={form.day} onChange={e => set('day', Number(e.target.value))} />
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>DATA</label>
+              <input type="date" style={inp} value={form.data} onChange={e => set('data', e.target.value)} />
             </div>
             <div>
               <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>HORÁRIO</label>
@@ -359,10 +422,10 @@ function PostModal({ post, onSave, onDelete, onDuplicate, onClose, openAI }) {
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>IMAGEM</label>
-            {form.imagem ? (
+            {form.imagemUrl ? (
               <div style={{ position: 'relative' }}>
-                <img src={form.imagem} alt="" style={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 8 }} />
-                <button onClick={() => set('imagem', null)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}><X size={12} /></button>
+                <img src={form.imagemUrl} alt="" style={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 8 }} />
+                <button onClick={() => set('imagemUrl', null)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}><X size={12} /></button>
               </div>
             ) : (
               <button onClick={() => fileRef.current?.click()} style={{ width: '100%', padding: 14, borderRadius: 8, background: 'var(--bg3)', border: '1px dashed var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
@@ -412,21 +475,32 @@ function PostModal({ post, onSave, onDelete, onDuplicate, onClose, openAI }) {
 }
 
 /* ─── Week View ──────────────────────────────────────────────────────────────── */
-const WEEK_DAYS = [
-  { day: 18, label: 'Seg 18' }, { day: 19, label: 'Ter 19' }, { day: 20, label: 'Qua 20' },
-  { day: 21, label: 'Qui 21' }, { day: 22, label: 'Sex 22' }, { day: 23, label: 'Sáb 23' }, { day: 24, label: 'Dom 24' },
-];
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
+const DOW_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 function WeekView({ posts, filterRede, onPostClick }) {
-  const filtered = posts.filter(p => filterRede === 'todas' || (p.redes || [p.rede]).includes(filterRede));
+  const today = new Date();
+  const dow = today.getDay();
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + mondayOffset);
+  const todayStr = todayISO();
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const iso = dateToISO(d.getFullYear(), d.getMonth(), d.getDate());
+    return { iso, label: `${DOW_SHORT[d.getDay()]} ${d.getDate()}`, isToday: iso === todayStr };
+  });
+
+  const filtered = posts.filter(p => filterRede === 'todas' || (p.redes || []).includes(filterRede));
   return (
     <div style={{ overflowX: 'auto' }}>
       <div style={{ minWidth: 700 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '44px repeat(7,1fr)', gap: 2, marginBottom: 2 }}>
           <div />
-          {WEEK_DAYS.map(({ day, label }) => (
-            <div key={day} style={{ textAlign: 'center', fontSize: 11, fontWeight: day === 22 ? 600 : 400, color: day === 22 ? 'var(--accent)' : 'var(--text3)', padding: '5px 4px', background: day === 22 ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent', borderRadius: 6 }}>
+          {weekDays.map(({ iso, label, isToday }) => (
+            <div key={iso} style={{ textAlign: 'center', fontSize: 11, fontWeight: isToday ? 600 : 400, color: isToday ? 'var(--accent)' : 'var(--text3)', padding: '5px 4px', background: isToday ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent', borderRadius: 6 }}>
               {label}
             </div>
           ))}
@@ -434,12 +508,12 @@ function WeekView({ posts, filterRede, onPostClick }) {
         {HOURS.map(h => (
           <div key={h} style={{ display: 'grid', gridTemplateColumns: '44px repeat(7,1fr)', gap: 2, marginBottom: 2 }}>
             <div style={{ fontSize: 10, color: 'var(--text3)', paddingTop: 6, textAlign: 'right', paddingRight: 8 }}>{h}h</div>
-            {WEEK_DAYS.map(({ day }) => {
-              const cell = filtered.filter(p => p.day === day && p.horario && parseInt(p.horario) === h);
+            {weekDays.map(({ iso, isToday }) => {
+              const cell = filtered.filter(p => p.data === iso && p.horario && parseInt(p.horario) === h);
               return (
-                <div key={day} style={{ minHeight: 34, background: day === 22 ? 'color-mix(in srgb, var(--accent) 4%, var(--bg2))' : 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 5, padding: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div key={iso} style={{ minHeight: 34, background: isToday ? 'color-mix(in srgb, var(--accent) 4%, var(--bg2))' : 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 5, padding: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {cell.map(p => {
-                    const redeId = (p.redes && p.redes[0]) || p.rede;
+                    const redeId = p.redes && p.redes[0];
                     const rede = REDES.find(r => r.id === redeId);
                     const st = POST_STATUS[p.status] || POST_STATUS.ideia;
                     return (
@@ -463,8 +537,12 @@ function WeekView({ posts, filterRede, onPostClick }) {
 /* ─── List View ──────────────────────────────────────────────────────────────── */
 function ListView({ posts, filterRede, onPostClick }) {
   const filtered = [...posts]
-    .filter(p => filterRede === 'todas' || (p.redes || [p.rede]).includes(filterRede))
-    .sort((a, b) => (a.day * 100 + parseInt(a.horario || '0')) - (b.day * 100 + parseInt(b.horario || '0')));
+    .filter(p => filterRede === 'todas' || (p.redes || []).includes(filterRede))
+    .sort((a, b) => {
+      const da = (a.data || '') + (a.horario || '00:00');
+      const db = (b.data || '') + (b.horario || '00:00');
+      return da.localeCompare(db);
+    });
 
   if (filtered.length === 0) return (
     <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>Nenhum post encontrado.</div>
@@ -473,15 +551,16 @@ function ListView({ posts, filterRede, onPostClick }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {filtered.map(p => {
-        const redes = (p.redes || [p.rede]).map(id => REDES.find(r => r.id === id)).filter(Boolean);
+        const redes = (p.redes || []).map(id => REDES.find(r => r.id === id)).filter(Boolean);
         const st = POST_STATUS[p.status] || POST_STATUS.ideia;
+        const dayNum = p.data ? parseInt(p.data.split('-')[2]) : '--';
         return (
           <div key={p.id} onClick={() => onPostClick(p)}
             style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'border-color .15s' }}
             onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border2)'}
             onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
             <div style={{ width: 38, textAlign: 'center', flexShrink: 0 }}>
-              <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-display)', lineHeight: 1 }}>{p.day}</div>
+              <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-display)', lineHeight: 1 }}>{dayNum}</div>
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>{p.horario || '--:--'}</div>
             </div>
             <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
@@ -496,7 +575,7 @@ function ListView({ posts, filterRede, onPostClick }) {
                 {p.formato && <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {p.formato}</span>}
               </div>
             </div>
-            {p.imagem && <img src={p.imagem} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
+            {p.imagemUrl && <img src={p.imagemUrl} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
             <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, background: st.bg, color: st.color, flexShrink: 0 }}>{st.label}</span>
           </div>
         );
@@ -594,8 +673,9 @@ function ConexaoCard({ rede, connection, onConnect, onDisconnect }) {
 /* ─── Page ───────────────────────────────────────────────────────────────────── */
 export default function RedesSociais() {
   const { openAI } = useUI();
-  const [activeRede,   setActiveRede]   = useState('instagram');
-  const [activeTab,    setActiveTab]    = useState('metricas');
+  const { empresaId } = useAuth();
+  const [activeRede,    setActiveRede]    = useState('instagram');
+  const [activeTab,     setActiveTab]     = useState('metricas');
   const [filterCalRede, setFilterCalRede] = useState('todas');
 
   const [connections, setConnections] = useState(() => {
@@ -605,32 +685,81 @@ export default function RedesSociais() {
   const [oauthModal, setOauthModal] = useState(null);
   const [oauthStep,  setOauthStep]  = useState('idle');
 
-  const [calPosts, setCalPosts] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cal_posts');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return CALENDAR_POSTS.map(p => ({ legenda: '', redes: [p.rede], horario: '12:00', imagem: null, metricas: { alcance: '', curtidas: '', comentarios: '' }, ...p }));
-  });
-  const [calView,  setCalView]  = useState('mensal');
-  const [postModal, setPostModal] = useState(null);
+  const [calPosts,     setCalPosts]     = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [viewDate,     setViewDate]     = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [calView,      setCalView]      = useState('mensal');
+  const [postModal,    setPostModal]    = useState(null);
 
-  function saveCalPosts(next) { setCalPosts(next); localStorage.setItem('cal_posts', JSON.stringify(next)); }
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    async function load() {
+      const { data } = await supabase
+        .from('redes_posts')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .order('data', { ascending: true });
+      if (cancelled) return;
+      let rows = data ?? [];
+      if (rows.length === 0) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth();
+        const seedRows = CALENDAR_POSTS.map(p => ({
+          data: dateToISO(y, m, p.day),
+          redes: [p.rede],
+          titulo: p.titulo,
+          status: p.status,
+          formato: p.formato,
+          conteudo: '',
+          imagem_url: null,
+          metricas: { alcance: '', curtidas: '', comentarios: '', horario: '12:00' },
+        }));
+        const { data: ins } = await supabase.from('redes_posts').insert(seedRows).select();
+        if (cancelled) return;
+        rows = ins ?? [];
+      }
+      if (!cancelled) {
+        setCalPosts(rows.map(postFromRow));
+        setLoadingPosts(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [empresaId]);
 
-  function handlePostSave(form) {
-    if (postModal?.mode === 'edit') {
-      saveCalPosts(calPosts.map(p => p.id === form.id ? { ...form, rede: form.redes[0] } : p));
+  async function handlePostSave(form) {
+    const row = postToRow(form);
+    if (form.id) {
+      const { data } = await supabase.from('redes_posts').update({ ...row, atualizado_em: new Date().toISOString() }).eq('id', form.id).select().single();
+      if (data) setCalPosts(prev => prev.map(p => p.id === form.id ? postFromRow(data) : p));
     } else {
-      saveCalPosts([...calPosts, { ...form, id: `u${Date.now()}`, rede: form.redes[0] }]);
+      const { data } = await supabase.from('redes_posts').insert(row).select().single();
+      if (data) setCalPosts(prev => [...prev, postFromRow(data)]);
     }
     setPostModal(null);
   }
-  function handlePostDelete(id) { saveCalPosts(calPosts.filter(p => p.id !== id)); setPostModal(null); }
-  function handlePostDuplicate(form) {
-    saveCalPosts([...calPosts, { ...form, id: `u${Date.now()}`, day: Math.min(31, form.day + 1) }]);
+
+  async function handlePostDelete(id) {
+    await supabase.from('redes_posts').delete().eq('id', id);
+    setCalPosts(prev => prev.filter(p => p.id !== id));
     setPostModal(null);
   }
+
+  async function handlePostDuplicate(form) {
+    const d = new Date(form.data + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    const row = postToRow({ ...form, data: dateToISO(d.getFullYear(), d.getMonth(), d.getDate()) });
+    const { data } = await supabase.from('redes_posts').insert(row).select().single();
+    if (data) setCalPosts(prev => [...prev, postFromRow(data)]);
+    setPostModal(null);
+  }
+
   function handlePostClick(post) { setPostModal({ mode: 'edit', post }); }
+
+  function prevMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
+  function nextMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); }
 
   function handleConnect(redeId) {
     setOauthModal(redeId);
@@ -668,7 +797,8 @@ export default function RedesSociais() {
 
   const totalSeguidores = REDES.reduce((s, r) => s + r.seguidores, 0);
   const avgEngajamento  = (REDES.reduce((s, r) => s + r.engajamento, 0) / REDES.length).toFixed(1);
-  const postsThisMonth  = CALENDAR_POSTS.filter((p) => p.status === 'publicado').length;
+  const postsThisMonth  = calPosts.filter(p => p.status === 'publicado').length;
+  const curMonthLabel   = monthLabel(viewDate.getFullYear(), viewDate.getMonth());
 
   return (
     <div style={{ padding: '24px', fontFamily: 'var(--font-body)', color: 'var(--text)' }}>
@@ -706,7 +836,7 @@ export default function RedesSociais() {
         <div style={{ marginLeft: 'auto', marginBottom: 8 }}>
           <PermissionGate module="redes" action="edit">
             <button
-              onClick={() => openAI(`Crie um plano de conteúdo para ${MONTH_NAME} para empresa B2B de serviços para PMEs. Inclua: 1 tema por semana, sugestões de posts para Instagram e LinkedIn, formatos recomendados, horários de publicação e hashtags relevantes.`)}
+              onClick={() => openAI(`Crie um plano de conteúdo para ${curMonthLabel} para empresa B2B de serviços para PMEs. Inclua: 1 tema por semana, sugestões de posts para Instagram e LinkedIn, formatos recomendados, horários de publicação e hashtags relevantes.`)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 13px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
               <Bot size={13} /> Plano com IA
             </button>
@@ -758,9 +888,13 @@ export default function RedesSociais() {
       {/* Calendário tab */}
       {activeTab === 'calendario' && (
         <div>
-          {/* Calendar header row 1: title + new post + AI */}
+          {/* Calendar header row 1: month nav + new post + AI */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{MONTH_NAME}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button onClick={prevMonth} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>‹</button>
+              <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', minWidth: 140, textAlign: 'center' }}>{curMonthLabel}</div>
+              <button onClick={nextMonth} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>›</button>
+            </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <PermissionGate module="redes" action="edit">
                 <button onClick={() => setPostModal({ mode: 'create', post: null })}
@@ -769,7 +903,7 @@ export default function RedesSociais() {
                 </button>
               </PermissionGate>
               <PermissionGate module="redes" action="edit">
-                <button onClick={() => openAI(`Crie conteúdo para completar o calendário editorial de ${MONTH_NAME}. Empresa B2B de serviços para PMEs. Sugira posts para os dias sem publicação agendada, misturando Instagram (carrossel, reels) e LinkedIn (artigo, post). Formato: dia, rede, tipo de conteúdo, título e 2 linhas de contexto.`)}
+                <button onClick={() => openAI(`Crie conteúdo para completar o calendário editorial de ${curMonthLabel}. Empresa B2B de serviços para PMEs. Sugira posts para os dias sem publicação agendada, misturando Instagram (carrossel, reels) e LinkedIn (artigo, post). Formato: dia, rede, tipo de conteúdo, título e 2 linhas de contexto.`)}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                   <Bot size={12} /> Completar com IA
                 </button>
@@ -800,20 +934,24 @@ export default function RedesSociais() {
             </div>
           </div>
 
-          {calView === 'mensal' && (
+          {loadingPosts ? <SkeletonLoader rows={6} /> : (
             <>
-              <Legend />
-              <CalendarGrid posts={calPosts} filterRede={filterCalRede} onPostClick={handlePostClick} />
+              {calView === 'mensal' && (
+                <>
+                  <Legend />
+                  <CalendarGrid posts={calPosts} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} />
+                </>
+              )}
+              {calView === 'semanal' && (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>Semana atual</div>
+                  <WeekView posts={calPosts} filterRede={filterCalRede} onPostClick={handlePostClick} />
+                </>
+              )}
+              {calView === 'lista' && (
+                <ListView posts={calPosts} filterRede={filterCalRede} onPostClick={handlePostClick} />
+              )}
             </>
-          )}
-          {calView === 'semanal' && (
-            <>
-              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>Semana: 18–24 de {MONTH_NAME}</div>
-              <WeekView posts={calPosts} filterRede={filterCalRede} onPostClick={handlePostClick} />
-            </>
-          )}
-          {calView === 'lista' && (
-            <ListView posts={calPosts} filterRede={filterCalRede} onPostClick={handlePostClick} />
           )}
         </div>
       )}
