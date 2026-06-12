@@ -113,7 +113,7 @@ function postFromRow(r) {
     conteudo: r.conteudo ?? '',
     imagemUrl: r.imagem_url ?? null,
     metricas: { alcance: met.alcance ?? '', curtidas: met.curtidas ?? '', comentarios: met.comentarios ?? '' },
-    horario: met.horario ?? '12:00',
+    horario: r.hora ?? met.horario ?? '12:00',
   };
 }
 
@@ -126,11 +126,11 @@ function postToRow(p) {
     formato: p.formato ?? 'Feed',
     conteudo: p.conteudo ?? '',
     imagem_url: p.imagemUrl ?? null,
+    hora: p.horario ?? '12:00',
     metricas: {
       alcance: p.metricas?.alcance ?? '',
       curtidas: p.metricas?.curtidas ?? '',
       comentarios: p.metricas?.comentarios ?? '',
-      horario: p.horario ?? '12:00',
     },
   };
 }
@@ -714,7 +714,8 @@ export default function RedesSociais() {
           formato: p.formato,
           conteudo: '',
           imagem_url: null,
-          metricas: { alcance: '', curtidas: '', comentarios: '', horario: '12:00' },
+          hora: '12:00',
+          metricas: { alcance: '', curtidas: '', comentarios: '' },
         }));
         const { data: ins } = await supabase.from('redes_posts').insert(seedRows).select();
         if (cancelled) return;
