@@ -12,6 +12,9 @@ Um departamento comercial organizado não precisa ser caro nem complexo. Começa
 
 Este guia foi construído para ser prático. Cada capítulo tem teoria suficiente para embasar a decisão, e checklists diretos para você agir. Complete um capítulo por semana e, em dois meses, sua operação comercial terá uma estrutura real.`,
     checklist: [
+      { id: 'c0-missao', texto: 'Escreva a missão da sua empresa: por que ela existe, além de gerar dinheiro? (1 frase simples, sem texto corporativo)', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Identidade da Empresa', campo: 'missao' } },
+      { id: 'c0-visao', texto: 'Escreva a visão: onde você quer que sua empresa esteja daqui a 3 anos?', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Identidade da Empresa', campo: 'visao' } },
+      { id: 'c0-valores', texto: 'Defina os valores: quais princípios guiam as decisões da sua empresa? (3 a 5 palavras ou frases curtas)', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Identidade da Empresa', campo: 'valores' } },
       { id: 'c0-1', texto: 'Identifique as principais dores atuais: vendas estagnadas, comunicação inconsistente ou falta de leads?', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Identidade da Empresa', campo: 'dores_principais' } },
       { id: 'c0-2', texto: 'Defina 1 meta simples e mensurável para os próximos 3 meses (ex: +20% em leads qualificados)', concluido: false, destino: { modulo: 'kpis', secao: 'okrs', campo: 'meta_3_meses' } },
       { id: 'c0-3', texto: 'Avalie o orçamento disponível: freelancers a partir de R$500/mês ou contratação full-time?', concluido: false, destino: { modulo: 'diretorio', arquivo: 'Identidade da Empresa', campo: 'orcamento_inicial' } },
