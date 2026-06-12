@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Search, AlertTriangle, CheckCircle2, Clock, Loader2,
-  ChevronDown, User, Calendar, Flag, Star,
+  ChevronDown, User, Calendar, Flag, Star, Plus, X,
 } from 'lucide-react';
 import { useAuth } from '../store/auth.js';
 import { supabase } from '../services/supabase.js';
@@ -102,6 +102,7 @@ function ticketFromRow(r) {
     prioridade: r.prioridade,
     status: r.status,
     cliente: r.cliente ?? null,
+    clienteId: r.cliente_id ?? null,
     responsavel: { nome: r.responsavel_nome ?? '', avatar: r.responsavel_avatar ?? '' },
     abertura: r.abertura,
     prazo: r.prazo,
@@ -119,6 +120,7 @@ function ticketToRow(t) {
     prioridade: t.prioridade,
     status: t.status,
     cliente: t.cliente ?? null,
+    cliente_id: t.clienteId ?? null,
     responsavel_nome: t.responsavel?.nome ?? '',
     responsavel_avatar: t.responsavel?.avatar ?? '',
     abertura: t.abertura,
@@ -126,6 +128,16 @@ function ticketToRow(t) {
     descricao: t.descricao ?? '',
     csat: t.csat ?? { nota: null, comentario: '', data: null, avaliado: false },
   };
+}
+
+function makeAvatar(nome) {
+  return (nome || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || 'U';
+}
+
+function nextNum(tickets) {
+  if (tickets.length === 0) return '001';
+  const max = Math.max(...tickets.map(t => parseInt(t.num, 10) || 0));
+  return String(max + 1).padStart(3, '0');
 }
 
 const TODAY = new Date().toISOString().split('T')[0];
@@ -390,6 +402,162 @@ function TicketCard({ ticket, onEvaluate }) {
   );
 }
 
+/* ─── Novo Ticket Modal ──────────────────────────────────────────────────────── */
+function NovoTicketModal({ onSave, onClose, empresaId }) {
+  const [tipo,           setTipo]           = useState('externo');
+  const [titulo,         setTitulo]         = useState('');
+  const [clienteId,      setClienteId]      = useState('');
+  const [clienteNome,    setClienteNome]    = useState('');
+  const [categoria,      setCategoria]      = useState('suporte');
+  const [prioridade,     setPrioridade]     = useState('media');
+  const [prazo,          setPrazo]          = useState('');
+  const [descricao,      setDescricao]      = useState('');
+  const [responsavelNome,setResponsavelNome]= useState('');
+  const [clientes,       setClientes]       = useState([]);
+  const [saving,         setSaving]         = useState(false);
+  const [erro,           setErro]           = useState('');
+
+  useEffect(() => {
+    if (tipo !== 'externo' || !empresaId) return;
+    supabase.from('clientes').select('id, company').eq('empresa_id', empresaId).order('company').then(({ data }) => {
+      if (data) setClientes(data);
+    });
+  }, [tipo, empresaId]);
+
+  async function handleSave() {
+    if (!titulo.trim()) { setErro('Título é obrigatório.'); return; }
+    if (tipo === 'externo' && !clienteId) { setErro('Selecione um cliente.'); return; }
+    setSaving(true);
+    setErro('');
+    await onSave({ tipo, titulo: titulo.trim(), clienteId: tipo === 'externo' ? clienteId : null, clienteNome: tipo === 'externo' ? clienteNome : null, categoria, prioridade, prazo, descricao: descricao.trim(), responsavelNome: responsavelNome.trim() });
+    setSaving(false);
+  }
+
+  const inp = {
+    background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8,
+    padding: '8px 12px', fontSize: 13, color: 'var(--text)',
+    fontFamily: 'var(--font-body)', width: '100%', boxSizing: 'border-box', outline: 'none',
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 520, maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg2)', zIndex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Novo chamado</div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4, display: 'flex' }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+          {/* Tipo */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>TIPO</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[['externo', 'Externo (cliente)', 'suporte'], ['interno', 'Interno (equipe)', 'comercial']].map(([v, lbl, catDefault]) => (
+                <button key={v} onClick={() => { setTipo(v); setClienteId(''); setClienteNome(''); setCategoria(catDefault); }}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .12s', border: '1px solid', background: tipo === v ? 'rgba(91,110,245,0.15)' : 'transparent', borderColor: tipo === v ? 'var(--accent)' : 'var(--border)', color: tipo === v ? 'var(--accent2)' : 'var(--text3)' }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Título */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>TÍTULO <span style={{ color: 'var(--red)' }}>*</span></label>
+            <input style={inp} value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Descreva o chamado brevemente..." />
+          </div>
+
+          {/* Cliente (externo only) */}
+          {tipo === 'externo' && (
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>CLIENTE <span style={{ color: 'var(--red)' }}>*</span></label>
+              <div style={{ position: 'relative' }}>
+                <select style={{ ...inp, cursor: 'pointer', appearance: 'none', paddingRight: 30 }}
+                  value={clienteId}
+                  onChange={e => {
+                    const opt = clientes.find(c => c.id === e.target.value);
+                    setClienteId(e.target.value);
+                    setClienteNome(opt?.company ?? '');
+                  }}>
+                  <option value="">Selecione um cliente...</option>
+                  {clientes.map(c => <option key={c.id} value={c.id}>{c.company}</option>)}
+                </select>
+                <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+              </div>
+            </div>
+          )}
+
+          {/* Categoria + Prioridade */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>CATEGORIA</label>
+              <div style={{ position: 'relative' }}>
+                <select style={{ ...inp, cursor: 'pointer', appearance: 'none', paddingRight: 30 }} value={categoria} onChange={e => setCategoria(e.target.value)}>
+                  {tipo === 'externo'
+                    ? [['suporte','Suporte'],['financeiro','Financeiro'],['comercial','Comercial']].map(([v,l]) => <option key={v} value={v}>{l}</option>)
+                    : [['comercial','Comercial'],['produto','Produto'],['interno','Interno']].map(([v,l]) => <option key={v} value={v}>{l}</option>)
+                  }
+                </select>
+                <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>PRIORIDADE</label>
+              <div style={{ position: 'relative' }}>
+                <select style={{ ...inp, cursor: 'pointer', appearance: 'none', paddingRight: 30 }} value={prioridade} onChange={e => setPrioridade(e.target.value)}>
+                  <option value="baixa">Baixa</option>
+                  <option value="media">Média</option>
+                  <option value="alta">Alta</option>
+                </select>
+                <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Prazo */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>PRAZO</label>
+            <input type="date" style={inp} value={prazo} onChange={e => setPrazo(e.target.value)} min={TODAY} />
+          </div>
+
+          {/* Responsável */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>RESPONSÁVEL</label>
+            <input style={inp} value={responsavelNome} onChange={e => setResponsavelNome(e.target.value)} placeholder="Nome do responsável..." />
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>DESCRIÇÃO</label>
+            <textarea style={{ ...inp, minHeight: 80, resize: 'vertical', lineHeight: 1.5 }} value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Detalhes do chamado..." />
+          </div>
+
+          {erro && (
+            <div style={{ fontSize: 12, color: 'var(--red)', background: 'rgba(240,92,92,0.08)', border: '1px solid rgba(240,92,92,0.25)', borderRadius: 8, padding: '8px 12px' }}>
+              {erro}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8, position: 'sticky', bottom: 0, background: 'var(--bg2)' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+            Cancelar
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: saving ? 'default' : 'pointer', fontFamily: 'var(--font-body)', background: saving ? 'var(--bg3)' : 'var(--accent)', border: 'none', color: saving ? 'var(--text3)' : '#fff' }}>
+            {saving ? 'Salvando...' : 'Abrir chamado'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 export default function Tickets() {
   const { empresaId } = useAuth();
@@ -399,6 +567,7 @@ export default function Tickets() {
     tipo: 'todos', status: 'todos', prioridade: 'todos', categoria: 'todos', busca: '',
   });
   const [ordem, setOrdem] = useState('mais_recente');
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (!empresaId) return;
@@ -434,6 +603,25 @@ export default function Tickets() {
     const newCsat = { nota: evaluation.nota, comentario: evaluation.comentario, data: evaluation.data, avaliado: true };
     setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, csat: { ...t.csat, ...newCsat } } : t));
     await supabase.from('tickets').update({ csat: newCsat, atualizado_em: new Date().toISOString() }).eq('id', ticketId);
+  }
+
+  async function handleCreate({ tipo, titulo, clienteId, clienteNome, categoria, prioridade, prazo, descricao, responsavelNome }) {
+    const num = nextNum(tickets);
+    const av  = makeAvatar(responsavelNome);
+    const row = {
+      num, titulo, tipo, categoria, prioridade, status: 'aberto',
+      cliente:             clienteNome ?? null,
+      cliente_id:          clienteId ?? null,
+      responsavel_nome:    responsavelNome,
+      responsavel_avatar:  av,
+      abertura: TODAY, prazo: prazo || null, descricao,
+      csat: { nota: null, comentario: '', data: null, avaliado: false },
+    };
+    const { data } = await supabase.from('tickets').insert(row).select().single();
+    if (data) {
+      setTickets(prev => [ticketFromRow(data), ...prev]);
+      setShowModal(false);
+    }
   }
 
   const metricas = useMemo(() => {
@@ -586,6 +774,11 @@ export default function Tickets() {
               { value: 'prioridade',   label: 'Prioridade' },
             ]}
           />
+          <button
+            onClick={() => setShowModal(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+            <Plus size={13} /> Novo chamado
+          </button>
         </div>
       </div>
 
@@ -598,6 +791,14 @@ export default function Tickets() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map(t => <TicketCard key={t.id} ticket={t} onEvaluate={handleEvaluate} />)}
         </div>
+      )}
+
+      {showModal && (
+        <NovoTicketModal
+          empresaId={empresaId}
+          onSave={handleCreate}
+          onClose={() => setShowModal(false)}
+        />
       )}
     </div>
   );
