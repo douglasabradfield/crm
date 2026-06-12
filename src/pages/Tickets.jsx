@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search, AlertTriangle, CheckCircle2, Clock, Loader2,
   ChevronDown, User, Calendar, Flag, Star,
 } from 'lucide-react';
-
-const LS_TICKETS = 'crm_tickets';
+import { useAuth } from '../store/auth.js';
+import { supabase } from '../services/supabase.js';
+import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 
 const MOCK_TICKETS = [
   // Externos
@@ -91,31 +92,43 @@ const MOCK_TICKETS = [
   },
 ];
 
-function normalizeTicket(t) {
-  if (t.csat) return t;
-  return { ...t, csat: { nota: null, comentario: '', data: null, avaliado: false } };
+function ticketFromRow(r) {
+  return {
+    id: r.id,
+    num: r.num,
+    titulo: r.titulo,
+    tipo: r.tipo,
+    categoria: r.categoria,
+    prioridade: r.prioridade,
+    status: r.status,
+    cliente: r.cliente ?? null,
+    responsavel: { nome: r.responsavel_nome ?? '', avatar: r.responsavel_avatar ?? '' },
+    abertura: r.abertura,
+    prazo: r.prazo,
+    descricao: r.descricao ?? '',
+    csat: r.csat ?? { nota: null, comentario: '', data: null, avaliado: false },
+  };
 }
 
-// Seed on module load so sidebar badge is immediately accurate
-(function () {
-  if (!localStorage.getItem(LS_TICKETS)) {
-    localStorage.setItem(LS_TICKETS, JSON.stringify(MOCK_TICKETS));
-  }
-})();
-
-function loadTickets() {
-  try {
-    const saved = localStorage.getItem(LS_TICKETS);
-    const base = saved ? JSON.parse(saved) : MOCK_TICKETS;
-    return base.map(normalizeTicket);
-  } catch { return MOCK_TICKETS.map(normalizeTicket); }
+function ticketToRow(t) {
+  return {
+    num: t.num,
+    titulo: t.titulo,
+    tipo: t.tipo,
+    categoria: t.categoria,
+    prioridade: t.prioridade,
+    status: t.status,
+    cliente: t.cliente ?? null,
+    responsavel_nome: t.responsavel?.nome ?? '',
+    responsavel_avatar: t.responsavel?.avatar ?? '',
+    abertura: t.abertura,
+    prazo: t.prazo,
+    descricao: t.descricao ?? '',
+    csat: t.csat ?? { nota: null, comentario: '', data: null, avaliado: false },
+  };
 }
 
-function saveTickets(list) {
-  try { localStorage.setItem(LS_TICKETS, JSON.stringify(list)); } catch {}
-}
-
-const TODAY = '2026-05-24';
+const TODAY = new Date().toISOString().split('T')[0];
 
 function isVencido(ticket) {
   return ticket.status !== 'concluido' && ticket.prazo < TODAY;
@@ -379,24 +392,48 @@ function TicketCard({ ticket, onEvaluate }) {
 
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 export default function Tickets() {
-  const [tickets, setTickets] = useState(loadTickets);
+  const { empresaId } = useAuth();
+  const [tickets,        setTickets]        = useState([]);
+  const [loadingTickets, setLoadingTickets] = useState(true);
   const [filtros, setFiltros] = useState({
     tipo: 'todos', status: 'todos', prioridade: 'todos', categoria: 'todos', busca: '',
   });
   const [ordem, setOrdem] = useState('mais_recente');
 
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    async function load() {
+      const { data } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .order('criado_em', { ascending: false });
+      if (cancelled) return;
+      let rows = data ?? [];
+      if (rows.length === 0) {
+        const seedRows = MOCK_TICKETS.map(ticketToRow);
+        const { data: ins } = await supabase.from('tickets').insert(seedRows).select();
+        if (cancelled) return;
+        rows = ins ?? [];
+      }
+      if (!cancelled) {
+        setTickets(rows.map(ticketFromRow));
+        setLoadingTickets(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   function setFiltro(key, val) {
     setFiltros(f => ({ ...f, [key]: val }));
   }
 
-  function handleEvaluate(ticketId, evaluation) {
-    setTickets((prev) => {
-      const next = prev.map((t) =>
-        t.id === ticketId ? { ...t, csat: { ...t.csat, ...evaluation } } : t,
-      );
-      saveTickets(next);
-      return next;
-    });
+  async function handleEvaluate(ticketId, evaluation) {
+    const newCsat = { nota: evaluation.nota, comentario: evaluation.comentario, data: evaluation.data, avaliado: true };
+    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, csat: { ...t.csat, ...newCsat } } : t));
+    await supabase.from('tickets').update({ csat: newCsat, atualizado_em: new Date().toISOString() }).eq('id', ticketId);
   }
 
   const metricas = useMemo(() => {
@@ -444,6 +481,8 @@ export default function Tickets() {
 
     return list;
   }, [tickets, filtros, ordem]);
+
+  if (loadingTickets) return <SkeletonLoader rows={6} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
