@@ -11,6 +11,8 @@ import { useUI } from '../store/index.js';
 import { useAuth } from '../store/auth.js';
 import { useCRM } from '../store/crm.js';
 import { GUIA_CHAPTERS } from '../data/guia-chapters.js';
+import { supabase } from '../services/supabase.js';
+import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 
 /* ─── Guia edit context (avoids prop-drilling 4 levels deep) ─────────────────── */
 const GuiaCtx = createContext(null);
@@ -314,13 +316,6 @@ let _idSeq = Date.now();
 function genId(prefix = 'g') { return `${prefix}${_idSeq++}`; }
 
 /* ─── Customizations persistence ─────────────────────────────────────────────── */
-const LS_CUSTOMIZATIONS = 'superadmin_guia_customizations';
-
-function loadCustomizations() {
-  try { return JSON.parse(localStorage.getItem(LS_CUSTOMIZATIONS) ?? '{}') ?? {}; }
-  catch { return {}; }
-}
-
 function buildEffectiveChapters(customizations) {
   return GUIA_CHAPTERS.map((c) => {
     const meta = CAP_META[c.id] ?? {};
@@ -999,13 +994,6 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
 
 /* ─── ─────────────────────────────────────────────────────────────────────────── */
 
-const STORAGE_KEY = 'crm_guia_progresso';
-
-function loadProgress() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}'); }
-  catch { return {}; }
-}
-
 /* ─── Detect auto-completed tasks from system state ─────────────────────────── */
 function buildAutoChecked(leads) {
   const set = new Set();
@@ -1623,24 +1611,68 @@ function CapituloCard({ cap, progress, autoChecked, onToggle, onSaveComplete, on
 
 /* ─── Page ───────────────────────────────────────────────────────────────────── */
 export default function GuiaEstrategico() {
-  const { user }  = useAuth();
+  const { user, empresaId } = useAuth();
   const { leads } = useCRM();
 
   const isSuperAdmin = user?.role === 'superadmin';
 
   /* ── Progress state ── */
-  const [progress,  setProgress]  = useState(loadProgress);
-  const [openCap,   setOpenCap]   = useState('c0');
-  const [revision,  setRevision]  = useState(0);
+  const [progress,    setProgress]    = useState({});
+  const [loadingGuia, setLoadingGuia] = useState(true);
+  const [openCap,     setOpenCap]     = useState('c0');
+  const [revision,    setRevision]    = useState(0);
 
+  /* ── Load progress from Supabase ── */
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  }, [progress]);
+    if (!user?.id || !empresaId) return;
+    let cancelled = false;
+    supabase
+      .from('guia_progresso')
+      .select('progresso')
+      .eq('usuario_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setProgress(data?.progresso ?? {});
+        setLoadingGuia(false);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, empresaId]);
+
+  /* ── Persist progress to Supabase (debounced 800ms) ── */
+  useEffect(() => {
+    if (!user?.id || !empresaId || loadingGuia) return;
+    const timer = setTimeout(() => {
+      supabase
+        .from('guia_progresso')
+        .upsert(
+          { usuario_id: user.id, empresa_id: empresaId, progresso: progress, atualizado_em: new Date().toISOString() },
+          { onConflict: 'usuario_id' }
+        );
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [progress, user?.id, empresaId, loadingGuia]);
 
   /* ── Customizations state ── */
-  const [customizations, setCustomizations] = useState(() => loadCustomizations());
+  const [customizations, setCustomizations] = useState({});
   const [editMode,  setEditMode]  = useState(false);
   const [editDraft, setEditDraft] = useState({});
+
+  /* ── Load customizations from Supabase ── */
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase
+      .from('guia_customizacoes')
+      .select('customizacoes')
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setCustomizations(data?.customizacoes ?? {});
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
 
   /* ── Effective chapter/layer data ── */
   const CAPITULOS_EFFECTIVE = useMemo(
@@ -1751,8 +1783,14 @@ export default function GuiaEstrategico() {
         taskFormTypes,
       };
     });
-    saveLS(LS_CUSTOMIZATIONS, newCustomizations);
     setCustomizations(newCustomizations);
+    supabase
+      .from('guia_customizacoes')
+      .upsert(
+        { empresa_id: empresaId, customizacoes: newCustomizations, atualizado_em: new Date().toISOString() },
+        { onConflict: 'empresa_id' }
+      )
+      .then(({ error }) => { if (error) console.error('guia_customizacoes upsert:', error); });
     setEditMode(false);
     setEditDraft({});
   }
@@ -1763,7 +1801,13 @@ export default function GuiaEstrategico() {
     setCustomizations((prev) => {
       const next = { ...prev };
       delete next[capId];
-      saveLS(LS_CUSTOMIZATIONS, next);
+      supabase
+        .from('guia_customizacoes')
+        .upsert(
+          { empresa_id: empresaId, customizacoes: next, atualizado_em: new Date().toISOString() },
+          { onConflict: 'empresa_id' }
+        )
+        .then(({ error }) => { if (error) console.error('guia_customizacoes upsert:', error); });
       return next;
     });
     if (baseChap) {
@@ -1792,6 +1836,8 @@ export default function GuiaEstrategico() {
   const checkedItems = CAPITULOS_EFFECTIVE.reduce((s, c) => s + c.checklist.filter((item) => isChecked(c, item.id)).length, 0);
   const overallPct   = Math.round((checkedItems / totalItems) * 100);
   const capsComplete = CAPITULOS_EFFECTIVE.filter((c) => c.checklist.every((item) => isChecked(c, item.id))).length;
+
+  if (loadingGuia) return <SkeletonLoader rows={5} />;
 
   return (
     <GuiaCtx.Provider value={ctxValue}>
