@@ -86,6 +86,18 @@ const AUTO_DETECT_IDS = new Set(['c1-1', 'c1-2', 'c1-3', 'c1-4', 'c1-6', 'c2-1',
 /* ─── Three layers per task ──────────────────────────────────────────────────── */
 const TASK_LAYERS = {
   /* ── Introdução ── */
+  'c0-missao': {
+    porque: 'A missão é a base de tudo. Sem saber por que sua empresa existe, as decisões de venda, comunicação e contratação ficam sem direção. É a primeira coisa que dá clareza ao negócio.',
+    como: '1. Responda em uma frase: por que sua empresa existe, além de gerar dinheiro?\n2. Pense no problema que você resolve para o cliente.\n3. Evite texto corporativo — escreva como você explicaria para um amigo.',
+  },
+  'c0-visao': {
+    porque: 'A visão é o destino. Ela orienta para onde crescer e ajuda a decidir o que priorizar hoje para chegar lá em alguns anos.',
+    como: '1. Imagine sua empresa daqui a 3 anos: tamanho, reconhecimento, tipo de cliente.\n2. Escreva uma frase que descreva esse futuro de forma concreta.\n3. Deve ser ambiciosa, mas possível.',
+  },
+  'c0-valores': {
+    porque: 'Os valores guiam as decisões do dia a dia e o comportamento da equipe — especialmente quando você não está presente para decidir. São o filtro de como a empresa age.',
+    como: '1. Liste de 3 a 5 princípios inegociáveis do seu negócio.\n2. Pense em situações reais: como você espera que sua equipe trate um cliente difícil?\n3. Use palavras ou frases curtas (ex: honestidade, agilidade, respeito ao tempo do cliente).',
+  },
   'c0-1': {
     porque: 'Sem saber qual é o gargalo principal, você investe nas soluções erradas. A maioria das PMEs perde meses em múltiplas frentes antes de focar no problema real.',
     como: '1. Liste os 3 maiores problemas do seu comercial hoje.\n2. Pergunte para 2 clientes: "O que poderia ser melhor?"\n3. Identifique onde perde mais negócios: atração, conversão ou retenção?',
