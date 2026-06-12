@@ -1401,7 +1401,7 @@ function ChapterEditPanel({ cap, draft, onChange, onReset }) {
         {/* Checklist editor */}
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--purple)', letterSpacing: '0.07em', marginBottom: 10 }}>
-            CHECKLIST DE TAREFAS
+            TAREFAS
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {draft.checklist.map((item, idx) => (

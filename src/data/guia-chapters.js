@@ -223,7 +223,7 @@ CRM (do inglês Customer Relationship Management, ou Gestão do Relacionamento c
     proximoPasso: {
       modulo: 'crm',
       label: 'CRM',
-      mensagem: 'Agora configure seu pipeline no CRM — as etapas que você definiu no checklist já estão prontas para usar.',
+      mensagem: 'Agora configure seu pipeline no CRM — as etapas que você definiu nas tarefas já estão prontas para usar.',
       rota: '/crm',
     },
   },
