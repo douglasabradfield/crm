@@ -9,7 +9,10 @@ import {
 import { useUI } from '../store/index.js';
 import { useAI } from '../hooks/useAI.js';
 import { useCRM } from '../store/crm.js';
+import { useAuth } from '../store/auth.js';
 import PermissionGate from '../components/Auth/PermissionGate.jsx';
+import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
+import { supabase } from '../services/supabase.js';
 
 /* ─── Constants ──────────────────────────────────────────────────────────────── */
 
@@ -72,7 +75,7 @@ const KPIS_INIT = [
 
 const OKRS_INIT = [
   {
-    id: 'o1', ciclo: 'Trimestral', periodo: 'Q2 2026',
+    id: 'o1', ciclo: 'Trimestral', periodo: '2º trimestre de 2026',
     titulo: 'Tornar o comercial o principal motor de crescimento da empresa',
     krs: [
       { id: 'kr1', descricao: 'Atingir R$ 150k de receita mensal', atual: 127000, meta: 150000, unidade: 'R$', prazo: '2026-06-30', invertGoal: false },
@@ -82,7 +85,7 @@ const OKRS_INIT = [
     ],
   },
   {
-    id: 'o2', ciclo: 'Trimestral', periodo: 'Q2 2026',
+    id: 'o2', ciclo: 'Trimestral', periodo: '2º trimestre de 2026',
     titulo: 'Elevar a satisfação e retenção dos clientes atuais',
     krs: [
       { id: 'kr5', descricao: 'Aumentar NPS para 70+', atual: 67, meta: 70, unidade: 'pts', prazo: '2026-06-30', invertGoal: false },
@@ -181,6 +184,93 @@ function uid() { return `id-${Date.now()}-${Math.random().toString(36).slice(2, 
 
 function isOverdue(prazo) {
   return prazo && prazo < new Date().toISOString().split('T')[0];
+}
+
+/* ─── Row mappers ────────────────────────────────────────────────────────────── */
+
+function kpiFromRow(r) {
+  return {
+    id:         r.id,
+    nome:       r.nome,
+    tipo:       r.tipo,
+    calculo:    r.calculo,
+    fonte:      r.fonte,
+    valor:      r.valor,
+    meta:       r.meta,
+    tendencia:  r.tendencia,
+    prazo:      r.prazo,
+    frequencia: r.frequencia,
+    invertGoal: r.invert_goal,
+    descricao:  r.descricao,
+    formula:    r.formula,
+    exemplo:    r.exemplo,
+    ordem:      r.ordem,
+  };
+}
+
+function kpiToRow(k) {
+  return {
+    nome:        k.nome,
+    tipo:        k.tipo,
+    calculo:     k.calculo,
+    fonte:       k.fonte ?? null,
+    valor:       Number(k.valor) || 0,
+    meta:        Number(k.meta) || 0,
+    tendencia:   k.tendencia ?? 0,
+    prazo:       k.prazo || null,
+    frequencia:  k.frequencia,
+    invert_goal: k.invertGoal,
+    descricao:   k.descricao ?? '',
+    formula:     k.formula ?? '',
+    exemplo:     k.exemplo ?? '',
+  };
+}
+
+function okrFromRow(r) {
+  return { id: r.id, ciclo: r.ciclo, periodo: r.periodo, titulo: r.titulo, krs: r.krs ?? [] };
+}
+
+function okrToRow(o) {
+  return { ciclo: o.ciclo, periodo: o.periodo, titulo: o.titulo, krs: o.krs };
+}
+
+function projetoFromRow(r) {
+  return {
+    id:           r.id,
+    titulo:       r.titulo,
+    responsavel:  r.responsavel,
+    prazo:        r.prazo,
+    prioridade:   r.prioridade,
+    status:       r.status,
+    okrVinculado: r.okr_vinculado,
+    descricao:    r.descricao ?? '',
+    subtarefas:   r.subtarefas ?? [],
+  };
+}
+
+function projetoToRow(p) {
+  return {
+    titulo:        p.titulo,
+    responsavel:   p.responsavel ?? '',
+    prazo:         p.prazo || null,
+    prioridade:    p.prioridade,
+    status:        p.status,
+    okr_vinculado: p.okrVinculado || null,
+    descricao:     p.descricao ?? '',
+    subtarefas:    p.subtarefas,
+  };
+}
+
+function benchmarkFromRow(r) {
+  return {
+    id:          r.id,
+    kpi:         r.kpi,
+    sua:         r.sua,
+    bm:          r.bm,
+    unidade:     r.unidade,
+    prefix:      r.prefix,
+    maiorMelhor: r.maior_melhor,
+  };
 }
 
 /* ─── Small components ───────────────────────────────────────────────────────── */
@@ -465,7 +555,7 @@ function ManageKPIsModal({ kpis, onReorder, onDelete, onEdit, onAdd, onClose }) 
 /* ─── OKRFormModal ───────────────────────────────────────────────────────────── */
 
 function OKRFormModal({ okr, onSave, onClose }) {
-  const empty = { titulo: '', ciclo: 'Trimestral', periodo: 'Q3 2026', krs: [{ id: uid(), descricao: '', atual: '', meta: '', unidade: '', prazo: '', invertGoal: false }] };
+  const empty = { titulo: '', ciclo: 'Trimestral', periodo: '3º trimestre de 2026', krs: [{ id: uid(), descricao: '', atual: '', meta: '', unidade: '', prazo: '', invertGoal: false }] };
   const [form, setForm] = useState(okr ? { ...okr, krs: okr.krs.map(k => ({ ...k })) } : empty);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.titulo.trim() && form.krs.some(k => k.descricao.trim());
@@ -796,9 +886,8 @@ function MetricKPICard({ kpi, period, onHelp }) {
 
 /* ─── BenchmarkCard ──────────────────────────────────────────────────────────── */
 
-function BenchmarkCard({ kpis }) {
+function BenchmarkCard({ kpis, benchmarks }) {
   const { send, loading } = useAI();
-  const [benchmarks, setBenchmarks] = useState(BENCHMARKS_INIT);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [aiComment, setAiComment] = useState('');
@@ -890,8 +979,8 @@ Apresente faixas típicas (mínimo–máximo) e uma observação prática para c
           </thead>
           <tbody>
             {benchmarks.map((b, i) => {
-              const better = b.maior_melhor ? b.sua > b.bm : b.sua < b.bm;
-              const diff   = b.maior_melhor
+              const better = b.maiorMelhor ? b.sua > b.bm : b.sua < b.bm;
+              const diff   = b.maiorMelhor
                 ? ((b.sua - b.bm) / b.bm * 100).toFixed(1)
                 : ((b.bm - b.sua) / b.bm * 100).toFixed(1);
               const color  = better ? 'var(--green)' : 'var(--amber)';
@@ -1064,23 +1153,17 @@ function ProjectCard({ projeto, okrs, onEdit, onDelete, onToggleST }) {
 export default function KPIs() {
   const { openAI } = useUI();
   const { leads, clientes } = useCRM();
+  const { empresaId } = useAuth();
 
   const [tab,         setTab]         = useState('kpis');
   const [okrSubTab,   setOkrSubTab]   = useState('okrs');
   const [period,      setPeriod]      = useState('mes');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
-  const [kpis, setKpis] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('kpis_data') ?? 'null');
-      return Array.isArray(saved) && saved.length > 0 ? saved : KPIS_INIT;
-    } catch { return KPIS_INIT; }
-  });
-  const [okrs,        setOkrs]        = useState(OKRS_INIT);
-  const [projetos,    setProjetos]    = useState(PROJETOS_INIT);
-
-  useEffect(() => {
-    try { localStorage.setItem('kpis_data', JSON.stringify(kpis)); } catch {}
-  }, [kpis]);
+  const [kpis,        setKpis]        = useState([]);
+  const [okrs,        setOkrs]        = useState([]);
+  const [projetos,    setProjetos]    = useState([]);
+  const [benchmarks,  setBenchmarks]  = useState([]);
+  const [loadingKPIs, setLoadingKPIs] = useState(true);
 
   const [showManage,      setShowManage]      = useState(false);
   const [kpiForm,         setKpiForm]         = useState(null);  // null | 'new' | kpi object
@@ -1089,6 +1172,78 @@ export default function KPIs() {
   const [projectForm,     setProjectForm]     = useState(null);
   const [showExport,      setShowExport]      = useState(false);
   const [projFilter,      setProjFilter]      = useState({ status: 'todos', prioridade: 'todos', responsavel: '' });
+
+  useEffect(() => {
+    if (!empresaId) { setLoadingKPIs(false); return; }
+    let cancelled = false;
+
+    async function load() {
+      const [kpisRes, okrsRes, projRes, bmRes] = await Promise.all([
+        supabase.from('kpis').select('*').eq('empresa_id', empresaId).order('ordem', { ascending: true }),
+        supabase.from('okrs').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true }),
+        supabase.from('projetos_kpi').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true }),
+        supabase.from('benchmarks').select('*').eq('empresa_id', empresaId),
+      ]);
+      if (cancelled) return;
+
+      let newKpis       = kpisRes.error ? [] : kpisRes.data.map(kpiFromRow);
+      let newOkrs       = okrsRes.error ? [] : okrsRes.data.map(okrFromRow);
+      let newProjetos   = projRes.error  ? [] : projRes.data.map(projetoFromRow);
+      let newBenchmarks = bmRes.error    ? [] : bmRes.data.map(benchmarkFromRow);
+
+      if (!kpisRes.error && kpisRes.data.length === 0) {
+        const seeds = KPIS_INIT.map((k, i) => ({ ...kpiToRow(k), empresa_id: empresaId, ordem: i }));
+        const { data: seeded } = await supabase.from('kpis').insert(seeds).select();
+        if (cancelled) return;
+        if (seeded) newKpis = seeded.map(kpiFromRow);
+      }
+
+      let okrIdMap = {};
+      if (!okrsRes.error && okrsRes.data.length === 0) {
+        const seeds = OKRS_INIT.map(o => ({ ...okrToRow(o), empresa_id: empresaId }));
+        const { data: seeded } = await supabase.from('okrs').insert(seeds).select();
+        if (cancelled) return;
+        if (seeded) {
+          newOkrs = seeded.map(okrFromRow);
+          OKRS_INIT.forEach((o, i) => { if (seeded[i]) okrIdMap[o.id] = seeded[i].id; });
+        }
+      }
+
+      if (!projRes.error && projRes.data.length === 0) {
+        const seeds = PROJETOS_INIT.map(p => ({
+          ...projetoToRow(p),
+          okr_vinculado: okrIdMap[p.okrVinculado] ?? null,
+          empresa_id: empresaId,
+        }));
+        const { data: seeded } = await supabase.from('projetos_kpi').insert(seeds).select();
+        if (cancelled) return;
+        if (seeded) newProjetos = seeded.map(projetoFromRow);
+      }
+
+      if (!bmRes.error && bmRes.data.length === 0) {
+        const seeds = BENCHMARKS_INIT.map(b => ({
+          kpi: b.kpi, sua: b.sua, bm: b.bm,
+          unidade: b.unidade, prefix: b.prefix,
+          maior_melhor: b.maior_melhor,
+          empresa_id: empresaId,
+        }));
+        const { data: seeded } = await supabase.from('benchmarks').insert(seeds).select();
+        if (cancelled) return;
+        if (seeded) newBenchmarks = seeded.map(benchmarkFromRow);
+      }
+
+      if (!cancelled) {
+        setKpis(newKpis);
+        setOkrs(newOkrs);
+        setProjetos(newProjetos);
+        setBenchmarks(newBenchmarks);
+        setLoadingKPIs(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [empresaId]);
 
   // Derive automatic KPI values from CRM store
   const autoValues = {
@@ -1107,33 +1262,87 @@ export default function KPIs() {
   );
 
   // KPI CRUD
-  function saveKPI(data) {
-    if (kpis.find(k => k.id === data.id)) setKpis(prev => prev.map(k => k.id === data.id ? data : k));
-    else setKpis(prev => [...prev, data]);
+  async function saveKPI(data) {
+    const existing = kpis.find(k => k.id === data.id);
+    const row = kpiToRow(data);
+    if (!existing) {
+      const { data: inserted, error } = await supabase
+        .from('kpis').insert({ ...row, empresa_id: empresaId, ordem: kpis.length }).select().single();
+      if (error) { console.error(error); return; }
+      setKpis(prev => [...prev, kpiFromRow(inserted)]);
+    } else {
+      const { error } = await supabase.from('kpis').update(row).eq('id', data.id);
+      if (error) { console.error(error); return; }
+      setKpis(prev => prev.map(k => k.id === data.id ? { ...data, ordem: existing.ordem } : k));
+    }
     setKpiForm(null);
     setShowManage(false);
   }
-  function deleteKPI(id) { setKpis(prev => prev.filter(k => k.id !== id)); }
+
+  async function deleteKPI(id) {
+    const { error } = await supabase.from('kpis').delete().eq('id', id);
+    if (error) { console.error(error); return; }
+    setKpis(prev => prev.filter(k => k.id !== id));
+  }
+
+  async function reorderKPIs(newArr) {
+    setKpis(newArr);
+    await Promise.all(newArr.map((k, i) => supabase.from('kpis').update({ ordem: i }).eq('id', k.id)));
+  }
 
   // OKR CRUD
-  function saveOKR(data) {
-    if (okrs.find(o => o.id === data.id)) setOkrs(prev => prev.map(o => o.id === data.id ? data : o));
-    else setOkrs(prev => [...prev, data]);
+  async function saveOKR(data) {
+    const isNew = !okrs.find(o => o.id === data.id);
+    const row = okrToRow(data);
+    if (isNew) {
+      const { data: inserted, error } = await supabase
+        .from('okrs').insert({ ...row, empresa_id: empresaId }).select().single();
+      if (error) { console.error(error); return; }
+      setOkrs(prev => [...prev, okrFromRow(inserted)]);
+    } else {
+      const { error } = await supabase.from('okrs').update(row).eq('id', data.id);
+      if (error) { console.error(error); return; }
+      setOkrs(prev => prev.map(o => o.id === data.id ? data : o));
+    }
     setOkrForm(null);
   }
-  function deleteOKR(id) { setOkrs(prev => prev.filter(o => o.id !== id)); }
+
+  async function deleteOKR(id) {
+    const { error } = await supabase.from('okrs').delete().eq('id', id);
+    if (error) { console.error(error); return; }
+    setOkrs(prev => prev.filter(o => o.id !== id));
+  }
 
   // Project CRUD
-  function saveProject(data) {
-    if (projetos.find(p => p.id === data.id)) setProjetos(prev => prev.map(p => p.id === data.id ? data : p));
-    else setProjetos(prev => [...prev, data]);
+  async function saveProject(data) {
+    const isNew = !projetos.find(p => p.id === data.id);
+    const row = projetoToRow(data);
+    if (isNew) {
+      const { data: inserted, error } = await supabase
+        .from('projetos_kpi').insert({ ...row, empresa_id: empresaId }).select().single();
+      if (error) { console.error(error); return; }
+      setProjetos(prev => [...prev, projetoFromRow(inserted)]);
+    } else {
+      const { error } = await supabase.from('projetos_kpi').update(row).eq('id', data.id);
+      if (error) { console.error(error); return; }
+      setProjetos(prev => prev.map(p => p.id === data.id ? data : p));
+    }
     setProjectForm(null);
   }
-  function deleteProject(id) { setProjetos(prev => prev.filter(p => p.id !== id)); }
-  function toggleST(projId, stId) {
-    setProjetos(prev => prev.map(p => p.id !== projId ? p : {
-      ...p, subtarefas: p.subtarefas.map(s => s.id === stId ? { ...s, done: !s.done } : s)
-    }));
+
+  async function deleteProject(id) {
+    const { error } = await supabase.from('projetos_kpi').delete().eq('id', id);
+    if (error) { console.error(error); return; }
+    setProjetos(prev => prev.filter(p => p.id !== id));
+  }
+
+  async function toggleST(projId, stId) {
+    const proj = projetos.find(p => p.id === projId);
+    if (!proj) return;
+    const newSubtarefas = proj.subtarefas.map(s => s.id === stId ? { ...s, done: !s.done } : s);
+    const { error } = await supabase.from('projetos_kpi').update({ subtarefas: newSubtarefas }).eq('id', projId);
+    if (error) { console.error(error); return; }
+    setProjetos(prev => prev.map(p => p.id !== projId ? p : { ...p, subtarefas: newSubtarefas }));
   }
 
   // Filtered projects
@@ -1143,6 +1352,8 @@ export default function KPIs() {
     const r = !projFilter.responsavel || p.responsavel.toLowerCase().includes(projFilter.responsavel.toLowerCase());
     return s && pr && r;
   });
+
+  if (loadingKPIs) return <SkeletonLoader rows={6} />;
 
   return (
     <div style={{ padding: '0 0 24px', fontFamily: 'var(--font-body)', color: 'var(--text)' }}>
@@ -1208,7 +1419,7 @@ export default function KPIs() {
               <MetricKPICard key={k.id} kpi={k} period={period} onHelp={setHelpKPI} />
             ))}
           </div>
-          <BenchmarkCard kpis={resolvedKpis} />
+          <BenchmarkCard kpis={resolvedKpis} benchmarks={benchmarks} />
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={() => openAI(`Meus KPIs atuais: ${resolvedKpis.map(k => `${k.nome}: ${fmtValue(k.valor, k.tipo)} (meta: ${fmtValue(k.meta, k.tipo)}, ${Math.round((k.valor/k.meta)*100)}%)`).join(', ')}. Quais são as 3 ações prioritárias que devo tomar essa semana para fechar o período na meta?`)}
               style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
@@ -1297,7 +1508,7 @@ export default function KPIs() {
       {showManage && (
         <ManageKPIsModal
           kpis={kpis}
-          onReorder={setKpis}
+          onReorder={reorderKPIs}
           onDelete={deleteKPI}
           onEdit={(k) => { setShowManage(false); setKpiForm(k); }}
           onAdd={() => { setShowManage(false); setKpiForm('new'); }}
