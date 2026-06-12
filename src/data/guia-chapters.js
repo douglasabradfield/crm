@@ -121,8 +121,8 @@ O mercado muda rápido demais para planos rígidos. Reserve 2 horas a cada 90 di
     ],
     proximoPasso: {
       modulo: 'kpis',
-      label: 'KPIs & Metas',
-      mensagem: 'Agora formalize suas metas no módulo KPIs & Metas — crie seus OKRs com os objetivos que você acabou de definir.',
+      label: 'Metas e Indicadores',
+      mensagem: 'Agora formalize suas metas no módulo Metas e Indicadores — crie seus OKRs com os objetivos que você acabou de definir.',
       rota: '/kpis',
     },
   },
@@ -309,8 +309,8 @@ Zapier e Make (ex-Integromat) conectam sistemas sem precisar de programador (sã
     ],
     proximoPasso: {
       modulo: 'dashboard',
-      label: 'Dashboard',
-      mensagem: 'Veja no Dashboard como sua operação está performando — as métricas do CRM e das metas já aparecem lá.',
+      label: 'Painel',
+      mensagem: 'Veja no Painel como sua operação está performando — as métricas do CRM e das metas já aparecem lá.',
       rota: '/',
     },
   },
@@ -371,8 +371,8 @@ Medir sem agir é desperdício de tempo. Para cada KPI abaixo da meta, defina um
     ],
     proximoPasso: {
       modulo: 'kpis',
-      label: 'KPIs & Metas',
-      mensagem: 'Configure seus indicadores no módulo KPIs & Metas — crie os KPIs que você acabou de definir e acompanhe a evolução.',
+      label: 'Metas e Indicadores',
+      mensagem: 'Configure seus indicadores no módulo Metas e Indicadores — crie os KPIs que você acabou de definir e acompanhe a evolução.',
       rota: '/kpis',
     },
   },
@@ -414,8 +414,8 @@ Uma vez por ano, revise todo o planejamento com olhar externo. O que mudou no me
     ],
     proximoPasso: {
       modulo: 'dashboard',
-      label: 'Dashboard',
-      mensagem: 'Parabéns — você concluiu o guia! Acesse o Dashboard para ver sua operação completa e acompanhar o crescimento a partir de agora.',
+      label: 'Painel',
+      mensagem: 'Parabéns — você concluiu o guia! Acesse o Painel para ver sua operação completa e acompanhar o crescimento a partir de agora.',
       rota: '/',
     },
   },

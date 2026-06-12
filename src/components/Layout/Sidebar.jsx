@@ -20,7 +20,7 @@ const NAV_GROUPS = [
     label: 'Principal',
     items: [
       { path: '/guia', icon: BookOpen,        label: 'Guia Estratégico', module: 'guia' },
-      { path: '/',     icon: LayoutDashboard, label: 'Dashboard',        module: 'dashboard' },
+      { path: '/',     icon: LayoutDashboard, label: 'Painel',           module: 'dashboard' },
     ],
   },
   {
@@ -29,13 +29,13 @@ const NAV_GROUPS = [
       { path: '/crm',        icon: Users,        label: 'CRM',                   module: 'crm',        badge: 12 },
       { path: '/prospeccao', icon: Search,        label: 'Prospecção Ativa',      module: 'prospeccao', badge: 3  },
       { path: '/regua',      icon: MessageSquare, label: 'Régua de Comunicação',  module: 'regua'       },
-      { path: '/tickets',    icon: Headphones,    label: 'Tickets',               module: 'tickets',    getBadge: getOpenTickets },
+      { path: '/tickets',    icon: Headphones,    label: 'Chamados',              module: 'tickets',    getBadge: getOpenTickets },
     ],
   },
   {
     label: 'Desempenho',
     items: [
-      { path: '/kpis',        icon: BarChart2,     label: 'KPIs & Metas', module: 'kpis'        },
+      { path: '/kpis',        icon: BarChart2,     label: 'Metas e Indicadores', module: 'kpis'        },
       { path: '/diagnostico', icon: ClipboardList, label: 'Diagnóstico',  module: 'diagnostico' },
     ],
   },

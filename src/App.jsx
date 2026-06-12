@@ -22,17 +22,17 @@ import Configuracoes    from './pages/Configuracoes';
 import Tickets         from './pages/Tickets';
 
 const PAGE_META = {
-  '/':              { title: 'Dashboard',             subtitle: 'Visão geral do seu departamento comercial' },
+  '/':              { title: 'Painel',                subtitle: 'Visão geral do seu departamento comercial' },
   '/guia':          { title: 'Guia Estratégico',       subtitle: '8 capítulos para estruturar seu comercial' },
   '/crm':           { title: 'CRM',                    subtitle: 'Gestão do pipeline de vendas' },
   '/prospeccao':    { title: 'Prospecção Ativa',        subtitle: 'Encontre e qualifique novos leads' },
   '/regua':         { title: 'Régua de Comunicação',    subtitle: 'Fluxos de nurturing e follow-up' },
-  '/kpis':          { title: 'KPIs & Metas',            subtitle: 'Indicadores de desempenho e metas' },
+  '/kpis':          { title: 'Metas e Indicadores',      subtitle: 'Indicadores de desempenho e metas' },
   '/diagnostico':   { title: 'Diagnóstico',             subtitle: 'Análise SWOT e maturidade comercial' },
   '/diretorio':     { title: 'Diretório Interno',       subtitle: 'SOPs, senhas e templates' },
   '/redes':         { title: 'Redes Sociais',           subtitle: 'Métricas e calendário editorial' },
   '/configuracoes': { title: 'Configurações',           subtitle: 'Permissões e usuários do sistema' },
-  '/tickets':       { title: 'Tickets',                subtitle: 'Atendimento interno e externo'    },
+  '/tickets':       { title: 'Chamados',               subtitle: 'Atendimento interno e externo'    },
 };
 
 const PAGE_AI_CONTEXT = {
