@@ -12,6 +12,8 @@ import { useAI }         from '../hooks/useAI.js';
 import PermissionGate    from '../components/Auth/PermissionGate.jsx';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../services/supabase.js';
+import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 
 /* ─── Folder definitions ─────────────────────────────────────────────────────── */
 const FOLDERS = [
@@ -24,7 +26,7 @@ const FOLDERS = [
 
 /* ─── SOPs ───────────────────────────────────────────────────────────────────── */
 const SOPS = [
-  { id: 's1', color: '--accent2', nome: 'Processo de Qualificação de Leads (BANT)',     responsavel: 'Gestor Comercial',  passos: 7,  status: 'ativo',   updatedAt: '15/05/2026', descricao: 'Define os critérios de Budget, Authority, Need e Timeline para qualificar ou descartar leads no pipeline.',            tags: ['Comercial', 'Qualificação'] },
+  { id: 's1', color: '--accent2', nome: 'Processo de Qualificação de Leads (BANT)',     responsavel: 'Gestor Comercial',  passos: 7,  status: 'ativo',   updatedAt: '15/05/2026', descricao: 'Define os critérios de Budget, Authority, Need e Timeline (BANT) para qualificar ou descartar leads no pipeline.',            tags: ['Comercial', 'Qualificação'] },
   { id: 's2', color: '--teal',    nome: 'Onboarding de Novos Clientes',                 responsavel: 'Customer Success',  passos: 12, status: 'ativo',   updatedAt: '02/05/2026', descricao: 'Fluxo completo de boas-vindas, configuração da conta e primeira reunião de alinhamento com o novo cliente.',          tags: ['CS', 'Onboarding'] },
   { id: 's3', color: '--amber',   nome: 'Follow-up Pós-Reunião de Demo',                responsavel: 'João Vendedor',     passos: 5,  status: 'revisar', updatedAt: '20/04/2026', descricao: 'Sequência de contatos após demonstração do produto — e-mail, WhatsApp e ligação em 24h, 72h e 7 dias.',              tags: ['Comercial', 'Follow-up'] },
   { id: 's4', color: '--green',   nome: 'Renovação e Upsell Anual',                     responsavel: 'Gestor Comercial',  passos: 8,  status: 'ativo',   updatedAt: '10/05/2026', descricao: 'Processo de renovação 90 dias antes do vencimento com análise de NPS e oportunidades de expansão.',                  tags: ['CS', 'Renovação'] },
@@ -52,7 +54,7 @@ const SENHAS = [
 ];
 
 const FLUXOGRAMAS = [
-  { id: 'fl1', nome: 'Funil de Vendas Completo', color: '--teal', updatedAt: '14/05/2026', status: 'ativo',   descricao: 'Funil do lead ao cliente com pontos de decisão e SLAs por etapa.' },
+  { id: 'fl1', nome: 'Funil de Vendas Completo', color: '--teal', updatedAt: '14/05/2026', status: 'ativo',   descricao: 'Funil do lead ao cliente com pontos de decisão e prazos de atendimento (SLA) por etapa.' },
   { id: 'fl2', nome: 'Processo de Onboarding',   color: '--teal', updatedAt: '03/05/2026', status: 'ativo',   descricao: 'Jornada do novo cliente da assinatura ao go-live.' },
   { id: 'fl3', nome: 'Fluxo de Churn Recovery',  color: '--teal', updatedAt: '20/04/2026', status: 'revisar', descricao: 'Árvore de decisão para acionamento em caso de sinal de churn.' },
 ];
@@ -63,7 +65,6 @@ const CONTRATOS = [
   { id: 'c3', nome: 'Contrato de Parceria Comercial',   color: '--green', versao: 'v1.2', updatedAt: '18/04/2026', status: 'revisar', partes: 'Empresa ↔ Revendedores',  descricao: 'Contrato de parceria para revendedores com comissionamento, metas e exclusividades.' },
 ];
 
-const COUNTS = { processos: SOPS.length, senhas: SENHAS.length, templates: TEMPLATES.length, fluxogramas: FLUXOGRAMAS.length, contratos: CONTRATOS.length };
 const MASKED = '••••••••';
 
 /* ─── Custom folder constants ────────────────────────────────────────────── */
@@ -124,6 +125,34 @@ function addChildToTree(folders, parentId, child) {
     return f;
   });
 }
+
+function buildFolderTree(rows) {
+  const map = {};
+  rows.forEach(r => { map[r.id] = { ...r, children: [] }; });
+  const roots = [];
+  rows.forEach(r => {
+    if (r.pastaPaiId && map[r.pastaPaiId]) map[r.pastaPaiId].children.push(map[r.id]);
+    else roots.push(map[r.id]);
+  });
+  return roots;
+}
+
+function ddmmyyyy(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+function parseBRDate(s) {
+  if (!s || !s.includes('/')) return new Date().toISOString();
+  const [d, m, y] = s.split('/');
+  return new Date(`${y}-${m}-${d}`).toISOString();
+}
+
+function pastaFromRow(r) { return { id: r.id, pastaPaiId: r.pasta_pai_id, emoji: r.emoji, nome: r.nome, ordem: r.ordem, shortcuts: r.shortcuts ?? [] }; }
+function pastaToRow(p) { return { pasta_pai_id: p.pastaPaiId ?? null, emoji: p.emoji, nome: p.nome, ordem: p.ordem ?? 0, shortcuts: p.shortcuts ?? [] }; }
+function docFromRow(r) { return { id: r.id, tipo: r.tipo, pasta_id: r.pasta_id, color: r.cor, nome: r.nome, responsavel: r.responsavel, versao: r.versao, formato: r.formato, status: r.status, partes: r.partes, passos: r.passos, uso: r.uso, descricao: r.descricao, tags: r.tags ?? [], updatedAt: ddmmyyyy(r.atualizado_em) }; }
+function docToRow(d, tipo, pasta_id) { return { tipo, pasta_id, cor: d.color, nome: d.nome, responsavel: d.responsavel ?? null, versao: d.versao ?? null, formato: d.formato ?? null, status: d.status, partes: d.partes ?? null, passos: d.passos ?? null, uso: d.uso ?? null, descricao: d.descricao ?? '', tags: d.tags ?? [], atualizado_em: parseBRDate(d.updatedAt) }; }
 
 /* ─── File upload constants & helpers ──────────────────────────────────── */
 const ACCEPTED_MIME = [
@@ -837,8 +866,8 @@ function loadGuiaDocs(folder) {
 }
 
 /* ─── Folder content components ──────────────────────────────────────────────── */
-function ProcessosContent({ query, onOpen }) {
-  const items = SOPS.filter((s) => !query || s.nome.toLowerCase().includes(query) || s.tags.some((t) => t.toLowerCase().includes(query)));
+function ProcessosContent({ sops, query, onOpen }) {
+  const items = sops.filter((s) => !query || s.nome.toLowerCase().includes(query) || s.tags.some((t) => t.toLowerCase().includes(query)));
   const guiaDocs = loadGuiaDocs('processos').filter(d => !query || d.title.toLowerCase().includes(query));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -943,8 +972,8 @@ function SenhasContent({ query, isAdmin, showAdd, setShowAdd }) {
   );
 }
 
-function TemplatesContent({ query, onOpen }) {
-  const items = TEMPLATES.filter((t) => !query || t.nome.toLowerCase().includes(query) || t.tags.some((tag) => tag.toLowerCase().includes(query)));
+function TemplatesContent({ templates, query, onOpen }) {
+  const items = templates.filter((t) => !query || t.nome.toLowerCase().includes(query) || t.tags.some((tag) => tag.toLowerCase().includes(query)));
   const guiaDocs = loadGuiaDocs('templates').filter((d) => !query || d.title.toLowerCase().includes(query));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1740,7 +1769,7 @@ function CustomFolderContent({ folder }) {
 
 /* ─── Page ───────────────────────────────────────────────────────────────────── */
 export default function DiretorioInterno() {
-  const { user }   = useAuth();
+  const { user, empresaId } = useAuth();
   const { openAI } = useUI();
   const isAdmin    = user?.role === 'admin';
 
@@ -1751,21 +1780,84 @@ export default function DiretorioInterno() {
   const [showSenhaAdd, setShowSenhaAdd] = useState(false);
   const [docModal,     setDocModal]     = useState(null); // { doc, docType }
 
-  // Custom folders — persisted in localStorage
-  const [customFolders, setCustomFolders] = useState(() => {
-    try {
-      const s = localStorage.getItem('dir_custom_folders');
-      return s ? JSON.parse(s) : INITIAL_CUSTOM_FOLDERS;
-    } catch { return INITIAL_CUSTOM_FOLDERS; }
-  });
+  // Supabase-backed state
+  const [customFolders,    setCustomFolders]    = useState([]);
+  const [sops,             setSops]             = useState([]);
+  const [templates,        setTemplates]        = useState([]);
+  const [fluxogramas,      setFluxogramas]      = useState([]);
+  const [contratos,        setContratos]        = useState([]);
+  const [loadingDiretorio, setLoadingDiretorio] = useState(true);
+
   useEffect(() => {
-    try { localStorage.setItem('dir_custom_folders', JSON.stringify(customFolders)); } catch {}
-  }, [customFolders]);
+    if (!empresaId) return;
+    let cancelled = false;
+
+    async function load() {
+      const [pastasRes, docsRes] = await Promise.all([
+        supabase.from('diretorio_pastas').select('*').order('ordem'),
+        supabase.from('diretorio_documentos').select('*').order('atualizado_em', { ascending: false }),
+      ]);
+
+      if (cancelled) return;
+
+      // Seed folders if empty
+      let pastaRows = pastasRes.data ?? [];
+      if (pastaRows.length === 0) {
+        const seedFolders = INITIAL_CUSTOM_FOLDERS.map((f, i) => ({
+          pasta_pai_id: null,
+          emoji: f.emoji,
+          nome: f.nome,
+          ordem: i,
+          shortcuts: f.shortcuts ?? [],
+        }));
+        const { data: inserted } = await supabase.from('diretorio_pastas').insert(seedFolders).select();
+        if (cancelled) return;
+        pastaRows = inserted ?? [];
+      }
+      setCustomFolders(buildFolderTree(pastaRows.map(pastaFromRow)));
+
+      // Seed documents if empty
+      let docRows = docsRes.data ?? [];
+      if (docRows.length === 0) {
+        const seedDocs = [
+          ...SOPS.map(d => docToRow(d, 'sop', null)),
+          ...TEMPLATES.map(d => docToRow(d, 'template', null)),
+          ...FLUXOGRAMAS.map(d => docToRow(d, 'fluxograma', null)),
+          ...CONTRATOS.map(d => docToRow(d, 'contrato', null)),
+        ];
+        const { data: inserted } = await supabase.from('diretorio_documentos').insert(seedDocs).select();
+        if (cancelled) return;
+        docRows = inserted ?? [];
+      }
+
+      const mapped = docRows.map(docFromRow);
+      setSops(mapped.filter(d => d.tipo === 'sop'));
+      setTemplates(mapped.filter(d => d.tipo === 'template'));
+      setFluxogramas(mapped.filter(d => d.tipo === 'fluxograma'));
+      setContratos(mapped.filter(d => d.tipo === 'contrato'));
+
+      if (!cancelled) setLoadingDiretorio(false);
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  const counts = {
+    processos: sops.length,
+    senhas: SENHAS.length,
+    templates: templates.length,
+    fluxogramas: fluxogramas.length,
+    contratos: contratos.length,
+  };
+
   const [folderModal,    setFolderModal]    = useState(null); // null | { parentId?: string }
   const [hoveredBuiltin, setHoveredBuiltin] = useState(null);
   const [permModal,      setPermModal]      = useState(null); // null | { folderId, folderLabel, folderEmoji? }
 
   const { perms, setPermission, canAccess, isRestricted } = useFolderPermissions();
+
+  if (loadingDiretorio) return <SkeletonLoader rows={6} />;
 
   const activeCustomFolder = findInTree(customFolders, activeFolder);
   const activeConfig = FOLDERS.find((f) => f.id === activeFolder);
@@ -1801,31 +1893,38 @@ export default function DiretorioInterno() {
     );
   }
 
-  function handleSaveFolder(nome, emoji) {
-    const folder = { id: newCfId(), emoji, nome, children: [], shortcuts: [] };
-    if (folderModal?.parentId) {
-      setCustomFolders(prev => addChildToTree(prev, folderModal.parentId, folder));
+  async function handleSaveFolder(nome, emoji) {
+    const parentId = folderModal?.parentId ?? null;
+    const newRow = { pasta_pai_id: parentId, emoji, nome, ordem: 0, shortcuts: [] };
+    const { data } = await supabase.from('diretorio_pastas').insert(newRow).select().single();
+    if (!data) { setFolderModal(null); return; }
+    const folder = pastaFromRow(data);
+    if (parentId) {
+      setCustomFolders(prev => addChildToTree(prev, parentId, { ...folder, children: [] }));
     } else {
-      setCustomFolders(prev => [...prev, folder]);
+      setCustomFolders(prev => [...prev, { ...folder, children: [] }]);
     }
     setFolderModal(null);
   }
 
-  function handleRenameFolder(id, nome) {
+  async function handleRenameFolder(id, nome) {
+    await supabase.from('diretorio_pastas').update({ nome }).eq('id', id);
     setCustomFolders(prev => updateInTree(prev, id, f => ({ ...f, nome })));
   }
 
-  function handleDeleteFolder(id) {
+  async function handleDeleteFolder(id) {
+    await supabase.from('diretorio_pastas').delete().eq('id', id);
     setCustomFolders(prev => deleteFromTree(prev, id));
     if (activeFolder === id) setActiveFolder('processos');
   }
 
-  function handleFolderDragEnd(result) {
+  async function handleFolderDragEnd(result) {
     if (!result.destination || result.source.index === result.destination.index) return;
     const items = [...customFolders];
     const [moved] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, moved);
     setCustomFolders(items);
+    await Promise.all(items.map((f, i) => supabase.from('diretorio_pastas').update({ ordem: i }).eq('id', f.id)));
   }
 
   return (
@@ -1887,7 +1986,7 @@ export default function DiretorioInterno() {
                 {active ? <FolderOpen size={14} style={{ color: `var(${f.color})`, flexShrink: 0 }} /> : <Folder size={14} style={{ color: 'var(--text3)', flexShrink: 0 }} />}
                 <span style={{ flex: 1, fontSize: 12, fontWeight: active ? 500 : 400, color: active ? `var(${f.color})` : 'var(--text2)' }}>{f.label}</span>
                 <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 20, background: active ? `color-mix(in srgb, var(${f.color}) 12%, transparent)` : 'var(--bg4)', color: active ? `var(${f.color})` : 'var(--text3)', border: `1px solid ${active ? `color-mix(in srgb, var(${f.color}) 25%, transparent)` : 'var(--border)'}` }}>
-                  {COUNTS[f.id]}
+                  {counts[f.id]}
                 </span>
                 {(isRestricted(f.id) || hoveredBuiltin === f.id) && (
                   <span
@@ -1960,7 +2059,7 @@ export default function DiretorioInterno() {
         {/* Recents */}
         <div style={{ padding: '10px 12px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
           <p style={{ fontSize: 10, fontWeight: 500, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Recentes</p>
-          {[SOPS[1], SOPS[5], TEMPLATES[0]].map((item) => (
+          {[sops[1], sops[5], templates[0]].filter(Boolean).map((item) => (
             <div key={item.id} onClick={() => openDoc(item, item.passos ? 'sop' : 'template')}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
               onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.7'; }}
@@ -1993,7 +2092,7 @@ export default function DiretorioInterno() {
                 {activeConfig && <activeConfig.Icon size={16} style={{ color: `var(${activeConfig.color})` }} />}
                 <h2 style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{activeConfig?.label}</h2>
                 <span style={{ fontSize: 11, color: 'var(--text3)', background: 'var(--bg3)', border: '1px solid var(--border)', padding: '1px 7px', borderRadius: 20 }}>
-                  {COUNTS[activeFolder]}
+                  {counts[activeFolder]}
                 </span>
               </>
             )}
@@ -2024,11 +2123,11 @@ export default function DiretorioInterno() {
               <CustomFolderContent folder={activeCustomFolder} />
             ) : (
               <>
-                {activeFolder === 'processos'   && <ProcessosContent query={query} onOpen={openDoc} />}
+                {activeFolder === 'processos'   && <ProcessosContent sops={sops} query={query} onOpen={openDoc} />}
                 {activeFolder === 'senhas'      && <SenhasContent query={query} isAdmin={isAdmin} showAdd={showSenhaAdd} setShowAdd={setShowSenhaAdd} />}
-                {activeFolder === 'templates'   && <TemplatesContent query={query} onOpen={openDoc} />}
-                {activeFolder === 'fluxogramas' && <GenericContent items={FLUXOGRAMAS} query={query} docType="fluxograma" onOpen={openDoc} />}
-                {activeFolder === 'contratos'   && <GenericContent items={CONTRATOS}   query={query} docType="contrato"   onOpen={openDoc} />}
+                {activeFolder === 'templates'   && <TemplatesContent templates={templates} query={query} onOpen={openDoc} />}
+                {activeFolder === 'fluxogramas' && <GenericContent items={fluxogramas} query={query} docType="fluxograma" onOpen={openDoc} />}
+                {activeFolder === 'contratos'   && <GenericContent items={contratos}   query={query} docType="contrato"   onOpen={openDoc} />}
               </>
             )}
 
