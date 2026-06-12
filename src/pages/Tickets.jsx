@@ -108,6 +108,7 @@ function ticketFromRow(r) {
     prazo: r.prazo,
     descricao: r.descricao ?? '',
     csat: r.csat ?? { nota: null, comentario: '', data: null, avaliado: false },
+    andamentos: r.andamentos ?? [],
   };
 }
 
@@ -127,6 +128,7 @@ function ticketToRow(t) {
     prazo: t.prazo,
     descricao: t.descricao ?? '',
     csat: t.csat ?? { nota: null, comentario: '', data: null, avaliado: false },
+    andamentos: t.andamentos ?? [],
   };
 }
 
@@ -173,6 +175,12 @@ const CATEGORIA_LABELS = {
 function fmtDate(iso) {
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
+}
+
+function fmtDateTime(iso) {
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 /* ─── Metric Card ─────────────────────────────────────────────────────────── */
@@ -407,16 +415,21 @@ function TicketCard({ ticket, onEvaluate, onClick }) {
 }
 
 /* ─── Ticket Detalhe Modal ───────────────────────────────────────────────────── */
-function TicketDetalheModal({ ticket, onClose, onUpdateStatus, onUpdateResponsavel, onDelete, isAdmin }) {
+function TicketDetalheModal({ ticket, onClose, onUpdateStatus, onUpdateResponsavel, onDelete, onAddAndamento, isAdmin }) {
   const stCfg   = STATUS_CFG[ticket.status] ?? STATUS_CFG.aberto;
   const prCfg   = PRIORIDADE_CFG[ticket.prioridade] ?? PRIORIDADE_CFG.media;
   const vencido = isVencido(ticket);
 
-  const [novoResp,     setNovoResp]     = useState(ticket.responsavel.nome);
-  const [savingResp,   setSavingResp]   = useState(false);
-  const [savingStatus, setSavingStatus] = useState(false);
-  const [confirmDel,   setConfirmDel]   = useState(false);
-  const [deleting,     setDeleting]     = useState(false);
+  const [novoResp,       setNovoResp]       = useState(ticket.responsavel.nome);
+  const [savingResp,     setSavingResp]     = useState(false);
+  const [savingStatus,   setSavingStatus]   = useState(false);
+  const [confirmDel,     setConfirmDel]     = useState(false);
+  const [deleting,       setDeleting]       = useState(false);
+  const [novoAndamento,  setNovoAndamento]  = useState('');
+  const [savingAndamento,setSavingAndamento]= useState(false);
+
+  const { user } = useAuth();
+  const autorNome = user?.nome || user?.name || user?.email || 'Usuário';
 
   const csat = ticket.csat;
   const csatColor = (n) => n >= 4 ? 'var(--green)' : n >= 3 ? 'var(--amber)' : 'var(--red)';
@@ -440,6 +453,17 @@ function TicketDetalheModal({ ticket, onClose, onUpdateStatus, onUpdateResponsav
     if (!confirmDel) { setConfirmDel(true); return; }
     setDeleting(true);
     await onDelete(ticket.id);
+  }
+
+  async function handleAddAndamento() {
+    const texto = novoAndamento.trim();
+    if (texto.length < 3) return;
+    setSavingAndamento(true);
+    const newItem = { id: crypto.randomUUID(), texto, autor_nome: autorNome, data: new Date().toISOString() };
+    const newAndamentos = [...(ticket.andamentos ?? []), newItem];
+    await onAddAndamento(ticket.id, newAndamentos);
+    setSavingAndamento(false);
+    setNovoAndamento('');
   }
 
   const inpStyle = {
@@ -517,6 +541,60 @@ function TicketDetalheModal({ ticket, onClose, onUpdateStatus, onUpdateResponsav
               <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{ticket.descricao}</div>
             </div>
           )}
+
+          <div style={{ height: 1, background: 'var(--border)' }} />
+
+          {/* Andamentos */}
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10, fontWeight: 500, letterSpacing: '0.04em' }}>
+              ANDAMENTOS
+              {(ticket.andamentos ?? []).length > 0 && (
+                <span style={{ fontWeight: 400, marginLeft: 5 }}>({ticket.andamentos.length})</span>
+              )}
+            </div>
+
+            {(ticket.andamentos ?? []).length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic', paddingBottom: 4 }}>
+                Nenhum andamento registrado ainda.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {ticket.andamentos.map(a => (
+                  <div key={a.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(91,110,245,0.12)', color: 'var(--accent2)', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 3 }}>
+                      {makeAvatar(a.autor_nome)}
+                    </div>
+                    <div style={{ flex: 1, background: 'var(--bg3)', borderRadius: 8, padding: '9px 12px', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>{a.autor_nome}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtDateTime(a.data)}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{a.texto}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Adicionar novo andamento */}
+            <div style={{ marginTop: 10 }}>
+              <textarea
+                value={novoAndamento}
+                onChange={e => setNovoAndamento(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAddAndamento(); }}
+                placeholder="Adicionar andamento... (Ctrl+Enter para registrar)"
+                rows={3}
+                style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none', lineHeight: 1.5 }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+                <button onClick={handleAddAndamento}
+                  disabled={savingAndamento || novoAndamento.trim().length < 3}
+                  style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-body)', transition: 'all .15s', border: 'none', cursor: (savingAndamento || novoAndamento.trim().length < 3) ? 'default' : 'pointer', background: (savingAndamento || novoAndamento.trim().length < 3) ? 'var(--bg3)' : 'var(--accent)', color: (savingAndamento || novoAndamento.trim().length < 3) ? 'var(--text3)' : '#fff' }}>
+                  {savingAndamento ? 'Registrando...' : 'Registrar'}
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* CSAT (se concluído e avaliado) */}
           {ticket.status === 'concluido' && csat?.avaliado && (
@@ -830,6 +908,13 @@ export default function Tickets() {
     setSelectedTicketId(null);
   }
 
+  async function handleAddAndamento(ticketId, andamentos) {
+    const { data } = await supabase.from('tickets')
+      .update({ andamentos, atualizado_em: new Date().toISOString() })
+      .eq('id', ticketId).select().single();
+    if (data) setTickets(prev => prev.map(t => t.id === ticketId ? ticketFromRow(data) : t));
+  }
+
   async function handleCreate({ tipo, titulo, clienteId, clienteNome, categoria, prioridade, prazo, descricao, responsavelNome }) {
     const num = nextNum(tickets);
     const av  = makeAvatar(responsavelNome);
@@ -1048,6 +1133,7 @@ export default function Tickets() {
           onUpdateStatus={handleUpdateStatus}
           onUpdateResponsavel={handleUpdateResponsavel}
           onDelete={handleDelete}
+          onAddAndamento={handleAddAndamento}
           isAdmin={isAdmin}
         />
       )}
