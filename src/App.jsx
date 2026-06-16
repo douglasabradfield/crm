@@ -20,6 +20,7 @@ import DiretorioInterno from './pages/DiretorioInterno';
 import RedesSociais     from './pages/RedesSociais';
 import Configuracoes    from './pages/Configuracoes';
 import Tickets         from './pages/Tickets';
+import AceitarConvite  from './pages/AceitarConvite';
 
 const PAGE_META = {
   '/':              { title: 'Painel',                subtitle: 'Visão geral do seu departamento comercial' },
@@ -145,6 +146,15 @@ export default function App() {
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
+
+  // Rota pública de convite — não depende de autenticação, não bloquear no loading.
+  if (location.pathname.startsWith('/convite/')) {
+    return (
+      <Routes>
+        <Route path="/convite/:codigo" element={<AceitarConvite />} />
+      </Routes>
+    );
+  }
 
   // Wait for Supabase to confirm/deny the session before deciding where to route.
   if (loading) {
