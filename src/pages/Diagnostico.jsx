@@ -8,6 +8,7 @@ import { useUI } from '../store/index.js';
 import { useAuth } from '../store/auth.js';
 import { supabase } from '../services/supabase.js';
 import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
+import Termo from '../components/UI/Termo.jsx';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -1028,7 +1029,7 @@ function SwotSection({ swot, setSwot, lastUpdated, setLastUpdated, versions, set
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>Análise SWOT</p>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>Análise <Termo id="swot">SWOT</Termo></p>
           {lastUpdated && (
             <span style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <Clock size={10} /> {fmtDate(lastUpdated)}
@@ -1654,7 +1655,7 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
-              Personas
+              <Termo id="persona">Personas</Termo>
               <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400, marginLeft: 8 }}>
                 {personas.length} perfis
               </span>

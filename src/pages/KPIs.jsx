@@ -12,6 +12,7 @@ import { useCRM } from '../store/crm.js';
 import { useAuth } from '../store/auth.js';
 import PermissionGate from '../components/Auth/PermissionGate.jsx';
 import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
+import Termo from '../components/UI/Termo.jsx';
 import { supabase } from '../services/supabase.js';
 
 /* ─── Constants ──────────────────────────────────────────────────────────────── */
@@ -1362,7 +1363,7 @@ export default function KPIs() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
         {/* Tab switcher */}
         <div style={{ display: 'flex', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 3, gap: 2 }}>
-          {[{ id: 'kpis', label: 'KPIs & Metas' }, { id: 'okrs', label: 'OKRs & Projetos' }].map(t => (
+          {[{ id: 'kpis', label: <><Termo id="kpi">KPIs</Termo> & Metas</> }, { id: 'okrs', label: 'OKRs & Projetos' }].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               style={{ padding: '6px 14px', borderRadius: 7, border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s',
                 background: tab === t.id ? 'var(--accent)' : 'transparent',

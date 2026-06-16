@@ -1,0 +1,17 @@
+export const GLOSSARIO = {
+  'lead': 'Potencial cliente que demonstrou algum interesse no seu produto ou serviço.',
+  'crm': 'Sistema onde você registra e acompanha cada contato, proposta e negociação com clientes — para não perder vendas por falta de acompanhamento.',
+  'kpi': 'Indicador-chave de desempenho: um número que você acompanha para saber se está no caminho certo (ex: número de vendas no mês).',
+  'follow-up': 'O acompanhamento que você faz após uma conversa ou proposta — o retorno para não deixar o cliente esfriar.',
+  'churn': 'A taxa de cancelamento: quantos clientes deixaram de comprar ou usar seu serviço num período.',
+  'csat': 'Índice de satisfação com uma entrega específica: o cliente dá uma nota de 1 a 5 logo após um atendimento.',
+  'nps': 'Índice de lealdade geral: mede, de 0 a 10, o quanto o cliente recomendaria sua empresa a outras pessoas.',
+  'cac': 'Custo de Aquisição de Cliente: quanto você gasta, em média, para conquistar um novo cliente (marketing e vendas divididos pelos novos clientes).',
+  'ltv': 'Valor do Tempo de Vida do Cliente: quanto um cliente gera de receita no total, enquanto permanece com você.',
+  'swot': 'Análise das Forças, Fraquezas, Oportunidades e Ameaças do seu negócio.',
+  'persona': 'O retrato do seu cliente ideal: quem você mais quer atender, com suas dores e forma de decidir a compra.',
+  'pipeline': 'O funil de vendas: as etapas pelas quais um lead passa até virar cliente.',
+  'sdr': 'Pré-vendedor: a pessoa que faz o primeiro contato e qualifica os leads antes de passar para quem fecha a venda.',
+  'okr': 'Método de definir objetivos e os resultados-chave que mostram se você está atingindo cada objetivo.',
+  'roi': 'Retorno sobre o investimento: o quanto você ganhou em relação ao que gastou.',
+};

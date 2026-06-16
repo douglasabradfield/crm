@@ -12,6 +12,7 @@ import LeadModal         from '../components/CRM/LeadModal.jsx';
 import FunisModal        from '../components/CRM/FunisModal.jsx';
 import ClienteModal      from '../components/CRM/ClienteModal.jsx';
 import PermissionGate    from '../components/Auth/PermissionGate.jsx';
+import Termo             from '../components/UI/Termo.jsx';
 
 const fmtBRL   = (n) => `R$ ${Number(n).toLocaleString('pt-BR')}`;
 const fmtDate  = (d) => d ? d.split('-').reverse().join('/') : '—';
@@ -572,7 +573,7 @@ export default function CRM() {
             <PermissionGate module="crm" action="edit">
               <button onClick={() => setModal('new')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
-                <Plus size={14} /> Adicionar lead
+                <Plus size={14} /> Adicionar <Termo>lead</Termo>
               </button>
             </PermissionGate>
           </div>
