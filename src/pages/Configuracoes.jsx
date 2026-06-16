@@ -1,9 +1,11 @@
-import { useState, useRef } from 'react';
-import { RotateCcw, ChevronRight, Check, X as XIcon, Building2, User, Bell, Lock, Eye, EyeOff, Sun, Moon, Monitor, CreditCard, Download, Zap, AlertTriangle, Bot } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { RotateCcw, ChevronRight, Check, X as XIcon, Building2, User, Bell, Lock, Eye, EyeOff, Sun, Moon, Monitor, CreditCard, Download, Zap, AlertTriangle, Bot, UserPlus, Link2, Copy } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../store/auth.js';
+import { supabase } from '../services/supabase.js';
 import { MODULES, DEFAULT_PERMISSIONS } from '../data/permissions.js';
-import { MOCK_USERS, ROLES } from '../data/users.js';
+import { ROLES } from '../data/users.js';
 import PermissionGate from '../components/Auth/PermissionGate.jsx';
 
 const ACTIONS = ['view', 'edit', 'delete', 'export'];
@@ -132,132 +134,325 @@ function RoleTab() {
   );
 }
 
+/* ─── ConviteModal ───────────────────────────────────────────────────────────── */
+const PAPEIS_CONVIDAVEIS = [
+  { value: 'gestor',       label: 'Gestor Comercial' },
+  { value: 'vendedor',     label: 'Vendedor'         },
+  { value: 'marketing',    label: 'Marketing'        },
+  { value: 'visualizador', label: 'Visualizador'     },
+];
+
+const EXPIRACAO_OPTS = [
+  { value: 3,  label: '3 dias'  },
+  { value: 7,  label: '7 dias'  },
+  { value: 15, label: '15 dias' },
+  { value: 30, label: '30 dias' },
+];
+
+function gerarCodigo() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function ConviteModal({ onClose }) {
+  const { user } = useAuth();
+  const [papel, setPapel]               = useState('vendedor');
+  const [emailSugerido, setEmail]       = useState('');
+  const [expiraDias, setExpira]         = useState(7);
+  const [loading, setLoading]           = useState(false);
+  const [linkGerado, setLink]           = useState(null);
+  const [copiado, setCopiado]           = useState(false);
+  const [erro, setErro]                 = useState('');
+
+  async function handleGerar() {
+    setLoading(true);
+    setErro('');
+    try {
+      const codigo    = gerarCodigo();
+      const expiraEm  = new Date(Date.now() + expiraDias * 86_400_000).toISOString();
+      const { error } = await supabase.from('convites').insert({
+        codigo,
+        papel,
+        email_sugerido: emailSugerido.trim() || null,
+        status:    'pendente',
+        criado_por: user.id,
+        expira_em: expiraEm,
+      });
+      if (error) throw error;
+      setLink(`${window.location.origin}/convite/${codigo}`);
+    } catch (err) {
+      console.error('[ConviteModal] gerar convite:', err);
+      setErro('Não foi possível gerar o convite. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleCopiar() {
+    if (!linkGerado) return;
+    navigator.clipboard.writeText(linkGerado).then(() => {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    });
+  }
+
+  const inp = { width: '100%', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' };
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 440, maxWidth: '100%', padding: 28 }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <UserPlus size={16} style={{ color: 'var(--accent2)' }} />
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Convidar membro</span>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+            <XIcon size={16} />
+          </button>
+        </div>
+
+        {!linkGerado ? (
+          <>
+            {/* Papel */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>PAPEL DO CONVIDADO</label>
+              <select value={papel} onChange={e => setPapel(e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                {PAPEIS_CONVIDAVEIS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
+
+            {/* E-mail sugerido */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>
+                E-MAIL DO CONVIDADO <span style={{ fontWeight: 400 }}>(opcional)</span>
+              </label>
+              <input type="email" value={emailSugerido} onChange={e => setEmail(e.target.value)}
+                placeholder="convidado@empresa.com" style={inp} />
+            </div>
+
+            {/* Expiração */}
+            <div style={{ marginBottom: 22 }}>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>LINK EXPIRA EM</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {EXPIRACAO_OPTS.map(opt => (
+                  <button key={opt.value} type="button" onClick={() => setExpira(opt.value)}
+                    style={{ flex: 1, padding: '7px 4px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', transition: 'all .12s',
+                      background: expiraDias === opt.value ? 'var(--accent)' : 'var(--bg3)',
+                      color: expiraDias === opt.value ? '#fff' : 'var(--text3)',
+                      fontWeight: expiraDias === opt.value ? 500 : 400,
+                    }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {erro && <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 14 }}>{erro}</p>}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                Cancelar
+              </button>
+              <button onClick={handleGerar} disabled={loading}
+                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: loading ? 'default' : 'pointer', fontFamily: 'var(--font-body)', background: loading ? 'var(--bg3)' : 'var(--accent)', border: 'none', color: loading ? 'var(--text3)' : '#fff' }}>
+                {loading ? 'Gerando…' : 'Gerar link de convite'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Sucesso */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 22 }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(45,212,160,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <Check size={22} style={{ color: 'var(--green)' }} />
+              </div>
+              <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 4 }}>Link gerado com sucesso!</p>
+              <p style={{ fontSize: 12, color: 'var(--text3)' }}>
+                Válido por <strong style={{ color: 'var(--text2)' }}>{expiraDias} dias</strong> · papel: <strong style={{ color: 'var(--text2)' }}>{ROLES[papel]}</strong>
+              </p>
+            </div>
+
+            <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <Link2 size={13} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+              <code style={{ flex: 1, fontSize: 11, color: 'var(--text2)', fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: 1.45 }}>
+                {linkGerado}
+              </code>
+              <button onClick={handleCopiar}
+                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s',
+                  background: copiado ? 'rgba(45,212,160,0.12)' : 'var(--bg4)',
+                  border: `1px solid ${copiado ? 'rgba(45,212,160,0.3)' : 'var(--border)'}`,
+                  color: copiado ? 'var(--green)' : 'var(--text2)',
+                }}>
+                {copiado ? <><Check size={11} /> Copiado!</> : <><Copy size={11} /> Copiar</>}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setLink(null)}
+                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                Gerar outro
+              </button>
+              <button onClick={onClose}
+                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+                Fechar
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /* ─── Tab 2: User management ────────────────────────────────────────────────── */
 function UsersTab() {
-  const { getUserPermissions, updateUserPermission, resetUserPermissions } = useAuth();
-  const [selectedUser, setSelectedUser] = useState(null);
+  const { empresaId, user, getUserPermissions, updateUserPermission, resetUserPermissions } = useAuth();
+  const [perfis,       setPerfis]      = useState([]);
+  const [loadingPerfis, setLoadingP]   = useState(true);
+  const [selectedId,   setSelectedId] = useState(null);
+  const [showConvite,  setShowConvite] = useState(false);
 
-  const targetUser = selectedUser ? MOCK_USERS.find((u) => u.id === selectedUser) : null;
-  const userPerms  = targetUser ? getUserPermissions(targetUser) : null;
+  const canInvite = ['superadmin', 'admin', 'gestor'].includes(user?.role);
+
+  useEffect(() => {
+    if (!empresaId) { setLoadingP(false); return; }
+    let cancelled = false;
+    supabase
+      .from('perfis')
+      .select('id, nome, email, papel')
+      .eq('empresa_id', empresaId)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (!error) setPerfis(data ?? []);
+        setLoadingP(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  function initials(nome) {
+    if (!nome) return '?';
+    const parts = nome.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  const targetPerfil = selectedId ? perfis.find(p => p.id === selectedId) : null;
+  // getUserPermissions expects { id, role }
+  const targetUser   = targetPerfil ? { id: targetPerfil.id, role: targetPerfil.papel } : null;
+  const userPerms    = targetUser ? getUserPermissions(targetUser) : null;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 20, alignItems: 'start' }}>
-      {/* User list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {MOCK_USERS.map((u) => (
-          <button
-            key={u.id}
-            onClick={() => setSelectedUser(u.id)}
-            style={{
-              background: selectedUser === u.id ? 'var(--accent-bg)' : 'var(--bg3)',
-              border: `1px solid ${selectedUser === u.id ? 'var(--accent)' : 'var(--border)'}`,
-              borderRadius: 10, padding: '10px 12px',
-              display: 'flex', alignItems: 'center', gap: 10,
-              cursor: 'pointer', textAlign: 'left',
-              fontFamily: 'var(--font-body)',
-              transition: 'background 0.13s, border-color 0.13s',
-            }}
-            onMouseEnter={(e) => {
-              if (selectedUser !== u.id) {
-                e.currentTarget.style.borderColor = 'var(--border2)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (selectedUser !== u.id) {
-                e.currentTarget.style.borderColor = 'var(--border)';
-              }
-            }}
-          >
-            <div style={{
-              width: 32, height: 32, borderRadius: '50%',
-              background: selectedUser === u.id ? 'var(--accent-bg)' : 'var(--bg4)',
-              color: selectedUser === u.id ? 'var(--accent2)' : 'var(--text3)',
-              fontSize: 11, fontWeight: 500,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              {u.avatar}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {u.name}
-              </p>
-              <p style={{ fontSize: 11, color: 'var(--text3)' }}>{ROLES[u.role]}</p>
-            </div>
-            <ChevronRight size={13} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: 'var(--text2)' }}>
+          {loadingPerfis ? 'Carregando…' : `${perfis.length} membro${perfis.length !== 1 ? 's' : ''} na equipe`}
+        </p>
+        {canInvite && (
+          <button onClick={() => setShowConvite(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            <UserPlus size={13} /> Convidar membro
           </button>
-        ))}
+        )}
       </div>
 
-      {/* Permission panel */}
-      {targetUser && userPerms ? (
-        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{targetUser.name}</p>
-              <p style={{ fontSize: 12, color: 'var(--text3)' }}>{ROLES[targetUser.role]} · {targetUser.email}</p>
-            </div>
-            <button
-              onClick={() => resetUserPermissions(targetUser.id)}
-              style={{
-                background: 'none', border: '1px solid var(--border)',
-                borderRadius: 8, padding: '6px 10px',
-                color: 'var(--text3)', fontSize: 12, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 6,
-                fontFamily: 'var(--font-body)',
-                transition: 'color 0.13s, border-color 0.13s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color        = 'var(--amber)';
-                e.currentTarget.style.borderColor  = 'var(--amber)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color        = 'var(--text3)';
-                e.currentTarget.style.borderColor  = 'var(--border)';
-              }}
-            >
-              <RotateCcw size={12} /> Restaurar padrões
-            </button>
-          </div>
+      {showConvite && <ConviteModal onClose={() => setShowConvite(false)} />}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {MODULES.map((mod) => (
-              <div key={mod.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 8 }}>
-                  {mod.label}
-                </p>
-                <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                  {ACTIONS.map((action) => {
-                    const value = userPerms[mod.id]?.[action] ?? false;
-                    return (
-                      <label
-                        key={action}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-                      >
-                        <Toggle
-                          checked={value}
-                          onChange={(v) => updateUserPermission(targetUser.id, mod.id, action, v)}
-                        />
-                        <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-                          {ACTION_LABELS[action]}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+      {loadingPerfis ? (
+        <div style={{ padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ fontSize: 13, color: 'var(--text3)' }}>Carregando equipe…</p>
         </div>
       ) : (
-        <div style={{
-          background: 'var(--bg3)', border: '1px solid var(--border)',
-          borderRadius: 14, padding: 40,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <p style={{ fontSize: 13, color: 'var(--text3)' }}>
-            Selecione um usuário para editar as permissões
-          </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 20, alignItems: 'start' }}>
+          {/* Member list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {perfis.map((u) => (
+              <button key={u.id} onClick={() => setSelectedId(u.id)}
+                style={{
+                  background: selectedId === u.id ? 'rgba(91,110,245,0.1)' : 'var(--bg3)',
+                  border: `1px solid ${selectedId === u.id ? 'var(--accent)' : 'var(--border)'}`,
+                  borderRadius: 10, padding: '10px 12px',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)',
+                  transition: 'background 0.13s, border-color 0.13s',
+                }}
+                onMouseEnter={(e) => { if (selectedId !== u.id) e.currentTarget.style.borderColor = 'var(--border2)'; }}
+                onMouseLeave={(e) => { if (selectedId !== u.id) e.currentTarget.style.borderColor = 'var(--border)'; }}
+              >
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: selectedId === u.id ? 'rgba(91,110,245,0.15)' : 'var(--bg4)',
+                  color: selectedId === u.id ? 'var(--accent2)' : 'var(--text3)',
+                  fontSize: 11, fontWeight: 500,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  {initials(u.nome)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {u.nome}
+                  </p>
+                  <p style={{ fontSize: 11, color: 'var(--text3)' }}>{ROLES[u.papel] ?? u.papel}</p>
+                </div>
+                <ChevronRight size={13} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+              </button>
+            ))}
+            {perfis.length === 0 && (
+              <p style={{ fontSize: 13, color: 'var(--text3)', padding: '16px 0' }}>Nenhum membro encontrado.</p>
+            )}
+          </div>
+
+          {/* Permission panel */}
+          {targetPerfil && userPerms ? (
+            <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{targetPerfil.nome}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text3)' }}>{ROLES[targetPerfil.papel] ?? targetPerfil.papel} · {targetPerfil.email}</p>
+                </div>
+                <button
+                  onClick={() => resetUserPermissions(targetPerfil.id)}
+                  style={{
+                    background: 'none', border: '1px solid var(--border)',
+                    borderRadius: 8, padding: '6px 10px',
+                    color: 'var(--text3)', fontSize: 12, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    fontFamily: 'var(--font-body)', transition: 'color 0.13s, border-color 0.13s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--amber)'; e.currentTarget.style.borderColor = 'var(--amber)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text3)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                >
+                  <RotateCcw size={12} /> Restaurar padrões
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {MODULES.map((mod) => (
+                  <div key={mod.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                    <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 8 }}>{mod.label}</p>
+                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                      {ACTIONS.map((action) => {
+                        const value = userPerms[mod.id]?.[action] ?? false;
+                        return (
+                          <label key={action} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                            <Toggle checked={value} onChange={(v) => updateUserPermission(targetPerfil.id, mod.id, action, v)} />
+                            <span style={{ fontSize: 11, color: 'var(--text3)' }}>{ACTION_LABELS[action]}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 14, padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <p style={{ fontSize: 13, color: 'var(--text3)' }}>Selecione um membro para editar as permissões</p>
+            </div>
+          )}
         </div>
       )}
     </div>
