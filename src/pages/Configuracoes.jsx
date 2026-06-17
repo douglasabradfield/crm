@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RotateCcw, ChevronRight, Check, X as XIcon, Building2, User, Bell, Lock, Eye, EyeOff, Sun, Moon, Monitor, CreditCard, Download, Zap, AlertTriangle, Bot, UserPlus, Link2, Copy } from 'lucide-react';
+import { RotateCcw, ChevronRight, Check, X as XIcon, Building2, User, Bell, Lock, Eye, EyeOff, Sun, Moon, Monitor, CreditCard, Download, Zap, AlertTriangle, Bot, UserPlus, Link2, Copy, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../store/auth.js';
 import { supabase } from '../services/supabase.js';
@@ -150,11 +150,10 @@ const EXPIRACAO_OPTS = [
 ];
 
 function gerarCodigo() {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '').slice(0, 32).toUpperCase();
 }
 
-function ConviteModal({ onClose }) {
+function ConviteModal({ onClose, onConviteCriado }) {
   const { user } = useAuth();
   const [papel, setPapel]               = useState('vendedor');
   const [emailSugerido, setEmail]       = useState('');
@@ -170,16 +169,17 @@ function ConviteModal({ onClose }) {
     try {
       const codigo    = gerarCodigo();
       const expiraEm  = new Date(Date.now() + expiraDias * 86_400_000).toISOString();
-      const { error } = await supabase.from('convites').insert({
+      const { data: conviteData, error } = await supabase.from('convites').insert({
         codigo,
         papel,
         email_sugerido: emailSugerido.trim() || null,
         status:    'pendente',
         criado_por: user.id,
         expira_em: expiraEm,
-      });
+      }).select().single();
       if (error) throw error;
       setLink(`${window.location.origin}/convite/${codigo}`);
+      onConviteCriado?.(conviteData);
     } catch (err) {
       console.error('[ConviteModal] gerar convite:', err);
       setErro('Não foi possível gerar o convite. Tente novamente.');
@@ -313,7 +313,10 @@ function UsersTab() {
   const [perfis,       setPerfis]      = useState([]);
   const [loadingPerfis, setLoadingP]   = useState(true);
   const [selectedId,   setSelectedId] = useState(null);
-  const [showConvite,  setShowConvite] = useState(false);
+  const [showConvite,   setShowConvite] = useState(false);
+  const [convites,      setConvites]    = useState([]);
+  const [loadingConv,   setLoadingConv] = useState(true);
+  const [copiadoId,     setCopiadoId]   = useState(null);
 
   const canInvite = ['superadmin', 'admin', 'gestor'].includes(user?.role);
 
@@ -331,6 +334,43 @@ function UsersTab() {
       });
     return () => { cancelled = true; };
   }, [empresaId]);
+
+  useEffect(() => {
+    if (!empresaId) { setLoadingConv(false); return; }
+    let cancelled = false;
+    supabase
+      .from('convites')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .eq('status', 'pendente')
+      .order('criado_em', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (!error) setConvites(data ?? []);
+        setLoadingConv(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  function handleConviteCriado(novoConvite) {
+    setConvites(prev => [novoConvite, ...prev]);
+  }
+
+  async function handleCancelarConvite(id) {
+    const { error } = await supabase
+      .from('convites')
+      .update({ status: 'expirado' })
+      .eq('id', id);
+    if (!error) setConvites(prev => prev.filter(c => c.id !== id));
+  }
+
+  function copiarLink(convite) {
+    const link = `${window.location.origin}/convite/${convite.codigo}`;
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiadoId(convite.id);
+      setTimeout(() => setCopiadoId(v => v === convite.id ? null : v), 2000);
+    });
+  }
 
   function initials(nome) {
     if (!nome) return '?';
@@ -359,7 +399,7 @@ function UsersTab() {
         )}
       </div>
 
-      {showConvite && <ConviteModal onClose={() => setShowConvite(false)} />}
+      {showConvite && <ConviteModal onClose={() => setShowConvite(false)} onConviteCriado={handleConviteCriado} />}
 
       {loadingPerfis ? (
         <div style={{ padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -451,6 +491,81 @@ function UsersTab() {
           ) : (
             <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 14, padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <p style={{ fontSize: 13, color: 'var(--text3)' }}>Selecione um membro para editar as permissões</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Convites pendentes */}
+      {canInvite && (
+        <div style={{ marginTop: 32 }}>
+          <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text2)', marginBottom: 12 }}>
+            Convites pendentes
+          </p>
+          {loadingConv ? (
+            <p style={{ fontSize: 12, color: 'var(--text3)' }}>Carregando…</p>
+          ) : convites.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--text3)' }}>Nenhum convite pendente.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {convites.map(c => {
+                const expira = new Date(c.expira_em);
+                const horasRestantes = (expira - new Date()) / 3_600_000;
+                const quaseExpirando = horasRestantes > 0 && horasRestantes < 48;
+                return (
+                  <div key={c.id} style={{
+                    background: 'var(--bg3)',
+                    border: `1px solid ${quaseExpirando ? 'rgba(240,168,50,0.3)' : 'var(--border)'}`,
+                    borderRadius: 10, padding: '10px 14px',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 9px', borderRadius: 20, background: 'rgba(91,110,245,0.12)', color: 'var(--accent2)' }}>
+                          {ROLES[c.papel] ?? c.papel}
+                        </span>
+                        {c.email_sugerido && (
+                          <span style={{ fontSize: 11, color: 'var(--text3)' }}>{c.email_sugerido}</span>
+                        )}
+                      </div>
+                      <p style={{ fontSize: 11, color: quaseExpirando ? 'var(--amber)' : 'var(--text3)' }}>
+                        {`Criado ${new Date(c.criado_em).toLocaleDateString('pt-BR')} · expira ${expira.toLocaleDateString('pt-BR')}`}
+                        {quaseExpirando && ' — expira em breve'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => copiarLink(c)}
+                      style={{
+                        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                        cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s',
+                        background: copiadoId === c.id ? 'rgba(45,212,160,0.12)' : 'var(--bg4)',
+                        border: `1px solid ${copiadoId === c.id ? 'rgba(45,212,160,0.3)' : 'var(--border)'}`,
+                        color: copiadoId === c.id ? 'var(--green)' : 'var(--text2)',
+                      }}
+                    >
+                      {copiadoId === c.id
+                        ? <><Check size={11} /> Copiado</>
+                        : <><Copy size={11} /> Copiar link</>
+                      }
+                    </button>
+                    <button
+                      onClick={() => handleCancelarConvite(c.id)}
+                      title="Cancelar convite"
+                      style={{
+                        flexShrink: 0, background: 'none',
+                        border: '1px solid var(--border)', borderRadius: 7,
+                        padding: '5px 7px', cursor: 'pointer', color: 'var(--text3)',
+                        display: 'flex', alignItems: 'center', transition: 'color .13s, border-color .13s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text3)'; }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
