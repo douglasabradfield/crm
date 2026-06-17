@@ -2994,12 +2994,124 @@ function ConcorrentesSection({ openAI }) {
   );
 }
 
+/* ─── FunilVersionModal ──────────────────────────────────────────────────── */
+function FunilVersionModal({ version, onClose, onRestore }) {
+  const [confirming, setConfirming] = useState(false);
+  const data = version.data ?? [];
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--bg2)', border: '1px solid var(--border)',
+          borderRadius: 14, width: '100%', maxWidth: 480,
+          maxHeight: '90vh', overflowY: 'auto',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px', borderBottom: '1px solid var(--border)',
+        }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+              Versão de {fmtDateTime(version.date)}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+              {data.length} etapa{data.length !== 1 ? 's' : ''} nesta versão
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {data.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic' }}>Nenhuma etapa nesta versão.</p>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase' }}>Etapa</span>
+                <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase' }}>Volume</span>
+                <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase' }}>Conv. %</span>
+              </div>
+              {data.map((s, i) => (
+                <div key={i} style={{
+                  display: 'grid', gridTemplateColumns: '1fr 80px 80px', gap: 8,
+                  padding: '8px 10px', borderRadius: 8,
+                  background: i % 2 === 0 ? 'var(--bg3)' : 'transparent',
+                }}>
+                  <span style={{ fontSize: 13, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 10, color: 'var(--text3)', minWidth: 14 }}>{i + 1}.</span>
+                    {s.nome}
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>{s.volume ?? '—'}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>{s.conversao != null ? `${s.conversao}%` : '—'}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '12px 20px', borderTop: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8,
+        }}>
+          {confirming ? (
+            <>
+              <span style={{ fontSize: 12, color: 'var(--text2)', flex: 1 }}>
+                Substituir funil atual por esta versão?
+              </span>
+              <button onClick={() => setConfirming(false)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Cancelar
+              </button>
+              <button
+                onClick={() => { onRestore(data); onClose(); }}
+                style={{ background: 'var(--accent)', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#fff', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+              >
+                Confirmar
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={onClose} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Fechar
+              </button>
+              <button
+                onClick={() => setConfirming(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid var(--border2)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+              >
+                <RotateCcw size={12} /> Restaurar esta versão
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* ─── FunilVendasSection ─────────────────────────────────────────────────── */
 function FunilVendasSection({ openAI }) {
   const { empresaId } = useAuth();
   const [stages, setStages] = useState(INITIAL_FUNNEL);
   const [editingId, setEditingId] = useState(null);
   const [drafts, setDrafts] = useState({});
+  const [viewId, setViewId] = useState(null);
   const { versions: funilVersions, saveVersion: saveFunilVersion } = useVersionHistory('diag_funil_versions');
   const funilSkipSave = useRef(true);
   const funilSaveTimer = useRef(null);
@@ -3113,6 +3225,8 @@ function FunilVendasSection({ openAI }) {
     );
   }
 
+  const viewVersion = viewId ? funilVersions.find(v => v.id === viewId) ?? null : null;
+
   const totalConv = stages[0]?.volume > 0
     ? Math.round((stages[stages.length - 1]?.volume / stages[0].volume) * 100)
     : 0;
@@ -3153,6 +3267,7 @@ function FunilVendasSection({ openAI }) {
         versions={funilVersions}
         currentData={stages}
         onRestore={(data) => setStages(data)}
+        onView={setViewId}
         renderPreview={(data) => (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {data.map((s, i) => (
@@ -3386,6 +3501,13 @@ function FunilVendasSection({ openAI }) {
           </Droppable>
         </DragDropContext>
       </div>
+      {viewVersion && (
+        <FunilVersionModal
+          version={viewVersion}
+          onClose={() => setViewId(null)}
+          onRestore={(data) => { setStages(data); setViewId(null); }}
+        />
+      )}
     </div>
   );
 }

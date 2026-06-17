@@ -661,27 +661,78 @@ function PersonaForm({ onComplete, done }) {
 }
 
 /* ─── Funil Form ──────────────────────────────────────────────────────────────── */
+const FUNIL_DEFAULT_STAGES = [
+  { id: null, nome: 'Leads gerados',    volume: '', conversao: '' },
+  { id: null, nome: 'Contato feito',    volume: '', conversao: '' },
+  { id: null, nome: 'Proposta enviada', volume: '', conversao: '' },
+  { id: null, nome: 'Negociação',       volume: '', conversao: '' },
+  { id: null, nome: 'Fechamento',       volume: '', conversao: '' },
+];
+
 function FunilForm({ onComplete, done }) {
-  const existing = loadLS('diag_funil', null);
-  const [stages, setStages] = useState(
-    existing?.length
-      ? existing.map(s => ({ nome: s.nome, volume: String(s.volume ?? ''), conversao: String(s.conversao ?? '') }))
-      : [
-          { nome: 'Leads gerados',    volume: '', conversao: '' },
-          { nome: 'Contato feito',    volume: '', conversao: '' },
-          { nome: 'Proposta enviada', volume: '', conversao: '' },
-          { nome: 'Negociação',       volume: '', conversao: '' },
-          { nome: 'Fechamento',       volume: '', conversao: '' },
-        ]
-  );
+  const { empresaId } = useAuth();
+  const { onFunilSaved } = useContext(GuiaCtx);
+  const { saveVersion } = useVersionHistory('diag_funil_versions');
+  const [existingStages, setExistingStages] = useState([]);
+  const [stages, setStages] = useState(FUNIL_DEFAULT_STAGES);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('diagnostico_funil').select('etapas')
+      .eq('empresa_id', empresaId).maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data?.etapas?.length) {
+          setExistingStages(data.etapas);
+          setStages(data.etapas.map(s => ({
+            id:        s.id,
+            nome:      s.nome,
+            volume:    String(s.volume ?? ''),
+            conversao: String(s.conversao ?? ''),
+          })));
+        }
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   const valid = stages.some(s => s.nome.trim());
-  function handleSave() {
-    const funil = stages
+
+  async function handleSave() {
+    if (!valid || saving) return;
+    setSaving(true); setSaveErr(null);
+    if (existingStages.length > 0) saveVersion(existingStages);
+    const toSave = stages
       .filter(s => s.nome.trim())
-      .map(s => ({ id: genId('fu'), nome: s.nome.trim(), volume: Number(s.volume) || 0, conversao: Number(s.conversao) || 0, fromGuia: true }));
-    saveLS('diag_funil', funil);
+      .map(s => ({
+        id:        s.id || genId('fu'),
+        nome:      s.nome.trim(),
+        volume:    Number(s.volume) || 0,
+        conversao: Number(s.conversao) || 0,
+      }));
+    const { error } = await supabase
+      .from('diagnostico_funil')
+      .upsert(
+        { empresa_id: empresaId, etapas: toSave, atualizado_em: new Date().toISOString() },
+        { onConflict: 'empresa_id' }
+      );
+    if (error) { setSaveErr('Erro ao salvar: ' + error.message); setSaving(false); return; }
+    setExistingStages(toSave);
+    if (onFunilSaved) onFunilSaved(toSave);
+    setSaving(false);
     onComplete();
   }
+
+  function setField(i, key, val) {
+    setStages(st => st.map((x, j) => j === i ? { ...x, [key]: val } : x));
+  }
+
+  if (loading) return <SkeletonLoader rows={3} />;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', gap: 6, marginBottom: 2 }}>
@@ -691,12 +742,13 @@ function FunilForm({ onComplete, done }) {
       </div>
       {stages.map((s, i) => (
         <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', gap: 6 }}>
-          <input value={s.nome} onChange={e => setStages(st => st.map((x, j) => j === i ? { ...x, nome: e.target.value } : x))} placeholder={`Etapa ${i + 1}`} style={INPUT_S} />
-          <input type="number" value={s.volume} onChange={e => setStages(st => st.map((x, j) => j === i ? { ...x, volume: e.target.value } : x))} placeholder="0" style={INPUT_S} />
-          <input type="number" value={s.conversao} onChange={e => setStages(st => st.map((x, j) => j === i ? { ...x, conversao: e.target.value } : x))} placeholder="%" style={INPUT_S} />
+          <input value={s.nome} onChange={e => setField(i, 'nome', e.target.value)} placeholder={`Etapa ${i + 1}`} style={INPUT_S} />
+          <input type="number" value={s.volume} onChange={e => setField(i, 'volume', e.target.value)} placeholder="0" style={INPUT_S} />
+          <input type="number" value={s.conversao} onChange={e => setField(i, 'conversao', e.target.value)} placeholder="%" style={INPUT_S} />
         </div>
       ))}
-      <SaveBtn onClick={handleSave} disabled={!valid} done={done} />
+      {saveErr && <div style={{ color: 'var(--red)', fontSize: 12 }}>{saveErr}</div>}
+      <SaveBtn onClick={handleSave} disabled={!valid || saving} done={done} />
     </div>
   );
 }
@@ -1274,7 +1326,7 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
 /* ─── ─────────────────────────────────────────────────────────────────────────── */
 
 /* ─── Detect auto-completed tasks from system state ─────────────────────────── */
-function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData) {
+function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData) {
   const set = new Set();
   // CRM configured
   if (leads.some((l) => l.col !== 'ganho')) {
@@ -1289,11 +1341,8 @@ function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatr
   if (quatroPsData && Object.values(quatroPsData).some(p => p && typeof p === 'object' && Object.values(p).some(v => v && typeof v === 'string' && v.trim()))) set.add('c1-4');
   // Competitors filled — lido do Supabase (concorrentesData null até carregar)
   if (Array.isArray(concorrentesData) && concorrentesData.length > 0) set.add('c1-6');
-  // Funil filled
-  try {
-    const funil = loadLS('diag_funil');
-    if (Array.isArray(funil) && funil.length > 0) set.add('c1-3');
-  } catch {}
+  // Funil preenchido — lido do Supabase (funilData null até carregar)
+  if (Array.isArray(funilData) && funilData.length > 0) set.add('c1-3');
   // KPIs set
   try {
     const kpis = loadLS('kpis_data');
@@ -1990,6 +2039,24 @@ export default function GuiaEstrategico() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
+  /* ── Funil state (para raio auto-concluído) ── */
+  const [funilData, setFunilData] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase
+      .from('diagnostico_funil')
+      .select('etapas')
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setFunilData(data?.etapas ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   /* ── Customizations state ── */
   const [customizations, setCustomizations] = useState({});
   const [editMode,  setEditMode]  = useState(false);
@@ -2042,10 +2109,11 @@ export default function GuiaEstrategico() {
     onPersonasSaved:     (newPersonas)     => setPersonasData(newPersonas),
     onConcorrentesSaved: (newConcorrentes) => setConcorrentesData(newConcorrentes),
     onQuatroPsSaved:     (newPs)           => setQuatroPsData(newPs),
+    onFunilSaved:        (newFunil)        => setFunilData(newFunil),
   }), [TASK_LAYERS_EFFECTIVE, TASK_FORM_TYPE_EFFECTIVE, editMode]);
 
   /* ── Checklist helpers ── */
-  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData), [leads, swotData, personasData, concorrentesData, quatroPsData, revision]);
+  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData), [leads, swotData, personasData, concorrentesData, quatroPsData, funilData, revision]);
 
   function toggleItem(capId, itemId) {
     if (autoChecked.has(itemId)) return;
