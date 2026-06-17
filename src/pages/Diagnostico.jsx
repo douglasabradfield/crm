@@ -718,7 +718,7 @@ function VersionPanel({ versions, onCompare, compareId, onSave, onView }) {
                     transition: 'color 0.12s',
                     textDecoration: onView && isHovered ? 'underline' : 'none',
                   }}>
-                    {v.label}
+                    {v.label || fmtDateTime(v.date)}
                   </span>
                 </button>
                 <button
@@ -1295,11 +1295,115 @@ function SwotSection({ swot, setSwot, lastUpdated, setLastUpdated, versions, set
   );
 }
 
+/* ─── FourPsVersionModal ─────────────────────────────────────────────────── */
+function FourPsVersionModal({ version, onClose, onRestore }) {
+  const [confirming, setConfirming] = useState(false);
+  const data = version.data ?? {};
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--bg2)', border: '1px solid var(--border)',
+          borderRadius: 14, width: '100%', maxWidth: 680,
+          maxHeight: '90vh', overflowY: 'auto',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px', borderBottom: '1px solid var(--border)',
+        }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+              Versão de {fmtDateTime(version.date)}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+              4Ps + Pessoas e Processos — visualização em read-only
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {FOUR_PS_CFG.map(p => (
+            <div key={p.key} style={{
+              background: p.bg, border: `1px solid ${p.border}`,
+              borderRadius: 10, padding: 12,
+            }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: p.color, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <p.Icon size={12} /> {p.label}
+              </p>
+              {p.fields.map(f => (
+                <div key={f.key} style={{ marginBottom: 6 }}>
+                  <p style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{f.label}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.5 }}>{data[p.key]?.[f.key] || '—'}</p>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '12px 20px', borderTop: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8,
+        }}>
+          {confirming ? (
+            <>
+              <span style={{ fontSize: 12, color: 'var(--text2)', flex: 1 }}>
+                Substituir dados atuais por esta versão?
+              </span>
+              <button onClick={() => setConfirming(false)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Cancelar
+              </button>
+              <button
+                onClick={() => { onRestore(data); onClose(); }}
+                style={{ background: 'var(--accent)', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#fff', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+              >
+                Confirmar
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={onClose} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Fechar
+              </button>
+              <button
+                onClick={() => setConfirming(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid var(--border2)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+              >
+                <RotateCcw size={12} /> Restaurar esta versão
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* ─── FourPsSection ──────────────────────────────────────────────────────── */
 function FourPsSection({ fourPs, setFourPs, lastUpdated, setLastUpdated, versions, setVersions, openAI }) {
   const [showVersions, setShowVersions] = useState(false);
   const [compareId, setCompareId] = useState(null);
+  const [viewId, setViewId] = useState(null);
   const compareVersion = compareId ? versions.find(v => v.id === compareId) : null;
+  const viewVersion    = viewId    ? versions.find(v => v.id === viewId)    : null;
 
   function updateField(pKey, fieldKey, value) {
     setFourPs(prev => ({ ...prev, [pKey]: { ...prev[pKey], [fieldKey]: value } }));
@@ -1378,7 +1482,7 @@ function FourPsSection({ fourPs, setFourPs, lastUpdated, setLastUpdated, version
       </div>
 
       {showVersions && (
-        <VersionPanel versions={versions} compareId={compareId} onCompare={setCompareId} onSave={saveVersion} />
+        <VersionPanel versions={versions} compareId={compareId} onCompare={setCompareId} onSave={saveVersion} onView={setViewId} />
       )}
 
       {compareVersion ? (
@@ -1465,6 +1569,13 @@ function FourPsSection({ fourPs, setFourPs, lastUpdated, setLastUpdated, version
             </div>
           ))}
         </div>
+      )}
+      {viewVersion && (
+        <FourPsVersionModal
+          version={viewVersion}
+          onClose={() => setViewId(null)}
+          onRestore={(data) => { setFourPs(data); setViewId(null); }}
+        />
       )}
     </div>
   );

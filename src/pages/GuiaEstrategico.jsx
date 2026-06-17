@@ -701,38 +701,93 @@ function FunilForm({ onComplete, done }) {
   );
 }
 
-/* ─── 4Ps Form ────────────────────────────────────────────────────────────────── */
+/* ─── 4Ps / 6 elementos Form ─────────────────────────────────────────────────── */
+const FOURPS_FORM_FIELDS = [
+  { key: 'produto',   dbField: 'descricao',       label: 'Produto',    color: 'var(--accent2)', placeholder: 'O que você vende e qual o diferencial?' },
+  { key: 'preco',     dbField: 'modelo',          label: 'Preço',      color: 'var(--green)',   placeholder: 'Modelo de precificação e faixa de preço' },
+  { key: 'praca',     dbField: 'canaisVenda',     label: 'Praça',      color: 'var(--teal)',    placeholder: 'Onde e como distribui / entrega' },
+  { key: 'promocao',  dbField: 'canaisMarketing', label: 'Promoção',   color: 'var(--amber)',   placeholder: 'Como atrai e comunica com clientes' },
+  { key: 'pessoas',   dbField: 'quemAtende',      label: 'Pessoas',    color: 'var(--purple)',  placeholder: 'Quem atende o cliente e qual o perfil ideal' },
+  { key: 'processos', dbField: 'comoEntrega',     label: 'Processos',  color: 'var(--teal)',    placeholder: 'Como o serviço é entregue ao cliente' },
+];
+
 function FourPsForm({ onComplete, done }) {
-  const existing = loadLS('diag_4ps', null);
-  const [vals, setVals] = useState({
-    produto:  existing?.produto?.descricao   ?? '',
-    preco:    existing?.preco?.modelo        ?? '',
-    praca:    existing?.praca?.canaisVenda   ?? '',
-    promocao: existing?.promocao?.canaisMarketing ?? '',
-  });
-  const FIELDS = [
-    { key: 'produto',  label: 'Produto',   color: 'var(--accent2)', placeholder: 'O que você vende e qual o diferencial?' },
-    { key: 'preco',    label: 'Preço',     color: 'var(--green)',   placeholder: 'Modelo de precificação e faixa de preço' },
-    { key: 'praca',    label: 'Praça',     color: 'var(--teal)',    placeholder: 'Onde e como distribui / entrega' },
-    { key: 'promocao', label: 'Promoção',  color: 'var(--amber)',   placeholder: 'Como atrai e comunica com clientes' },
-  ];
+  const { empresaId } = useAuth();
+  const { onQuatroPsSaved } = useContext(GuiaCtx);
+  const { saveVersion } = useVersionHistory('diag_4ps_versions');
+  const [existingRow, setExistingRow] = useState(null);
+  const [vals, setVals] = useState({ produto: '', preco: '', praca: '', promocao: '', pessoas: '', processos: '' });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('diagnostico_4ps').select('*')
+      .eq('empresa_id', empresaId).maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data) {
+          setExistingRow(data);
+          setVals({
+            produto:   data.produto?.descricao        ?? '',
+            preco:     data.preco?.modelo             ?? '',
+            praca:     data.praca?.canaisVenda        ?? '',
+            promocao:  data.promocao?.canaisMarketing ?? '',
+            pessoas:   data.pessoas?.quemAtende       ?? '',
+            processos: data.processos?.comoEntrega    ?? '',
+          });
+        }
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   const valid = Object.values(vals).some(v => v.trim());
-  function handleSave() {
-    const ex = loadLS('diag_4ps', {});
-    const fourPs = {
-      produto:  { ...(ex.produto  ?? {}), descricao:       vals.produto,  fromGuia: true },
-      preco:    { ...(ex.preco    ?? {}), modelo:          vals.preco,    fromGuia: true },
-      praca:    { ...(ex.praca    ?? {}), canaisVenda:     vals.praca,    fromGuia: true },
-      promocao: { ...(ex.promocao ?? {}), canaisMarketing: vals.promocao, fromGuia: true },
+
+  async function handleSave() {
+    if (!valid || saving) return;
+    setSaving(true); setSaveErr(null);
+    const existingFourPs = {
+      produto:   existingRow?.produto   ?? {},
+      preco:     existingRow?.preco     ?? {},
+      praca:     existingRow?.praca     ?? {},
+      promocao:  existingRow?.promocao  ?? {},
+      pessoas:   existingRow?.pessoas   ?? {},
+      processos: existingRow?.processos ?? {},
     };
-    saveLS('diag_4ps', fourPs);
-    saveLS('diag_4ps_updated', new Date().toISOString());
+    const hasContent = Object.values(existingFourPs).some(p =>
+      Object.values(p).some(v => v && typeof v === 'string' && v.trim())
+    );
+    if (hasContent) saveVersion(existingFourPs);
+    const toUpsert = {
+      empresa_id: empresaId,
+      produto:   { ...existingFourPs.produto,   descricao:       vals.produto   },
+      preco:     { ...existingFourPs.preco,     modelo:          vals.preco     },
+      praca:     { ...existingFourPs.praca,     canaisVenda:     vals.praca     },
+      promocao:  { ...existingFourPs.promocao,  canaisMarketing: vals.promocao  },
+      pessoas:   { ...existingFourPs.pessoas,   quemAtende:      vals.pessoas   },
+      processos: { ...existingFourPs.processos, comoEntrega:     vals.processos },
+      atualizado_em: new Date().toISOString(),
+    };
+    const { data: saved, error } = await supabase
+      .from('diagnostico_4ps')
+      .upsert(toUpsert, { onConflict: 'empresa_id' })
+      .select().single();
+    if (error) { setSaveErr('Erro ao salvar: ' + error.message); setSaving(false); return; }
+    setExistingRow(saved);
+    if (onQuatroPsSaved) onQuatroPsSaved(saved);
+    setSaving(false);
     onComplete();
   }
+
+  if (loading) return <SkeletonLoader rows={3} />;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {FIELDS.map(({ key, label, color, placeholder }) => (
+        {FOURPS_FORM_FIELDS.map(({ key, label, color, placeholder }) => (
           <div key={key}>
             <FLabel color={color}>{label}</FLabel>
             <textarea value={vals[key]} onChange={e => setVals(v => ({ ...v, [key]: e.target.value }))}
@@ -740,7 +795,8 @@ function FourPsForm({ onComplete, done }) {
           </div>
         ))}
       </div>
-      <SaveBtn onClick={handleSave} disabled={!valid} done={done} />
+      {saveErr && <div style={{ color: 'var(--red)', fontSize: 12 }}>{saveErr}</div>}
+      <SaveBtn onClick={handleSave} disabled={!valid || saving} done={done} />
     </div>
   );
 }
@@ -1218,7 +1274,7 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
 /* ─── ─────────────────────────────────────────────────────────────────────────── */
 
 /* ─── Detect auto-completed tasks from system state ─────────────────────────── */
-function buildAutoChecked(leads, swotData, personasData, concorrentesData) {
+function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData) {
   const set = new Set();
   // CRM configured
   if (leads.some((l) => l.col !== 'ganho')) {
@@ -1229,11 +1285,8 @@ function buildAutoChecked(leads, swotData, personasData, concorrentesData) {
   if (swotData && Object.values(swotData).some((arr) => Array.isArray(arr) && arr.length > 0)) set.add('c1-1');
   // Personas filled — lido do Supabase (personasData null até carregar)
   if (Array.isArray(personasData) && personasData.length > 0) set.add('c1-2');
-  // 4Ps filled
-  try {
-    const fourps = loadLS('diag_4ps');
-    if (fourps && Object.values(fourps).some(p => p && typeof p === 'object' && Object.values(p).some(v => v && typeof v === 'string' && v.trim()))) set.add('c1-4');
-  } catch {}
+  // 4Ps/6 elementos preenchidos — lido do Supabase (quatroPsData null até carregar)
+  if (quatroPsData && Object.values(quatroPsData).some(p => p && typeof p === 'object' && Object.values(p).some(v => v && typeof v === 'string' && v.trim()))) set.add('c1-4');
   // Competitors filled — lido do Supabase (concorrentesData null até carregar)
   if (Array.isArray(concorrentesData) && concorrentesData.length > 0) set.add('c1-6');
   // Funil filled
@@ -1919,6 +1972,24 @@ export default function GuiaEstrategico() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
+  /* ── 4Ps / 6 elementos state (para raio auto-concluído) ── */
+  const [quatroPsData, setQuatroPsData] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase
+      .from('diagnostico_4ps')
+      .select('produto,preco,praca,promocao,pessoas,processos')
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setQuatroPsData(data ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   /* ── Customizations state ── */
   const [customizations, setCustomizations] = useState({});
   const [editMode,  setEditMode]  = useState(false);
@@ -1970,10 +2041,11 @@ export default function GuiaEstrategico() {
     onSwotSaved:         (newSwot)         => setSwotData(newSwot),
     onPersonasSaved:     (newPersonas)     => setPersonasData(newPersonas),
     onConcorrentesSaved: (newConcorrentes) => setConcorrentesData(newConcorrentes),
+    onQuatroPsSaved:     (newPs)           => setQuatroPsData(newPs),
   }), [TASK_LAYERS_EFFECTIVE, TASK_FORM_TYPE_EFFECTIVE, editMode]);
 
   /* ── Checklist helpers ── */
-  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData), [leads, swotData, personasData, concorrentesData, revision]);
+  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData), [leads, swotData, personasData, concorrentesData, quatroPsData, revision]);
 
   function toggleItem(capId, itemId) {
     if (autoChecked.has(itemId)) return;
