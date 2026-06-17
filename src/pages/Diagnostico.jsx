@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus, Bot, Pencil, Check, X, Trash2, Clock, AlertTriangle,
   ChevronDown, ChevronUp, Save, FileText, BarChart2, Users,
   Package, DollarSign, MapPin, Megaphone, History, Layers, GripVertical, Globe,
+  RotateCcw,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
 import { useAuth } from '../store/auth.js';
@@ -655,7 +657,8 @@ function CompilationPanel({ analyses, score, scoreLabel, scoreColor, onReport })
 }
 
 /* ─── VersionPanel (shared) ──────────────────────────────────────────────── */
-function VersionPanel({ versions, onCompare, compareId, onSave }) {
+function VersionPanel({ versions, onCompare, compareId, onSave, onView }) {
+  const [hovered, setHovered] = useState(null);
   return (
     <div style={{
       background: 'var(--bg3)', border: '1px solid var(--border)',
@@ -683,30 +686,55 @@ function VersionPanel({ versions, onCompare, compareId, onSave }) {
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {versions.map(v => (
-            <div key={v.id} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '6px 8px', borderRadius: 6,
-              background: compareId === v.id ? 'rgba(91,110,245,0.1)' : 'transparent',
-              border: `1px solid ${compareId === v.id ? 'rgba(91,110,245,0.3)' : 'transparent'}`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Clock size={11} color="var(--text3)" />
-                <span style={{ fontSize: 12, color: 'var(--text2)' }}>{v.label}</span>
-              </div>
-              <button
-                onClick={() => onCompare(compareId === v.id ? null : v.id)}
-                style={{
-                  background: 'none', border: '1px solid var(--border2)',
-                  borderRadius: 5, padding: '3px 8px', fontSize: 11,
-                  color: compareId === v.id ? 'var(--accent2)' : 'var(--text3)',
-                  cursor: 'pointer', fontFamily: 'var(--font-body)',
-                }}
+          {versions.map(v => {
+            const isHovered = hovered === v.id;
+            const isCompared = compareId === v.id;
+            return (
+              <div key={v.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '6px 8px', borderRadius: 6,
+                background: isCompared ? 'rgba(91,110,245,0.1)' : isHovered ? 'var(--bg4)' : 'transparent',
+                border: `1px solid ${isCompared ? 'rgba(91,110,245,0.3)' : 'transparent'}`,
+                transition: 'background 0.12s',
+              }}
+                onMouseEnter={() => setHovered(v.id)}
+                onMouseLeave={() => setHovered(null)}
               >
-                {compareId === v.id ? 'Ocultar' : 'Comparar'}
-              </button>
-            </div>
-          ))}
+                <button
+                  onClick={() => onView && onView(v.id)}
+                  disabled={!onView}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 7,
+                    background: 'none', border: 'none', padding: 0,
+                    cursor: onView ? 'pointer' : 'default',
+                    fontFamily: 'var(--font-body)', flex: 1, textAlign: 'left',
+                  }}
+                  title={onView ? 'Clique para visualizar' : undefined}
+                >
+                  <Clock size={11} color="var(--text3)" />
+                  <span style={{
+                    fontSize: 12,
+                    color: onView && isHovered ? 'var(--accent2)' : 'var(--text2)',
+                    transition: 'color 0.12s',
+                    textDecoration: onView && isHovered ? 'underline' : 'none',
+                  }}>
+                    {v.label}
+                  </span>
+                </button>
+                <button
+                  onClick={() => onCompare(isCompared ? null : v.id)}
+                  style={{
+                    background: 'none', border: '1px solid var(--border2)',
+                    borderRadius: 5, padding: '3px 8px', fontSize: 11,
+                    color: isCompared ? 'var(--accent2)' : 'var(--text3)',
+                    cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0,
+                  }}
+                >
+                  {isCompared ? 'Ocultar' : 'Comparar'}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -959,12 +987,122 @@ function SwotQuadrant({ quadKey, items, onSave, onDelete, onAdd, readOnly = fals
   );
 }
 
+/* ─── SwotVersionModal ───────────────────────────────────────────────────── */
+function SwotVersionModal({ version, onClose, onRestore }) {
+  const [confirming, setConfirming] = useState(false);
+
+  function handleRestore() {
+    onRestore(version.data);
+    onClose();
+  }
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14,
+        width: 'min(720px, 100%)', maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+      }}>
+        {/* Cabeçalho */}
+        <div style={{
+          padding: '16px 20px', borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+        }}>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
+            Versão de {fmtDateTime(version.date)}
+          </p>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex', padding: 4, borderRadius: 6 }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Conteúdo */}
+        <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {Object.keys(SWOT_CONFIG).map(q => (
+              <SwotQuadrant key={q} quadKey={q} items={(version.data[q] || [])} readOnly />
+            ))}
+          </div>
+        </div>
+
+        {/* Rodapé */}
+        <div style={{
+          padding: '12px 20px', borderTop: '1px solid var(--border)', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap',
+        }}>
+          {confirming ? (
+            <>
+              <span style={{ fontSize: 12, color: 'var(--text2)', marginRight: 4 }}>
+                Substituir conteúdo atual por esta versão?
+              </span>
+              <button
+                onClick={() => setConfirming(false)}
+                style={{
+                  background: 'none', border: '1px solid var(--border2)',
+                  borderRadius: 7, padding: '7px 14px', fontSize: 12,
+                  color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleRestore}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--accent)', color: '#fff', border: 'none',
+                  borderRadius: 7, padding: '7px 14px', fontSize: 12,
+                  fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                <RotateCcw size={12} /> Confirmar restauração
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                style={{
+                  background: 'none', border: '1px solid var(--border2)',
+                  borderRadius: 7, padding: '7px 14px', fontSize: 12,
+                  color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                Fechar
+              </button>
+              <button
+                onClick={() => setConfirming(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--accent)', color: '#fff', border: 'none',
+                  borderRadius: 7, padding: '7px 14px', fontSize: 12,
+                  fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                <RotateCcw size={12} /> Restaurar esta versão
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /* ─── SwotSection ────────────────────────────────────────────────────────── */
 function SwotSection({ swot, setSwot, lastUpdated, setLastUpdated, versions, setVersions, openAI }) {
   const [showVersions, setShowVersions] = useState(false);
   const [compareId, setCompareId] = useState(null);
+  const [viewId, setViewId] = useState(null);
 
   const compareVersion = compareId ? versions.find(v => v.id === compareId) : null;
+  const viewVersion    = viewId    ? versions.find(v => v.id === viewId)    : null;
 
   function updateSwot(fn) {
     setSwot(fn);
@@ -1080,6 +1218,15 @@ function SwotSection({ swot, setSwot, lastUpdated, setLastUpdated, versions, set
           compareId={compareId}
           onCompare={setCompareId}
           onSave={saveVersion}
+          onView={setViewId}
+        />
+      )}
+
+      {viewVersion && (
+        <SwotVersionModal
+          version={viewVersion}
+          onClose={() => setViewId(null)}
+          onRestore={(data) => updateSwot(() => data)}
         />
       )}
 
