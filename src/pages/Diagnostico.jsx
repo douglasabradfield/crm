@@ -347,7 +347,7 @@ function personaFromRow(r) {
   };
 }
 function personaToRow(p) {
-  const r = {};
+  const r = { atualizado_em: new Date().toISOString() };
   if ('nome'          in p) r.nome           = p.nome;
   if ('cargo'         in p) r.cargo          = p.cargo;
   if ('avatar'        in p) r.avatar         = p.avatar;
@@ -2020,27 +2020,21 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
   const [viewId, setViewId] = useState(null);
   const { versions: personaVersions, saveVersion: savePersonaVersion } = useVersionHistory('diag_personas_versions');
   const viewVersion = viewId ? personaVersions.find(v => v.id === viewId) ?? null : null;
-  const _personasStr = JSON.stringify(personas);
-  const _personasMounted = useRef(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!_personasMounted.current) { _personasMounted.current = true; return; }
-    savePersonaVersion(personas);
-  }, [_personasStr]);
 
   async function savePersona(data) {
     setSaveErr(null);
+    savePersonaVersion(personas);
     const isNew = !personas.find(p => p.id === data.id);
     if (isNew) {
       const row = personaToRow(data);
       const { data: created, error } = await supabase
         .from('diagnostico_personas').insert(row).select().single();
-      if (error) { setSaveErr(error.message); return; }
+      if (error) { setSaveErr('Erro ao salvar persona: ' + error.message); return; }
       setPersonas(prev => [...prev, personaFromRow(created)]);
     } else {
       const { error } = await supabase
         .from('diagnostico_personas').update(personaToRow(data)).eq('id', data.id);
-      if (error) { setSaveErr(error.message); return; }
+      if (error) { setSaveErr('Erro ao salvar persona: ' + error.message); return; }
       setPersonas(prev => prev.map(p => p.id === data.id ? { ...p, ...data } : p));
     }
     setLastUpdated(nowISO());
@@ -2048,9 +2042,10 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
   }
 
   async function deletePersona(id) {
+    savePersonaVersion(personas);
     const { error } = await supabase
       .from('diagnostico_personas').delete().eq('id', id);
-    if (error) { setSaveErr(error.message); return; }
+    if (error) { setSaveErr('Erro ao excluir persona: ' + error.message); return; }
     setPersonas(prev => prev.filter(p => p.id !== id));
     setLastUpdated(nowISO());
   }
@@ -2689,13 +2684,6 @@ function ConcorrentesSection({ openAI }) {
   const [modal, setModal] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const { versions: concVersions, saveVersion: saveConcVersion } = useVersionHistory('diag_competitors_versions');
-  const _concStr = JSON.stringify(competitors);
-  const _concMounted = useRef(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!_concMounted.current) { _concMounted.current = true; return; }
-    saveConcVersion(competitors);
-  }, [_concStr]);
 
   useEffect(() => {
     if (!empresaId) { setLoadingConc(false); return; }
@@ -2712,25 +2700,27 @@ function ConcorrentesSection({ openAI }) {
 
   async function saveCompetitor(data) {
     setSaveErr(null);
+    saveConcVersion(competitors);
     const isNew = !competitors.find(c => c.id === data.id);
     if (isNew) {
       const { data: created, error } = await supabase
         .from('diagnostico_concorrentes').insert(concorrenteToRow(data)).select().single();
-      if (error) { setSaveErr(error.message); return; }
+      if (error) { setSaveErr('Erro ao salvar concorrente: ' + error.message); return; }
       setCompetitors(prev => [...prev, concorrenteFromRow(created)]);
     } else {
       const { error } = await supabase
         .from('diagnostico_concorrentes').update(concorrenteToRow(data)).eq('id', data.id);
-      if (error) { setSaveErr(error.message); return; }
+      if (error) { setSaveErr('Erro ao salvar concorrente: ' + error.message); return; }
       setCompetitors(prev => prev.map(c => c.id === data.id ? { ...c, ...data } : c));
     }
     setModal(null);
   }
 
   async function deleteCompetitor(id) {
+    saveConcVersion(competitors);
     const { error } = await supabase
       .from('diagnostico_concorrentes').delete().eq('id', id);
-    if (error) { setSaveErr(error.message); return; }
+    if (error) { setSaveErr('Erro ao excluir concorrente: ' + error.message); return; }
     setCompetitors(prev => prev.filter(c => c.id !== id));
   }
 
@@ -3114,12 +3104,12 @@ function FunilVendasSection({ openAI }) {
   const [viewId, setViewId] = useState(null);
   const { versions: funilVersions, saveVersion: saveFunilVersion } = useVersionHistory('diag_funil_versions');
   const funilSkipSave = useRef(true);
+  const funilVersionSkip = useRef(true);
   const funilSaveTimer = useRef(null);
   const _funilStr = JSON.stringify(stages);
-  const _funilMounted = useRef(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!_funilMounted.current) { _funilMounted.current = true; return; }
+    if (funilVersionSkip.current) { funilVersionSkip.current = false; return; }
     saveFunilVersion(stages);
   }, [_funilStr]);
 
@@ -3133,6 +3123,7 @@ function FunilVendasSection({ openAI }) {
         if (cancelled) return;
         if (data?.etapas?.length) {
           funilSkipSave.current = true;
+          funilVersionSkip.current = true;
           setStages(data.etapas);
         }
       });
