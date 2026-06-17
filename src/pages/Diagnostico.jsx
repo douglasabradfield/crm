@@ -2436,12 +2436,144 @@ function ConcorrenteCard({ comp, onEdit, onDelete }) {
   );
 }
 
+/* ─── ConcorrenteVersionModal ────────────────────────────────────────────── */
+function ConcorrenteVersionModal({ version, onClose, onRestore }) {
+  const [confirming, setConfirming] = useState(false);
+  const data = version.data ?? [];
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--bg2)', border: '1px solid var(--border)',
+          borderRadius: 14, width: '100%', maxWidth: 560,
+          maxHeight: '90vh', overflowY: 'auto',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px', borderBottom: '1px solid var(--border)',
+        }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+              Versão de {fmtDateTime(version.date)}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+              {data.length} concorrente{data.length !== 1 ? 's' : ''} nesta versão
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {data.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic' }}>Nenhum concorrente nesta versão.</p>
+          ) : data.map((c, i) => (
+            <div key={i} style={{
+              background: 'var(--bg3)', border: '1px solid var(--border)',
+              borderRadius: 10, padding: '12px 14px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, background: 'var(--bg4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700, color: 'var(--text2)',
+                  flexShrink: 0,
+                }}>
+                  {c.nome?.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase()).join('') || '?'}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{c.nome}</div>
+                  {c.site && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{c.site}</div>}
+                </div>
+              </div>
+              {c.forcas?.length > 0 && (
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>Forças</div>
+                  {c.forcas.map((f, fi) => (
+                    <div key={fi} style={{ fontSize: 12, color: 'var(--text2)', padding: '1px 0' }}>· {f}</div>
+                  ))}
+                </div>
+              )}
+              {c.fraquezas?.length > 0 && (
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>Fraquezas</div>
+                  {c.fraquezas.map((f, fi) => (
+                    <div key={fi} style={{ fontSize: 12, color: 'var(--text2)', padding: '1px 0' }}>· {f}</div>
+                  ))}
+                </div>
+              )}
+              {c.diferenciais && (
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>Nosso diferencial</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>{c.diferenciais}</div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '12px 20px', borderTop: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8,
+        }}>
+          {confirming ? (
+            <>
+              <span style={{ fontSize: 12, color: 'var(--text2)', flex: 1 }}>
+                Substituir lista atual por esta versão?
+              </span>
+              <button onClick={() => setConfirming(false)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Cancelar
+              </button>
+              <button
+                onClick={() => { onRestore(data); onClose(); }}
+                style={{ background: 'var(--accent)', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#fff', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+              >
+                Confirmar
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={onClose} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Fechar
+              </button>
+              <button
+                onClick={() => setConfirming(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid var(--border2)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+              >
+                <RotateCcw size={12} /> Restaurar esta versão
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* ─── ConcorrentesSection ────────────────────────────────────────────────── */
 function ConcorrentesSection({ openAI }) {
   const { empresaId } = useAuth();
   const [competitors, setCompetitors] = useState([]);
   const [loadingConc, setLoadingConc] = useState(true);
   const [saveErr, setSaveErr] = useState(null);
+  const [viewId, setViewId] = useState(null);
   const [swot] = useLocalStorage('diag_swot', INITIAL_SWOT);
   const [modal, setModal] = useState(null);
   const [showTable, setShowTable] = useState(false);
@@ -2578,6 +2710,8 @@ function ConcorrentesSection({ openAI }) {
     },
   ];
 
+  const viewVersion = viewId ? concVersions.find(v => v.id === viewId) ?? null : null;
+
   return (
     <>
       <div style={{
@@ -2636,6 +2770,7 @@ function ConcorrentesSection({ openAI }) {
           versions={concVersions}
           currentData={competitors}
           onRestore={(data) => setCompetitors(data)}
+          onView={setViewId}
           renderPreview={(data) => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {data.length === 0
@@ -2735,6 +2870,13 @@ function ConcorrentesSection({ openAI }) {
           initial={modal === 'new' ? null : modal}
           onSave={saveCompetitor}
           onClose={() => setModal(null)}
+        />
+      )}
+      {viewVersion && (
+        <ConcorrenteVersionModal
+          version={viewVersion}
+          onClose={() => setViewId(null)}
+          onRestore={(data) => { setCompetitors(data); setViewId(null); }}
         />
       )}
     </>

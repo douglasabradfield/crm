@@ -746,28 +746,85 @@ function FourPsForm({ onComplete, done }) {
 }
 
 /* ─── Competitor Form ────────────────────────────────────────────────────────── */
+function compFromRow(r) {
+  return {
+    id:           r.id,
+    nome:         r.nome          ?? '',
+    site:         r.site          ?? '',
+    faixaPreco:   r.faixa_preco   ?? 'medio',
+    canais:       r.canais        ?? [],
+    forcas:       r.forcas        ?? [],
+    fraquezas:    r.fraquezas     ?? [],
+    diferenciais: r.diferenciais  ?? '',
+  };
+}
+
 function CompetitorForm({ onComplete, done }) {
+  const { empresaId } = useAuth();
+  const { onConcorrentesSaved } = useContext(GuiaCtx);
+  const { saveVersion } = useVersionHistory('diag_competitors_versions');
+  const [competitors, setCompetitors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState(null);
   const [form, setForm] = useState({ nome: '', site: '', forcas: '', fraquezas: '', diferenciais: '' });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('diagnostico_concorrentes').select('*')
+      .eq('empresa_id', empresaId).order('criado_em', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setCompetitors(data?.length ? data.map(compFromRow) : []);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   const valid = form.nome.trim();
-  function handleSave() {
-    const comp = {
-      id: genId('comp'),
-      nome: form.nome.trim(),
-      site: form.site.trim(),
-      faixaPreco: 'medio',
-      canais: [],
-      forcas:      form.forcas.split('\n').map(l => l.trim()).filter(Boolean),
-      fraquezas:   form.fraquezas.split('\n').map(l => l.trim()).filter(Boolean),
+
+  async function handleSave() {
+    if (!valid || saving) return;
+    setSaving(true); setSaveErr(null);
+    const row = {
+      nome:         form.nome.trim(),
+      site:         form.site.trim(),
+      faixa_preco:  'medio',
+      canais:       [],
+      forcas:       form.forcas.split('\n').map(l => l.trim()).filter(Boolean),
+      fraquezas:    form.fraquezas.split('\n').map(l => l.trim()).filter(Boolean),
       diferenciais: form.diferenciais.trim(),
-      fromGuia: true,
     };
-    const existing = loadLS('diag_competitors', []);
-    saveLS('diag_competitors', [...existing, comp]);
+    const { data: created, error } = await supabase
+      .from('diagnostico_concorrentes').insert(row).select().single();
+    if (error) { setSaveErr('Erro ao salvar: ' + error.message); setSaving(false); return; }
+    const newAll = [...competitors, compFromRow(created)];
+    saveVersion(newAll);
+    setCompetitors(newAll);
+    if (onConcorrentesSaved) onConcorrentesSaved(newAll);
+    setSaving(false);
     onComplete();
   }
+
+  if (loading) return <SkeletonLoader rows={3} />;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {competitors.length > 0 && (
+        <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+          <div style={{ color: 'var(--text3)', marginBottom: 6 }}>Concorrentes já cadastrados:</div>
+          {competitors.map(c => (
+            <div key={c.id} style={{ color: 'var(--text2)', padding: '2px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: 'var(--green)', fontSize: 10 }}>✓</span>
+              <span>{c.nome}</span>
+              {c.site && <span style={{ color: 'var(--text3)' }}>— {c.site}</span>}
+            </div>
+          ))}
+          <div style={{ color: 'var(--text3)', marginTop: 8, fontSize: 11 }}>Adicionar mais um concorrente:</div>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div>
           <FLabel>Nome do concorrente *</FLabel>
@@ -794,7 +851,8 @@ function CompetitorForm({ onComplete, done }) {
         <FLabel>Nosso diferencial versus esse concorrente</FLabel>
         <input value={form.diferenciais} onChange={e => set('diferenciais', e.target.value)} placeholder="O que nos diferencia..." style={INPUT_S} />
       </div>
-      <SaveBtn onClick={handleSave} disabled={!valid} done={done} />
+      {saveErr && <div style={{ color: 'var(--red)', fontSize: 12 }}>{saveErr}</div>}
+      <SaveBtn onClick={handleSave} disabled={!valid || saving} done={done} />
     </div>
   );
 }
@@ -1160,7 +1218,7 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
 /* ─── ─────────────────────────────────────────────────────────────────────────── */
 
 /* ─── Detect auto-completed tasks from system state ─────────────────────────── */
-function buildAutoChecked(leads, swotData, personasData) {
+function buildAutoChecked(leads, swotData, personasData, concorrentesData) {
   const set = new Set();
   // CRM configured
   if (leads.some((l) => l.col !== 'ganho')) {
@@ -1176,11 +1234,8 @@ function buildAutoChecked(leads, swotData, personasData) {
     const fourps = loadLS('diag_4ps');
     if (fourps && Object.values(fourps).some(p => p && typeof p === 'object' && Object.values(p).some(v => v && typeof v === 'string' && v.trim()))) set.add('c1-4');
   } catch {}
-  // Competitors filled
-  try {
-    const competitors = loadLS('diag_competitors');
-    if (Array.isArray(competitors) && competitors.length > 0) set.add('c1-6');
-  } catch {}
+  // Competitors filled — lido do Supabase (concorrentesData null até carregar)
+  if (Array.isArray(concorrentesData) && concorrentesData.length > 0) set.add('c1-6');
   // Funil filled
   try {
     const funil = loadLS('diag_funil');
@@ -1847,6 +1902,23 @@ export default function GuiaEstrategico() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
+  /* ── Concorrentes state (para raio auto-concluído) ── */
+  const [concorrentesData, setConcorrentesData] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase
+      .from('diagnostico_concorrentes')
+      .select('id')
+      .eq('empresa_id', empresaId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setConcorrentesData(data ?? []);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   /* ── Customizations state ── */
   const [customizations, setCustomizations] = useState({});
   const [editMode,  setEditMode]  = useState(false);
@@ -1892,15 +1964,16 @@ export default function GuiaEstrategico() {
 
   /* ── Context value ── */
   const ctxValue = useMemo(() => ({
-    getTaskLayers:   (taskId) => TASK_LAYERS_EFFECTIVE[taskId],
-    getFormType:     (taskId) => TASK_FORM_TYPE_EFFECTIVE[taskId],
+    getTaskLayers:       (taskId) => TASK_LAYERS_EFFECTIVE[taskId],
+    getFormType:         (taskId) => TASK_FORM_TYPE_EFFECTIVE[taskId],
     editMode,
-    onSwotSaved:     (newSwot)     => setSwotData(newSwot),
-    onPersonasSaved: (newPersonas) => setPersonasData(newPersonas),
+    onSwotSaved:         (newSwot)         => setSwotData(newSwot),
+    onPersonasSaved:     (newPersonas)     => setPersonasData(newPersonas),
+    onConcorrentesSaved: (newConcorrentes) => setConcorrentesData(newConcorrentes),
   }), [TASK_LAYERS_EFFECTIVE, TASK_FORM_TYPE_EFFECTIVE, editMode]);
 
   /* ── Checklist helpers ── */
-  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData), [leads, swotData, personasData, revision]);
+  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData), [leads, swotData, personasData, concorrentesData, revision]);
 
   function toggleItem(capId, itemId) {
     if (autoChecked.has(itemId)) return;
