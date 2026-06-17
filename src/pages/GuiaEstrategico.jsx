@@ -525,32 +525,106 @@ function SwotForm({ onComplete, done }) {
   );
 }
 
+/* ─── personaFromRow (mini-mapper para leitura do banco) ─────────────────────── */
+function personaFromRow(r) {
+  return {
+    id:            r.id,
+    nome:          r.nome            ?? '',
+    cargo:         r.cargo           ?? '',
+    avatar:        r.avatar          ?? '',
+    color:         r.color           ?? '--accent2',
+    descricao:     r.descricao       ?? '',
+    dores:         r.dores           ?? [],
+    decisaoCompra: r.decisao_compra  ?? '',
+    objecoes:      r.objecoes        ?? [],
+    canais:        r.canais          ?? '',
+  };
+}
+
 /* ─── Persona Form ───────────────────────────────────────────────────────────── */
 function PersonaForm({ onComplete, done }) {
+  const { empresaId } = useAuth();
+  const { onPersonasSaved } = useContext(GuiaCtx);
+  const [personas, setPersonas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saveErr, setSaveErr] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const { saveVersion } = useVersionHistory('diag_personas_versions');
   const [form, setForm] = useState({ nome: '', cargo: '', descricao: '', dores: '', decisaoCompra: '', canais: '' });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.nome.trim() && form.dores.trim();
-  function handleSave() {
-    const persona = {
-      id: genId('p'),
-      nome: form.nome.trim(),
-      cargo: form.cargo.trim(),
-      avatar: form.nome.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
-      color: '--accent2',
-      descricao: form.descricao.trim(),
-      dores: form.dores.split('\n').map(l => l.trim()).filter(Boolean),
-      decisaoCompra: form.decisaoCompra.trim(),
-      objecoes: [],
-      canais: form.canais.trim(),
-      fromGuia: true,
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase
+      .from('diagnostico_personas')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .order('criado_em', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setPersonas((data ?? []).map(personaFromRow));
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  async function handleSave() {
+    setSaveErr(null);
+    setSaving(true);
+    const nome = form.nome.trim();
+    const row = {
+      nome,
+      cargo:          form.cargo.trim(),
+      avatar:         nome.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
+      color:          '--accent2',
+      descricao:      form.descricao.trim(),
+      dores:          form.dores.split('\n').map(l => l.trim()).filter(Boolean),
+      decisao_compra: form.decisaoCompra.trim(),
+      objecoes:       [],
+      canais:         form.canais.trim(),
+      atualizado_em:  new Date().toISOString(),
     };
-    const existing = loadLS('diag_personas', []);
-    saveLS('diag_personas', [...existing, persona]);
-    saveLS('diag_personas_updated', new Date().toISOString());
+    if (personas.length > 0) saveVersion(personas);
+    const { data: created, error } = await supabase
+      .from('diagnostico_personas')
+      .insert(row)
+      .select()
+      .single();
+    setSaving(false);
+    if (error) { setSaveErr('Erro ao salvar persona. Tente novamente.'); return; }
+    const updated = [...personas, personaFromRow(created)];
+    setPersonas(updated);
+    onPersonasSaved(updated);
     onComplete();
   }
+
+  if (loading) return <SkeletonLoader lines={4} />;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {personas.length > 0 && (
+        <div style={{
+          background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px',
+          display: 'flex', flexDirection: 'column', gap: 4,
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {personas.length} persona{personas.length > 1 ? 's' : ''} já cadastrada{personas.length > 1 ? 's' : ''}
+          </span>
+          {personas.map(p => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: 999, fontSize: 8, fontWeight: 700,
+                background: 'rgba(91,110,245,0.15)', color: 'var(--accent2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>{p.avatar || p.nome.slice(0, 2).toUpperCase()}</div>
+              <span style={{ fontSize: 11, color: 'var(--text2)' }}>{p.nome}</span>
+              {p.cargo && <span style={{ fontSize: 10, color: 'var(--text3)' }}>· {p.cargo}</span>}
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div>
           <FLabel>Nome fictício *</FLabel>
@@ -580,7 +654,8 @@ function PersonaForm({ onComplete, done }) {
           <input value={form.canais} onChange={e => set('canais', e.target.value)} placeholder="LinkedIn, WhatsApp..." style={INPUT_S} />
         </div>
       </div>
-      <SaveBtn onClick={handleSave} disabled={!valid} done={done} />
+      {saveErr && <div style={{ color: 'var(--red)', fontSize: 11 }}>{saveErr}</div>}
+      <SaveBtn onClick={handleSave} disabled={!valid || saving} done={done} />
     </div>
   );
 }
@@ -1085,7 +1160,7 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
 /* ─── ─────────────────────────────────────────────────────────────────────────── */
 
 /* ─── Detect auto-completed tasks from system state ─────────────────────────── */
-function buildAutoChecked(leads, swotData) {
+function buildAutoChecked(leads, swotData, personasData) {
   const set = new Set();
   // CRM configured
   if (leads.some((l) => l.col !== 'ganho')) {
@@ -1094,11 +1169,8 @@ function buildAutoChecked(leads, swotData) {
   }
   // SWOT filled — lido do Supabase (swotData null até carregar)
   if (swotData && Object.values(swotData).some((arr) => Array.isArray(arr) && arr.length > 0)) set.add('c1-1');
-  // Personas filled
-  try {
-    const personas = loadLS('diag_personas');
-    if (Array.isArray(personas) && personas.length > 0) set.add('c1-2');
-  } catch {}
+  // Personas filled — lido do Supabase (personasData null até carregar)
+  if (Array.isArray(personasData) && personasData.length > 0) set.add('c1-2');
   // 4Ps filled
   try {
     const fourps = loadLS('diag_4ps');
@@ -1758,6 +1830,23 @@ export default function GuiaEstrategico() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
+  /* ── Personas state (para raio auto-concluído) ── */
+  const [personasData, setPersonasData] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase
+      .from('diagnostico_personas')
+      .select('id')
+      .eq('empresa_id', empresaId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setPersonasData(data ?? []);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   /* ── Customizations state ── */
   const [customizations, setCustomizations] = useState({});
   const [editMode,  setEditMode]  = useState(false);
@@ -1803,14 +1892,15 @@ export default function GuiaEstrategico() {
 
   /* ── Context value ── */
   const ctxValue = useMemo(() => ({
-    getTaskLayers: (taskId) => TASK_LAYERS_EFFECTIVE[taskId],
-    getFormType:   (taskId) => TASK_FORM_TYPE_EFFECTIVE[taskId],
+    getTaskLayers:   (taskId) => TASK_LAYERS_EFFECTIVE[taskId],
+    getFormType:     (taskId) => TASK_FORM_TYPE_EFFECTIVE[taskId],
     editMode,
-    onSwotSaved: (newSwot) => setSwotData(newSwot),
+    onSwotSaved:     (newSwot)     => setSwotData(newSwot),
+    onPersonasSaved: (newPersonas) => setPersonasData(newPersonas),
   }), [TASK_LAYERS_EFFECTIVE, TASK_FORM_TYPE_EFFECTIVE, editMode]);
 
   /* ── Checklist helpers ── */
-  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData), [leads, swotData, revision]);
+  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData), [leads, swotData, personasData, revision]);
 
   function toggleItem(capId, itemId) {
     if (autoChecked.has(itemId)) return;

@@ -742,12 +742,18 @@ function VersionPanel({ versions, onCompare, compareId, onSave, onView }) {
 }
 
 /* ─── VersionDropdown ────────────────────────────────────────────────────── */
-function VersionDropdown({ versions, currentData, onRestore, renderPreview }) {
+function VersionDropdown({ versions, currentData, onRestore, renderPreview, onView }) {
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  const [hovered, setHovered] = useState(null);
   const selected = versions.find(v => v.id === selectedId) || null;
 
   if (versions.length === 0) return null;
+
+  function handleItemClick(v) {
+    if (onView) onView(v.id);
+    else setSelectedId(selectedId === v.id ? null : v.id);
+  }
 
   return (
     <div>
@@ -779,29 +785,43 @@ function VersionDropdown({ versions, currentData, onRestore, renderPreview }) {
             background: 'var(--bg3)', border: '1px solid var(--border)',
             borderRadius: 8, overflow: 'hidden',
           }}>
-            {versions.map((v, i) => (
-              <button
-                key={v.id}
-                onClick={() => setSelectedId(selectedId === v.id ? null : v.id)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 12px',
-                  background: selectedId === v.id ? 'rgba(91,110,245,0.1)' : 'transparent',
-                  border: 'none',
-                  borderBottom: i < versions.length - 1 ? '1px solid var(--border)' : 'none',
-                  cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)',
-                }}
-              >
-                <Clock size={11} color="var(--text3)" />
-                <span style={{ fontSize: 12, flex: 1, color: selectedId === v.id ? 'var(--accent2)' : 'var(--text2)' }}>
-                  {fmtDateTime(v.date)}
-                </span>
-                {selectedId === v.id && <Check size={11} color="var(--accent2)" />}
-              </button>
-            ))}
+            {versions.map((v, i) => {
+              const isHov = hovered === v.id;
+              const isSel = selectedId === v.id;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => handleItemClick(v)}
+                  onMouseEnter={() => setHovered(v.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 12px',
+                    background: isSel ? 'rgba(91,110,245,0.1)' : isHov ? 'var(--bg4)' : 'transparent',
+                    border: 'none',
+                    borderBottom: i < versions.length - 1 ? '1px solid var(--border)' : 'none',
+                    cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)',
+                    transition: 'background 0.12s',
+                  }}
+                  title={onView ? 'Clique para visualizar' : undefined}
+                >
+                  <Clock size={11} color="var(--text3)" />
+                  <span style={{
+                    fontSize: 12, flex: 1,
+                    color: isSel || (onView && isHov) ? 'var(--accent2)' : 'var(--text2)',
+                    textDecoration: onView && isHov ? 'underline' : 'none',
+                    transition: 'color 0.12s',
+                  }}>
+                    {fmtDateTime(v.date)}
+                  </span>
+                  {isSel && !onView && <Check size={11} color="var(--accent2)" />}
+                </button>
+              );
+            })}
           </div>
 
-          {selected && (
+          {/* Comparação inline: só mostra quando onView NÃO está presente */}
+          {!onView && selected && (
             <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                 <div style={{
@@ -1745,12 +1765,150 @@ function PersonaCard({ persona, onEdit, onDelete }) {
   );
 }
 
+/* ─── PersonaVersionModal ────────────────────────────────────────────────── */
+function PersonaVersionModal({ version, onClose, onRestore }) {
+  const [confirming, setConfirming] = useState(false);
+  const personas = Array.isArray(version.data) ? version.data : [];
+
+  function handleRestore() {
+    onRestore(version.data);
+    onClose();
+  }
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14,
+        width: 'min(600px, 100%)', maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+      }}>
+        {/* Cabeçalho */}
+        <div style={{
+          padding: '16px 20px', borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+        }}>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
+            Versão de {fmtDateTime(version.date)}
+          </p>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex', padding: 4, borderRadius: 6 }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Conteúdo */}
+        <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
+          {personas.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>Nenhuma persona nesta versão</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {personas.map((p, i) => (
+                <div key={p.id ?? i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px',
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 999, fontSize: 11, fontWeight: 700, flexShrink: 0,
+                    background: 'rgba(91,110,245,0.15)', color: 'var(--accent2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {p.avatar || (p.nome || '').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{p.nome}</p>
+                    {p.cargo && <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{p.cargo}</p>}
+                    {Array.isArray(p.dores) && p.dores.length > 0 && (
+                      <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {p.dores.slice(0, 3).map((d, j) => (
+                          <span key={j} style={{ fontSize: 11, color: 'var(--text2)' }}>• {typeof d === 'string' ? d : d.text}</span>
+                        ))}
+                        {p.dores.length > 3 && <span style={{ fontSize: 10, color: 'var(--text3)' }}>+{p.dores.length - 3} dores</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Rodapé */}
+        <div style={{
+          padding: '12px 20px', borderTop: '1px solid var(--border)', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap',
+        }}>
+          {confirming ? (
+            <>
+              <span style={{ fontSize: 12, color: 'var(--text2)', marginRight: 4 }}>
+                Substituir personas atuais por esta versão?
+              </span>
+              <button
+                onClick={() => setConfirming(false)}
+                style={{
+                  background: 'none', border: '1px solid var(--border2)',
+                  borderRadius: 7, padding: '7px 14px', fontSize: 12,
+                  color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleRestore}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--accent)', color: '#fff', border: 'none',
+                  borderRadius: 7, padding: '7px 14px', fontSize: 12,
+                  fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                <RotateCcw size={12} /> Confirmar restauração
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                style={{
+                  background: 'none', border: '1px solid var(--border2)',
+                  borderRadius: 7, padding: '7px 14px', fontSize: 12,
+                  color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                Fechar
+              </button>
+              <button
+                onClick={() => setConfirming(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--accent)', color: '#fff', border: 'none',
+                  borderRadius: 7, padding: '7px 14px', fontSize: 12,
+                  fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                <RotateCcw size={12} /> Restaurar esta versão
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /* ─── PersonasSection ────────────────────────────────────────────────────── */
 function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, openAI }) {
   const { empresaId } = useAuth();
   const [modal, setModal] = useState(null);
   const [saveErr, setSaveErr] = useState(null);
+  const [viewId, setViewId] = useState(null);
   const { versions: personaVersions, saveVersion: savePersonaVersion } = useVersionHistory('diag_personas_versions');
+  const viewVersion = viewId ? personaVersions.find(v => v.id === viewId) ?? null : null;
   const _personasStr = JSON.stringify(personas);
   const _personasMounted = useRef(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1843,6 +2001,7 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
           versions={personaVersions}
           currentData={personas}
           onRestore={(data) => { setPersonas(data); setLastUpdated(nowISO()); }}
+          onView={setViewId}
           renderPreview={(data) => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {data.length === 0
@@ -1858,6 +2017,14 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
             </div>
           )}
         />
+
+        {viewVersion && (
+          <PersonaVersionModal
+            version={viewVersion}
+            onClose={() => setViewId(null)}
+            onRestore={(data) => { setPersonas(data); setLastUpdated(nowISO()); }}
+          />
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           {personas.map(p => (
