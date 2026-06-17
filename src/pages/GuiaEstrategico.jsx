@@ -966,99 +966,192 @@ function CompetitorForm({ onComplete, done }) {
 }
 
 /* ─── Goals Form (c2-1) ──────────────────────────────────────────────────────── */
+const GOALS_LABELS = ['Meta 1 — Vendas/Receita', 'Meta 2 — Geração de Leads', 'Meta 3 — Retenção/Churn'];
+const GOALS_PLACEHOLDERS = ['Ex: Receita mensal de R$ 150k', 'Ex: 60 leads qualificados/mês', 'Ex: Churn abaixo de 3%'];
+
 function GoalsForm({ onComplete, done }) {
-  const LABELS = ['Meta 1 — Vendas/Receita', 'Meta 2 — Geração de Leads', 'Meta 3 — Retenção/Churn'];
-  const PLACEHOLDERS = ['Ex: Receita mensal de R$ 150k', 'Ex: 60 leads qualificados/mês', 'Ex: Churn abaixo de 3%'];
+  const { empresaId } = useAuth();
+  const { onMetasSaved } = useContext(GuiaCtx);
+  const [existingKpis, setExistingKpis] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState(null);
   const [goals, setGoals] = useState([
     { nome: '', meta: '', prazo: '' },
     { nome: '', meta: '', prazo: '' },
     { nome: '', meta: '', prazo: '' },
   ]);
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('kpis').select('id,nome,meta,prazo,tipo')
+      .eq('empresa_id', empresaId).order('ordem', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setExistingKpis(data ?? []);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   const valid = goals.some(g => g.nome.trim());
-  function handleSave() {
-    const existing = loadLS('kpis_data', null);
-    const existingKpis = Array.isArray(existing) ? existing : [];
-    const newKpis = goals
+
+  async function handleSave() {
+    if (!valid || saving) return;
+    setSaving(true); setSaveErr(null);
+    const toInsert = goals
       .filter(g => g.nome.trim())
-      .map(g => ({
-        id: genId('k'),
-        nome: g.nome.trim(),
-        tipo: 'numero',
-        calculo: 'manual',
-        fonte: null,
-        valor: 0,
-        meta: Number(g.meta) || 100,
-        tendencia: 0,
-        prazo: g.prazo || '',
-        frequencia: 'mensal',
-        invertGoal: false,
-        descricao: '',
-        formula: '',
-        exemplo: '',
-        fromGuia: true,
+      .map((g, i) => ({
+        nome:        g.nome.trim(),
+        tipo:        'numero',
+        calculo:     'manual',
+        fonte:       null,
+        valor:       0,
+        meta:        Number(g.meta) || 100,
+        tendencia:   0,
+        prazo:       g.prazo || null,
+        frequencia:  'mensal',
+        invert_goal: false,
+        descricao:   '',
+        formula:     '',
+        exemplo:     '',
+        empresa_id:  empresaId,
+        ordem:       existingKpis.length + i,
       }));
-    saveLS('kpis_data', [...existingKpis, ...newKpis]);
+    const { data: inserted, error } = await supabase
+      .from('kpis').insert(toInsert).select('id,nome');
+    if (error) { setSaveErr('Erro ao salvar: ' + error.message); setSaving(false); return; }
+    const newAll = [...existingKpis, ...(inserted ?? [])];
+    setExistingKpis(newAll);
+    if (onMetasSaved) onMetasSaved(newAll);
+    setSaving(false);
     onComplete();
   }
+
+  function setField(i, key, val) {
+    setGoals(gl => gl.map((x, j) => j === i ? { ...x, [key]: val } : x));
+  }
+
+  if (loading) return <SkeletonLoader rows={3} />;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {existingKpis.length > 0 && (
+        <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+          <div style={{ color: 'var(--text3)', marginBottom: 6 }}>KPIs/metas já cadastrados:</div>
+          {existingKpis.map(k => (
+            <div key={k.id} style={{ color: 'var(--text2)', padding: '2px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: 'var(--green)', fontSize: 10 }}>✓</span>
+              <span>{k.nome}</span>
+              {k.meta != null && <span style={{ color: 'var(--text3)' }}>— meta: {k.meta}</span>}
+            </div>
+          ))}
+          <div style={{ color: 'var(--text3)', marginTop: 8, fontSize: 11 }}>Adicionar mais metas:</div>
+        </div>
+      )}
       {goals.map((g, i) => (
         <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 140px', gap: 6 }}>
           <div>
-            {i === 0 && <FLabel>{LABELS[i]}</FLabel>}
-            {i === 1 && <FLabel>{LABELS[i]}</FLabel>}
-            {i === 2 && <FLabel>{LABELS[i]}</FLabel>}
-            <input value={g.nome} onChange={e => setGoals(gl => gl.map((x, j) => j === i ? { ...x, nome: e.target.value } : x))}
-              placeholder={PLACEHOLDERS[i]} style={INPUT_S} />
+            <FLabel>{GOALS_LABELS[i]}</FLabel>
+            <input value={g.nome} onChange={e => setField(i, 'nome', e.target.value)}
+              placeholder={GOALS_PLACEHOLDERS[i]} style={INPUT_S} />
           </div>
           <div>
             {i === 0 && <FLabel>Valor meta</FLabel>}
             {i !== 0 && <div style={{ height: 22 }} />}
-            <input type="number" value={g.meta} onChange={e => setGoals(gl => gl.map((x, j) => j === i ? { ...x, meta: e.target.value } : x))}
+            <input type="number" value={g.meta} onChange={e => setField(i, 'meta', e.target.value)}
               placeholder="0" style={INPUT_S} />
           </div>
           <div>
             {i === 0 && <FLabel>Prazo</FLabel>}
             {i !== 0 && <div style={{ height: 22 }} />}
-            <input type="date" value={g.prazo} onChange={e => setGoals(gl => gl.map((x, j) => j === i ? { ...x, prazo: e.target.value } : x))}
+            <input type="date" value={g.prazo} onChange={e => setField(i, 'prazo', e.target.value)}
               style={INPUT_S} />
           </div>
         </div>
       ))}
-      <SaveBtn onClick={handleSave} disabled={!valid} done={done} />
+      {saveErr && <div style={{ color: 'var(--red)', fontSize: 12 }}>{saveErr}</div>}
+      <SaveBtn onClick={handleSave} disabled={!valid || saving} done={done} />
     </div>
   );
 }
 
 /* ─── Budget Form (c2-2) ─────────────────────────────────────────────────────── */
 function BudgetForm({ onComplete, done }) {
+  const { empresaId } = useAuth();
+  const { onMetasSaved } = useContext(GuiaCtx);
+  const [existingBudget, setExistingBudget] = useState(null);
+  const [allKpis, setAllKpis] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState(null);
   const [faturamento, setFaturamento] = useState('');
   const [percentual, setPercentual] = useState(7);
   const budget = faturamento ? Math.round(Number(faturamento) * percentual / 100) : 0;
   const valid = faturamento && Number(faturamento) > 0;
-  function handleSave() {
-    const existing = loadLS('kpis_data', null);
-    const existingKpis = Array.isArray(existing) ? existing : [];
-    const kpi = {
-      id: genId('k'),
-      nome: 'Orçamento de Marketing',
-      tipo: 'moeda',
-      calculo: 'manual',
-      fonte: null,
-      valor: 0,
-      meta: budget,
-      tendencia: 0,
-      prazo: '',
-      frequencia: 'mensal',
-      invertGoal: false,
-      descricao: `${percentual}% do faturamento médio mensal`,
-      formula: `Faturamento médio × ${percentual}%`,
-      exemplo: `R$ ${Number(faturamento).toLocaleString('pt-BR')} × ${percentual}% = R$ ${budget.toLocaleString('pt-BR')}`,
-      fromGuia: true,
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('kpis').select('id,nome,meta')
+      .eq('empresa_id', empresaId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const all = data ?? [];
+        setAllKpis(all);
+        const found = all.find(k => k.nome === 'Orçamento de Marketing');
+        if (found) setExistingBudget(found);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  async function handleSave() {
+    if (!valid || saving) return;
+    setSaving(true); setSaveErr(null);
+    const row = {
+      nome:        'Orçamento de Marketing',
+      tipo:        'moeda',
+      calculo:     'manual',
+      fonte:       null,
+      valor:       0,
+      meta:        budget,
+      tendencia:   0,
+      prazo:       null,
+      frequencia:  'mensal',
+      invert_goal: false,
+      descricao:   `${percentual}% do faturamento médio mensal`,
+      formula:     `Faturamento médio × ${percentual}%`,
+      exemplo:     `R$ ${Number(faturamento).toLocaleString('pt-BR')} × ${percentual}% = R$ ${budget.toLocaleString('pt-BR')}`,
+      empresa_id:  empresaId,
+      ordem:       allKpis.length,
     };
-    saveLS('kpis_data', [...existingKpis, kpi]);
+    const { data: inserted, error } = await supabase
+      .from('kpis').insert(row).select('id,nome').single();
+    if (error) { setSaveErr('Erro ao salvar: ' + error.message); setSaving(false); return; }
+    const newAll = [...allKpis, inserted];
+    setAllKpis(newAll);
+    setExistingBudget(inserted);
+    if (onMetasSaved) onMetasSaved(newAll);
+    setSaving(false);
     onComplete();
   }
+
+  if (loading) return <SkeletonLoader rows={2} />;
+
+  if (existingBudget) {
+    return (
+      <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+        <div style={{ color: 'var(--text3)', marginBottom: 4 }}>Orçamento de Marketing já definido:</div>
+        <div style={{ color: 'var(--text)', fontWeight: 500 }}>
+          Meta: R$ {Number(existingBudget.meta ?? 0).toLocaleString('pt-BR')}
+        </div>
+        <div style={{ color: 'var(--text3)', marginTop: 4, fontSize: 11 }}>Para alterar, acesse o módulo Metas e KPIs.</div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8 }}>
@@ -1079,7 +1172,8 @@ function BudgetForm({ onComplete, done }) {
           Orçamento mensal estimado: <strong>R$ {budget.toLocaleString('pt-BR')}</strong>
         </div>
       )}
-      <SaveBtn onClick={handleSave} disabled={!valid} done={done} />
+      {saveErr && <div style={{ color: 'var(--red)', fontSize: 12 }}>{saveErr}</div>}
+      <SaveBtn onClick={handleSave} disabled={!valid || saving} done={done} />
     </div>
   );
 }
@@ -1094,55 +1188,119 @@ const KPI_SUGGESTIONS = [
 ];
 
 function KPIsDefForm({ onComplete, done }) {
+  const { empresaId } = useAuth();
+  const { onKpisSaved } = useContext(GuiaCtx);
+  const [existingKpis, setExistingKpis] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState(null);
   const [selected, setSelected] = useState(new Set(KPI_SUGGESTIONS.map((_, i) => i)));
   const [prazo, setPrazo] = useState('');
-  const valid = selected.size > 0;
-  function handleSave() {
-    const existing = loadLS('kpis_data', null);
-    const existingKpis = Array.isArray(existing) ? existing : [];
-    const newKpis = [...selected].map(i => ({
-      id: genId('k'),
-      ...KPI_SUGGESTIONS[i],
-      calculo: 'manual',
-      fonte: null,
-      valor: 0,
-      tendencia: 0,
-      prazo: prazo || '',
-      frequencia: 'mensal',
-      formula: '',
-      exemplo: '',
-      fromGuia: true,
-    }));
-    saveLS('kpis_data', [...existingKpis, ...newKpis]);
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('kpis').select('id,nome,tipo,meta')
+      .eq('empresa_id', empresaId).order('ordem', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setExistingKpis(data ?? []);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  const existingNames = new Set(existingKpis.map(k => k.nome));
+  const availableIdxs = KPI_SUGGESTIONS.map((_, i) => i).filter(i => !existingNames.has(KPI_SUGGESTIONS[i].nome));
+  const valid = [...selected].some(i => availableIdxs.includes(i));
+
+  async function handleSave() {
+    if (!valid || saving) return;
+    setSaving(true); setSaveErr(null);
+    const toInsert = [...selected]
+      .filter(i => availableIdxs.includes(i))
+      .map((i, idx) => ({
+        nome:        KPI_SUGGESTIONS[i].nome,
+        tipo:        KPI_SUGGESTIONS[i].tipo,
+        calculo:     'manual',
+        fonte:       null,
+        valor:       0,
+        meta:        KPI_SUGGESTIONS[i].meta,
+        tendencia:   0,
+        prazo:       prazo || null,
+        frequencia:  'mensal',
+        invert_goal: KPI_SUGGESTIONS[i].invertGoal,
+        descricao:   KPI_SUGGESTIONS[i].descricao,
+        formula:     '',
+        exemplo:     '',
+        empresa_id:  empresaId,
+        ordem:       existingKpis.length + idx,
+      }));
+    const { data: inserted, error } = await supabase
+      .from('kpis').insert(toInsert).select('id,nome');
+    if (error) { setSaveErr('Erro ao salvar: ' + error.message); setSaving(false); return; }
+    const newAll = [...existingKpis, ...(inserted ?? [])];
+    setExistingKpis(newAll);
+    if (onKpisSaved) onKpisSaved(newAll);
+    setSaving(false);
     onComplete();
   }
-  const fmtMeta = (kpi) => kpi.tipo === 'moeda' ? `R$ ${kpi.meta.toLocaleString('pt-BR')}` : kpi.tipo === 'percentual' ? `${kpi.meta}%` : String(kpi.meta);
+
+  const fmtMeta = (kpi) =>
+    kpi.tipo === 'moeda' ? `R$ ${kpi.meta.toLocaleString('pt-BR')}` :
+    kpi.tipo === 'percentual' ? `${kpi.meta}%` : String(kpi.meta);
+
+  if (loading) return <SkeletonLoader rows={3} />;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <FLabel>Selecione os KPIs para adicionar ao seu painel:</FLabel>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {KPI_SUGGESTIONS.map((kpi, i) => (
-          <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7,
-            background: selected.has(i) ? 'rgba(91,110,245,0.08)' : 'var(--bg)',
-            border: `1px solid ${selected.has(i) ? 'rgba(91,110,245,0.3)' : 'var(--border)'}`,
-            cursor: 'pointer', transition: 'all .12s' }}>
-            <input type="checkbox" checked={selected.has(i)}
-              onChange={e => setSelected(s => { const n = new Set(s); e.target.checked ? n.add(i) : n.delete(i); return n; })}
-              style={{ cursor: 'pointer', accentColor: 'var(--accent)' }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{kpi.nome}</div>
-              <div style={{ fontSize: 10, color: 'var(--text3)' }}>
-                Meta de referência: {fmtMeta(kpi)} · {kpi.invertGoal ? 'Menor = melhor' : 'Maior = melhor'}
-              </div>
+      {existingKpis.length > 0 && (
+        <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+          <div style={{ color: 'var(--text3)', marginBottom: 6 }}>KPIs já cadastrados:</div>
+          {existingKpis.map(k => (
+            <div key={k.id} style={{ color: 'var(--text2)', padding: '2px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: 'var(--green)', fontSize: 10 }}>✓</span>
+              <span>{k.nome}</span>
             </div>
-          </label>
-        ))}
-      </div>
-      <div>
-        <FLabel>Prazo das metas</FLabel>
-        <input type="date" value={prazo} onChange={e => setPrazo(e.target.value)} style={INPUT_S} />
-      </div>
-      <SaveBtn onClick={handleSave} disabled={!valid} done={done} />
+          ))}
+        </div>
+      )}
+      {availableIdxs.length > 0 ? (
+        <>
+          <FLabel>Selecione os KPIs para adicionar ao seu painel:</FLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {availableIdxs.map(i => {
+              const kpi = KPI_SUGGESTIONS[i];
+              return (
+                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7,
+                  background: selected.has(i) ? 'rgba(91,110,245,0.08)' : 'var(--bg)',
+                  border: `1px solid ${selected.has(i) ? 'rgba(91,110,245,0.3)' : 'var(--border)'}`,
+                  cursor: 'pointer', transition: 'all .12s' }}>
+                  <input type="checkbox" checked={selected.has(i)}
+                    onChange={e => setSelected(s => { const n = new Set(s); e.target.checked ? n.add(i) : n.delete(i); return n; })}
+                    style={{ cursor: 'pointer', accentColor: 'var(--accent)' }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{kpi.nome}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)' }}>
+                      Meta de referência: {fmtMeta(kpi)} · {kpi.invertGoal ? 'Menor = melhor' : 'Maior = melhor'}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+          <div>
+            <FLabel>Prazo das metas</FLabel>
+            <input type="date" value={prazo} onChange={e => setPrazo(e.target.value)} style={INPUT_S} />
+          </div>
+          {saveErr && <div style={{ color: 'var(--red)', fontSize: 12 }}>{saveErr}</div>}
+          <SaveBtn onClick={handleSave} disabled={!valid || saving} done={done} />
+        </>
+      ) : (
+        <div style={{ color: 'var(--text3)', fontSize: 12, padding: '8px 0' }}>
+          Todos os KPIs sugeridos já foram adicionados.
+        </div>
+      )}
     </div>
   );
 }
@@ -1326,7 +1484,7 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
 /* ─── ─────────────────────────────────────────────────────────────────────────── */
 
 /* ─── Detect auto-completed tasks from system state ─────────────────────────── */
-function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData) {
+function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData) {
   const set = new Set();
   // CRM configured
   if (leads.some((l) => l.col !== 'ganho')) {
@@ -1343,13 +1501,10 @@ function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatr
   if (Array.isArray(concorrentesData) && concorrentesData.length > 0) set.add('c1-6');
   // Funil preenchido — lido do Supabase (funilData null até carregar)
   if (Array.isArray(funilData) && funilData.length > 0) set.add('c1-3');
-  // KPIs set
-  try {
-    const kpis = loadLS('kpis_data');
-    if (Array.isArray(kpis) && kpis.length > 0) set.add('c2-1');
-    if (Array.isArray(kpis) && kpis.some(k => k.nome === 'Orçamento de Marketing')) set.add('c2-2');
-    if (Array.isArray(kpis) && kpis.length >= 3) set.add('c7-1');
-  } catch {}
+  // KPIs/Metas — lido do Supabase (kpisData null até carregar)
+  if (Array.isArray(kpisData) && kpisData.length > 0) set.add('c2-1');
+  if (Array.isArray(kpisData) && kpisData.some(k => k.nome === 'Orçamento de Marketing')) set.add('c2-2');
+  if (Array.isArray(kpisData) && kpisData.length >= 3) set.add('c7-1');
   // Guia docs
   try {
     const guiaDocs = loadLS('dir_guia_docs');
@@ -2057,6 +2212,23 @@ export default function GuiaEstrategico() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
+  /* ── KPIs/Metas state (para raio auto-concluído) ── */
+  const [kpisData, setKpisData] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase
+      .from('kpis')
+      .select('id,nome')
+      .eq('empresa_id', empresaId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setKpisData(data ?? []);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   /* ── Customizations state ── */
   const [customizations, setCustomizations] = useState({});
   const [editMode,  setEditMode]  = useState(false);
@@ -2110,10 +2282,12 @@ export default function GuiaEstrategico() {
     onConcorrentesSaved: (newConcorrentes) => setConcorrentesData(newConcorrentes),
     onQuatroPsSaved:     (newPs)           => setQuatroPsData(newPs),
     onFunilSaved:        (newFunil)        => setFunilData(newFunil),
+    onMetasSaved:        (newKpis)         => setKpisData(newKpis),
+    onKpisSaved:         (newKpis)         => setKpisData(newKpis),
   }), [TASK_LAYERS_EFFECTIVE, TASK_FORM_TYPE_EFFECTIVE, editMode]);
 
   /* ── Checklist helpers ── */
-  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData), [leads, swotData, personasData, concorrentesData, quatroPsData, funilData, revision]);
+  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData), [leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, revision]);
 
   function toggleItem(capId, itemId) {
     if (autoChecked.has(itemId)) return;
