@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, CheckCircle2, Circle, ChevronDown, Bot, Trophy,
@@ -399,16 +399,71 @@ function SaveBtn({ onClick, disabled, done }) {
   );
 }
 
+/* ─── useLocalStorage + useVersionHistory (histórico de versões da SWOT) ─────── */
+function useLocalStorage(key, initial) {
+  const [value, setValue] = useState(() => {
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : initial; }
+    catch { return initial; }
+  });
+  const set = useCallback((v) => {
+    setValue((prev) => {
+      const next = typeof v === 'function' ? v(prev) : v;
+      try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, [key]);
+  return [value, set];
+}
+
+function useVersionHistory(storageKey) {
+  const [, setVersions] = useLocalStorage(storageKey, []);
+  const saveVersion = useCallback((data) => {
+    const snapshot = JSON.parse(JSON.stringify(data));
+    setVersions(prev => {
+      if (prev.length > 0 && JSON.stringify(prev[0].data) === JSON.stringify(snapshot)) return prev;
+      return [{ id: `vh${Date.now()}`, date: new Date().toISOString(), data: snapshot }, ...prev].slice(0, 10);
+    });
+  }, [setVersions]);
+  return { saveVersion };
+}
+
 /* ─── SWOT Form ───────────────────────────────────────────────────────────────── */
 function SwotForm({ onComplete, done }) {
-  const existing = loadLS('diag_swot', null);
+  const { empresaId } = useAuth();
+  const { onSwotSaved } = useContext(GuiaCtx);
   const toText = (arr) => (Array.isArray(arr) ? arr : []).map(i => typeof i === 'string' ? i : i.text).filter(Boolean).join('\n');
-  const [vals, setVals] = useState({
-    forcas:        toText(existing?.forcas),
-    fraquezas:     toText(existing?.fraquezas),
-    oportunidades: toText(existing?.oportunidades),
-    ameacas:       toText(existing?.ameacas),
-  });
+  const [vals, setVals] = useState({ forcas: '', fraquezas: '', oportunidades: '', ameacas: '' });
+  const [loading, setLoading] = useState(true);
+  const [saveErr, setSaveErr] = useState(null);
+  const { saveVersion } = useVersionHistory('diag_swot_versions');
+  const prevData = useRef(null);
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('diagnostico_swot').select('*').eq('empresa_id', empresaId).maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data) {
+          prevData.current = {
+            forcas:        data.forcas        ?? [],
+            fraquezas:     data.fraquezas     ?? [],
+            oportunidades: data.oportunidades ?? [],
+            ameacas:       data.ameacas       ?? [],
+          };
+          setVals({
+            forcas:        toText(data.forcas),
+            fraquezas:     toText(data.fraquezas),
+            oportunidades: toText(data.oportunidades),
+            ameacas:       toText(data.ameacas),
+          });
+        }
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId]);
+
   const QUADS = [
     { key: 'forcas',        label: 'Forças',        color: 'var(--green)'   },
     { key: 'fraquezas',     label: 'Fraquezas',     color: 'var(--amber)'   },
@@ -416,7 +471,9 @@ function SwotForm({ onComplete, done }) {
     { key: 'ameacas',       label: 'Ameaças',       color: 'var(--red)'     },
   ];
   const anyFilled = Object.values(vals).some(v => v.trim());
-  function handleSave() {
+
+  async function handleSave() {
+    setSaveErr(null);
     const parseLines = (text, prefix) =>
       text.split('\n').map(l => l.trim()).filter(Boolean)
         .map(t => ({ id: genId(prefix), text: t, fromGuia: true }));
@@ -426,10 +483,30 @@ function SwotForm({ onComplete, done }) {
       oportunidades: parseLines(vals.oportunidades, 'o'),
       ameacas:       parseLines(vals.ameacas,       'a'),
     };
-    saveLS('diag_swot', swot);
-    saveLS('diag_swot_updated', new Date().toISOString());
+    if (prevData.current && Object.values(prevData.current).some(arr => Array.isArray(arr) && arr.length > 0)) {
+      saveVersion(prevData.current);
+    }
+    const { error } = await supabase
+      .from('diagnostico_swot')
+      .upsert({
+        empresa_id:    empresaId,
+        forcas:        swot.forcas,
+        fraquezas:     swot.fraquezas,
+        oportunidades: swot.oportunidades,
+        ameacas:       swot.ameacas,
+        atualizado_em: new Date().toISOString(),
+      }, { onConflict: 'empresa_id' });
+    if (error) {
+      setSaveErr('Erro ao salvar SWOT. Tente novamente.');
+      return;
+    }
+    prevData.current = swot;
+    onSwotSaved(swot);
     onComplete();
   }
+
+  if (loading) return <div style={{ color: 'var(--text3)', fontSize: 12, padding: '8px 0' }}>Carregando...</div>;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -442,6 +519,7 @@ function SwotForm({ onComplete, done }) {
           </div>
         ))}
       </div>
+      {saveErr && <div style={{ color: 'var(--red)', fontSize: 11 }}>{saveErr}</div>}
       <SaveBtn onClick={handleSave} disabled={!anyFilled} done={done} />
     </div>
   );
@@ -1007,18 +1085,15 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
 /* ─── ─────────────────────────────────────────────────────────────────────────── */
 
 /* ─── Detect auto-completed tasks from system state ─────────────────────────── */
-function buildAutoChecked(leads) {
+function buildAutoChecked(leads, swotData) {
   const set = new Set();
   // CRM configured
   if (leads.some((l) => l.col !== 'ganho')) {
     set.add('c6-4');
     set.add('c1-3');
   }
-  // SWOT filled
-  try {
-    const swot = loadLS('diag_swot');
-    if (swot && Object.values(swot).some((arr) => Array.isArray(arr) && arr.length > 0)) set.add('c1-1');
-  } catch {}
+  // SWOT filled — lido do Supabase (swotData null até carregar)
+  if (swotData && Object.values(swotData).some((arr) => Array.isArray(arr) && arr.length > 0)) set.add('c1-1');
   // Personas filled
   try {
     const personas = loadLS('diag_personas');
@@ -1665,6 +1740,24 @@ export default function GuiaEstrategico() {
     return () => clearTimeout(timer);
   }, [progress, user?.id, empresaId, loadingGuia]);
 
+  /* ── SWOT state (para raio auto-concluído) ── */
+  const [swotData, setSwotData] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase
+      .from('diagnostico_swot')
+      .select('forcas,fraquezas,oportunidades,ameacas')
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setSwotData(data ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   /* ── Customizations state ── */
   const [customizations, setCustomizations] = useState({});
   const [editMode,  setEditMode]  = useState(false);
@@ -1713,10 +1806,11 @@ export default function GuiaEstrategico() {
     getTaskLayers: (taskId) => TASK_LAYERS_EFFECTIVE[taskId],
     getFormType:   (taskId) => TASK_FORM_TYPE_EFFECTIVE[taskId],
     editMode,
+    onSwotSaved: (newSwot) => setSwotData(newSwot),
   }), [TASK_LAYERS_EFFECTIVE, TASK_FORM_TYPE_EFFECTIVE, editMode]);
 
   /* ── Checklist helpers ── */
-  const autoChecked = useMemo(() => buildAutoChecked(leads), [leads, revision]);
+  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData), [leads, swotData, revision]);
 
   function toggleItem(capId, itemId) {
     if (autoChecked.has(itemId)) return;
