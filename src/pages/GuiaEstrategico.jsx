@@ -5,7 +5,7 @@ import {
   Target, Zap, Users, TrendingUp, BarChart2, Megaphone,
   LayoutDashboard, Star, Clock, ArrowRight, Lightbulb, List,
   Pencil, X, Plus, GripVertical, Trash2, RotateCcw, Shield, Save,
-  Send, MapPin,
+  Send, MapPin, Search,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
 import { useAuth } from '../store/auth.js';
@@ -63,6 +63,16 @@ const CAP_META = {
     icon: BarChart2, color: '--accent', tempo: '45 min', acoes: 6,
     dica: 'Crescimento sustentável começa quando marketing, vendas e comunicação compartilham as mesmas metas e a mesma linguagem. Alinhe antes de escalar.',
     aiPrompt: 'Como criar alinhamento entre marketing, vendas e comunicação em uma PME em crescimento? Sugira a estrutura de uma reunião semanal tripartite de 30 minutos e como medir se o alinhamento está funcionando.',
+  },
+  'c-icp': {
+    icon: Target, color: '--teal', tempo: '60 min', acoes: 0,
+    dica: 'Quem você não quer atender é tão importante quanto quem você quer. Um ICP bem definido elimina desperdício de tempo em leads que nunca vão fechar.',
+    aiPrompt: 'Me ajude a definir o Perfil de Cliente Ideal (ICP) para uma PME B2B de serviços. Quais critérios firmográficos e comportamentais devo usar? Como identificar o decisor e qual dor principal meu produto resolve melhor?',
+  },
+  'c-prospeccao': {
+    icon: Search, color: '--green', tempo: '60 min', acoes: 0,
+    dica: 'Prospecção consistente é mais valiosa do que prospecção intensa. Reserve blocos fixos na agenda — 30 minutos por dia valem mais que 4 horas uma vez por mês.',
+    aiPrompt: 'Como montar uma cadência de prospecção ativa B2B para uma PME de serviços? Inclua roteiro de primeiro contato, sequência de follow-ups e como qualificar rapidamente um lead antes de investir mais tempo.',
   },
 };
 

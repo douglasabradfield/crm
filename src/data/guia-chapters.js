@@ -87,8 +87,27 @@ Se você vende serviço (e não produto físico), Pessoas (quem executa e atende
   },
 
   {
-    id: 'c2',
+    id: 'c-icp',
     numero: 2,
+    titulo: 'Lead, Funil e Cliente Ideal (ICP)',
+    subtitulo: 'Defina quem você quer atrair antes de sair prospectar',
+    teoria: '',
+    checklist: [],
+    tabela: null,
+    status: 'nao_iniciado',
+    progresso: 0,
+    promptsIA: [],
+    proximoPasso: {
+      modulo: 'diagnostico',
+      label: 'Diagnóstico',
+      mensagem: 'Formalize o perfil do seu cliente ideal no módulo Diagnóstico.',
+      rota: '/diagnostico',
+    },
+  },
+
+  {
+    id: 'c2',
+    numero: 3,
     titulo: 'Planejamento Geral',
     subtitulo: 'Metas SMART, orçamento e cronograma trimestral',
     teoria: `Um plano anual simples é melhor que um plano perfeito que ninguém executa. O objetivo aqui não é criar um documento de 50 páginas — é ter uma bússola clara que a equipe consulte toda semana.
@@ -132,7 +151,7 @@ O mercado muda rápido demais para planos rígidos. Reserve 2 horas a cada 90 di
 
   {
     id: 'c3',
-    numero: 3,
+    numero: 4,
     titulo: 'Equipe e Papéis — Marketing',
     subtitulo: 'Monte a estrutura mínima de marketing sem estourar o orçamento',
     teoria: `O erro mais comum é contratar alguém antes de saber o que essa pessoa vai fazer. Marketing começa com clareza de papéis, não com número de pessoas.
@@ -177,7 +196,7 @@ Antes de contratar, crie templates para as principais entregas: post de feed, st
 
   {
     id: 'c4',
-    numero: 4,
+    numero: 5,
     titulo: 'Equipe e Papéis — Vendas e Comercial',
     subtitulo: 'Pré-venda, fechamento e pós-venda: quem faz o quê',
     teoria: `Vendas é a função que mais sofre com a falta de clareza de papéis. Quando "todo mundo vende um pouco", ninguém vende direito. A solução é dividir o processo comercial em etapas e ter responsáveis claros por cada uma.
@@ -230,7 +249,7 @@ CRM (do inglês Customer Relationship Management, ou Gestão do Relacionamento c
 
   {
     id: 'c5',
-    numero: 5,
+    numero: 6,
     titulo: 'Equipe e Papéis — Comunicação',
     subtitulo: 'Marca, tom de voz e canais: como sua empresa fala com o mundo',
     teoria: `Comunicação inconsistente é uma das principais causas de desconfiança em PMEs. Quando o Instagram tem um tom, o WhatsApp tem outro e o site tem um terceiro, o cliente não sabe com quem está falando — e não confia em quem não reconhece.
@@ -272,7 +291,7 @@ Um documento simples com: logotipo (versões e uso incorreto), paleta de cores (
 
   {
     id: 'c6',
-    numero: 6,
+    numero: 7,
     titulo: 'Ferramentas e Operação Diária',
     subtitulo: 'Stack de ferramentas acessível e rotina que funciona sem depender da memória',
     teoria: `A melhor ferramenta é aquela que a equipe realmente usa. Antes de assinar qualquer software pago, teste as versões gratuitas e valide que o processo funciona. Muita PME gasta em tecnologia antes de ter o processo claro — e aí a ferramenta vira problema, não solução.
@@ -320,7 +339,7 @@ Zapier e Make (ex-Integromat) conectam sistemas sem precisar de programador (sã
 
   {
     id: 'c7',
-    numero: 7,
+    numero: 8,
     titulo: 'Medição e Ajustes',
     subtitulo: 'Os 5 KPIs que toda PME precisa acompanhar e como agir quando desviam',
     teoria: `"O que não é medido não é gerenciado." A frase é clichê, mas é verdade — principalmente para PMEs que tomam decisões por intuição do momento. Medir não precisa ser complexo. Cinco indicadores bem acompanhados valem mais do que um dashboard com 40 gráficos que ninguém olha.
@@ -381,8 +400,27 @@ Medir sem agir é desperdício de tempo. Para cada KPI abaixo da meta, defina um
   },
 
   {
+    id: 'c-prospeccao',
+    numero: 9,
+    titulo: 'Prospecção Ativa',
+    subtitulo: 'Encontre e qualifique novos clientes de forma sistemática',
+    teoria: '',
+    checklist: [],
+    tabela: null,
+    status: 'nao_iniciado',
+    progresso: 0,
+    promptsIA: [],
+    proximoPasso: {
+      modulo: 'crm',
+      label: 'CRM',
+      mensagem: 'Cadastre os leads encontrados no CRM e inicie o acompanhamento.',
+      rota: '/crm',
+    },
+  },
+
+  {
     id: 'c8',
-    numero: 8,
+    numero: 10,
     titulo: 'Integração e Crescimento Sustentável',
     subtitulo: 'Alinhe marketing, vendas e comunicação para escalar sem quebrar',
     teoria: `O maior desperdício de energia em PMEs é o desalinhamento entre as áreas. Marketing gera leads que vendas acha ruins. Vendas fecha clientes que comunicação não sabe como engajar. Comunicação cria conteúdo que não reflete o que vendas precisaria para fechar mais negócios.

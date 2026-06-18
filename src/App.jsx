@@ -24,7 +24,7 @@ import AceitarConvite  from './pages/AceitarConvite';
 
 const PAGE_META = {
   '/':              { title: 'Painel',                subtitle: 'Visão geral do seu departamento comercial' },
-  '/guia':          { title: 'Guia Estratégico',       subtitle: '8 capítulos para estruturar seu comercial' },
+  '/guia':          { title: 'Guia Estratégico',       subtitle: '10 capítulos para estruturar seu comercial' },
   '/crm':           { title: 'CRM',                    subtitle: 'Gestão do pipeline de vendas' },
   '/prospeccao':    { title: 'Prospecção Ativa',        subtitle: 'Encontre e qualifique novos leads' },
   '/regua':         { title: 'Régua de Comunicação',    subtitle: 'Fluxos de nurturing e follow-up' },
