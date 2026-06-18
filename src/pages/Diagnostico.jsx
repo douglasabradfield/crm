@@ -4,7 +4,7 @@ import {
   Plus, Bot, Pencil, Check, X, Trash2, Clock, AlertTriangle,
   ChevronDown, ChevronUp, Save, FileText, BarChart2, Users,
   Package, DollarSign, MapPin, Megaphone, History, Layers, GripVertical, Globe,
-  RotateCcw,
+  RotateCcw, Target,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
 import { useAuth } from '../store/auth.js';
@@ -284,6 +284,36 @@ const PERSONA_COLORS = [
   { value: '--red',     label: 'Vermelho' },
 ];
 
+/* ─── ICP — Perfil de Cliente Ideal ─────────────────────────────────────── */
+const PORTE_ICP_OPTIONS = [
+  { value: '',       label: 'Qualquer / não definido' },
+  { value: 'MEI',   label: 'MEI' },
+  { value: 'ME',    label: 'Microempresa (ME)' },
+  { value: 'EPP',   label: 'Empresa de Pequeno Porte (EPP)' },
+  { value: 'Media', label: 'Média empresa' },
+  { value: 'Grande',label: 'Grande empresa' },
+];
+
+const UFS_ICP = [
+  'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA',
+  'MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN',
+  'RS','RO','RR','SC','SP','SE','TO',
+];
+
+const INITIAL_ICP = {
+  atividade:        '',
+  porte:            '',
+  capitalMin:       '',
+  capitalMax:       '',
+  uf:               '',
+  municipio:        '',
+  naturezaJuridica: '',
+  dorPrincipal:     '',
+  gatilhoCompra:    '',
+  decisor:          '',
+  ticketMedio:      '',
+};
+
 /* ─── Análise de Concorrentes — dados iniciais ───────────────────────────── */
 const CANAIS_OPCOES = [
   'Instagram', 'LinkedIn', 'Facebook', 'YouTube', 'TikTok',
@@ -407,6 +437,39 @@ function concorrenteToRow(c) {
   if ('fraquezas'    in c) r.fraquezas    = c.fraquezas;
   if ('diferenciais' in c) r.diferenciais = c.diferenciais;
   return r;
+}
+
+function icpFromRow(r) {
+  const cap = r.capital_social ?? {};
+  return {
+    atividade:        r.atividade         ?? '',
+    porte:            r.porte             ?? '',
+    capitalMin:       cap.min             ?? '',
+    capitalMax:       cap.max             ?? '',
+    uf:               r.uf                ?? '',
+    municipio:        r.municipio         ?? '',
+    naturezaJuridica: r.natureza_juridica ?? '',
+    dorPrincipal:     r.dor_principal     ?? '',
+    gatilhoCompra:    r.gatilho_compra    ?? '',
+    decisor:          r.decisor           ?? '',
+    ticketMedio:      r.ticket_medio      ?? '',
+  };
+}
+function icpToRow(icp, empresaId) {
+  return {
+    empresa_id:       empresaId,
+    atividade:        icp.atividade,
+    porte:            icp.porte,
+    capital_social:   { min: icp.capitalMin, max: icp.capitalMax },
+    uf:               icp.uf,
+    municipio:        icp.municipio,
+    natureza_juridica:icp.naturezaJuridica,
+    dor_principal:    icp.dorPrincipal,
+    gatilho_compra:   icp.gatilhoCompra,
+    decisor:          icp.decisor,
+    ticket_medio:     icp.ticketMedio,
+    atualizado_em:    new Date().toISOString(),
+  };
 }
 
 function maturidadeFromRow(r) {
@@ -4322,6 +4385,345 @@ function EntrevistasSection({ openAI }) {
   );
 }
 
+/* ─── IcpVersionModal ────────────────────────────────────────────────────── */
+function IcpVersionModal({ version, onClose, onRestore }) {
+  const [confirming, setConfirming] = useState(false);
+  const d = version.data;
+  const fmtMoeda = v => v ? `R$ ${Number(v).toLocaleString('pt-BR')}` : '—';
+
+  const rows = [
+    { label: 'Atividade / CNAE',    value: d.atividade        || '—' },
+    { label: 'Porte',               value: d.porte            || '—' },
+    { label: 'Capital social mín.',  value: fmtMoeda(d.capitalMin) },
+    { label: 'Capital social máx.',  value: fmtMoeda(d.capitalMax) },
+    { label: 'UF',                  value: d.uf               || '—' },
+    { label: 'Município',           value: d.municipio        || '—' },
+    { label: 'Natureza jurídica',   value: d.naturezaJuridica || '—' },
+    { label: 'Principal dor',       value: d.dorPrincipal     || '—' },
+    { label: 'Gatilho de compra',   value: d.gatilhoCompra    || '—' },
+    { label: 'Decisor',             value: d.decisor          || '—' },
+    { label: 'Ticket médio',        value: fmtMoeda(d.ticketMedio) },
+  ];
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ width: 480, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}
+      >
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>ICP — versão salva</p>
+            <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{version.label || fmtDateTime(version.date)}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}><X size={16} /></button>
+        </div>
+        <div style={{ padding: 20, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {rows.map(r => (
+            <div key={r.label} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8, alignItems: 'baseline' }}>
+              <span style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{r.label}</span>
+              <span style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>{r.value}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          {confirming ? (
+            <>
+              <span style={{ fontSize: 12, color: 'var(--text2)', flex: 1 }}>Substituir conteúdo atual por esta versão?</span>
+              <button onClick={() => setConfirming(false)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
+              <button onClick={() => { onRestore(version.data); onClose(); }} style={{ background: 'var(--accent)', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#fff', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Confirmar</button>
+            </>
+          ) : (
+            <>
+              <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border2)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Fechar</button>
+              <button onClick={() => setConfirming(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid var(--border2)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                <RotateCcw size={12} /> Restaurar esta versão
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ─── IcpSection ─────────────────────────────────────────────────────────── */
+function IcpSection({ icp, setIcp, lastUpdated, setLastUpdated, versions, setVersions, openAI }) {
+  const [showVersions, setShowVersions] = useState(false);
+  const [compareId,    setCompareId]    = useState(null);
+  const [viewId,       setViewId]       = useState(null);
+
+  const compareVersion = compareId ? versions.find(v => v.id === compareId) : null;
+  const viewVersion    = viewId    ? versions.find(v => v.id === viewId)    : null;
+
+  const iS = {
+    width: '100%', background: 'var(--bg4)',
+    border: '1px solid var(--border)', borderRadius: 6,
+    padding: '7px 10px', color: 'var(--text)',
+    fontSize: 12, fontFamily: 'var(--font-body)',
+    outline: 'none', resize: 'vertical', lineHeight: 1.5,
+    boxSizing: 'border-box',
+  };
+  const lS = { fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 };
+
+  function update(key, value) {
+    setIcp(prev => ({ ...prev, [key]: value }));
+    setLastUpdated(new Date().toISOString());
+  }
+
+  function saveVersion() {
+    setVersions(prev => [{
+      id: `iv${Date.now()}`,
+      label: `Versão ${fmtDateTime(new Date().toISOString())}`,
+      date: new Date().toISOString(),
+      data: JSON.parse(JSON.stringify(icp)),
+    }, ...prev].slice(0, 20));
+  }
+
+  function handleAnalyzeIA() {
+    openAI(
+      `Com base no Perfil de Cliente Ideal (ICP) abaixo, analise a adequação e sugira refinamentos:\n\n` +
+      `Atividade/CNAE: ${icp.atividade || '—'}\n` +
+      `Porte: ${icp.porte || '—'}\n` +
+      `Capital social: R$${icp.capitalMin || '?'} a R$${icp.capitalMax || '?'}\n` +
+      `UF: ${icp.uf || '—'} / Município: ${icp.municipio || '—'}\n` +
+      `Principal dor: ${icp.dorPrincipal || '—'}\n` +
+      `Gatilho de compra: ${icp.gatilhoCompra || '—'}\n` +
+      `Decisor: ${icp.decisor || '—'}\n` +
+      `Ticket médio esperado: R$ ${icp.ticketMedio || '—'}\n\n` +
+      `Avalie se o ICP está bem definido, identifique gaps e sugira critérios adicionais para qualificar melhor os prospects.`
+    );
+  }
+
+  const fmtMoeda = v => v
+    ? `R$ ${Number(v).toLocaleString('pt-BR')}`
+    : '—';
+
+  function renderReadonly(d) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ background: 'rgba(56,201,224,0.06)', border: '1px solid rgba(56,201,224,0.2)', borderRadius: 10, padding: 14 }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--teal)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Globe size={12} /> Critérios firmográficos
+          </p>
+          {[
+            ['Atividade / CNAE', d.atividade],
+            ['Porte', d.porte],
+            ['Capital social mín.', fmtMoeda(d.capitalMin)],
+            ['Capital social máx.', fmtMoeda(d.capitalMax)],
+            ['UF', d.uf], ['Município', d.municipio], ['Natureza jurídica', d.naturezaJuridica],
+          ].map(([label, val]) => (
+            <div key={label} style={{ marginBottom: 6 }}>
+              <p style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
+              <p style={{ fontSize: 11, color: 'var(--text2)' }}>{val || '—'}</p>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: 'rgba(176,110,245,0.06)', border: '1px solid rgba(176,110,245,0.2)', borderRadius: 10, padding: 14 }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--purple)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Target size={12} /> Critérios qualitativos
+          </p>
+          {[
+            ['Principal dor', d.dorPrincipal],
+            ['Gatilho de compra', d.gatilhoCompra],
+            ['Decisor', d.decisor],
+            ['Ticket médio esperado', fmtMoeda(d.ticketMedio)],
+          ].map(([label, val]) => (
+            <div key={label} style={{ marginBottom: 6 }}>
+              <p style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
+              <p style={{ fontSize: 11, color: 'var(--text2)' }}>{val || '—'}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Cabeçalho */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
+            ICP — Perfil de Cliente Ideal
+          </p>
+          <p style={{ fontSize: 11, color: 'var(--text3)' }}>
+            Descreva o cliente que você mais quer atender para guiar a prospecção.
+          </p>
+          {lastUpdated && (
+            <span style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Clock size={10} /> {fmtDate(lastUpdated)}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 7 }}>
+          <button
+            onClick={() => setShowVersions(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid var(--border2)', borderRadius: 7, padding: '6px 11px', fontSize: 11, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+          >
+            <History size={12} /> Versões ({versions.length})
+            {showVersions ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+          </button>
+          <button
+            onClick={handleAnalyzeIA}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 7, padding: '6px 11px', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+          >
+            <Bot size={12} /> IA: Analisar ICP
+          </button>
+        </div>
+      </div>
+
+      {showVersions && (
+        <VersionPanel versions={versions} compareId={compareId} onCompare={setCompareId} onSave={saveVersion} onView={setViewId} />
+      )}
+
+      {/* Modo comparação */}
+      {compareVersion ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: 'rgba(91,110,245,0.08)', border: '1px solid rgba(91,110,245,0.2)' }}>
+            <span style={{ fontSize: 12, color: 'var(--accent2)', fontWeight: 500 }}>
+              Comparando: {compareVersion.label} × Versão atual
+            </span>
+            <button onClick={() => setCompareId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex', padding: 2 }}><X size={14} /></button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {[compareVersion.data, icp].map((d, idx) => (
+              <div key={idx}>
+                <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10, fontWeight: 500 }}>
+                  {idx === 0 ? compareVersion.label : 'Versão atual'}
+                </p>
+                {renderReadonly(d)}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* Modo edição */
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          {/* Bloco 1 — Firmográficos */}
+          <div style={{ background: 'rgba(56,201,224,0.06)', border: '1px solid rgba(56,201,224,0.2)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(56,201,224,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Globe size={14} color="var(--teal)" />
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--teal)' }}>Critérios firmográficos</span>
+            </div>
+
+            <div>
+              <label style={lS}>Atividade / CNAE</label>
+              <input value={icp.atividade} onChange={e => update('atividade', e.target.value)} placeholder="Ex: 6201-5, desenvolvimento de software…" style={{ ...iS, resize: 'none' }} />
+            </div>
+
+            <div>
+              <label style={lS}>Porte</label>
+              <div style={{ position: 'relative' }}>
+                <select value={icp.porte} onChange={e => update('porte', e.target.value)} style={{ ...iS, appearance: 'none', paddingRight: 28, cursor: 'pointer' }}>
+                  {PORTE_ICP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+              </div>
+            </div>
+
+            <div>
+              <label style={lS}>Faixa de capital social (R$) — opcional</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <input value={icp.capitalMin} onChange={e => update('capitalMin', e.target.value.replace(/\D/g, ''))} placeholder="Mínimo" style={{ ...iS, resize: 'none' }} />
+                <input value={icp.capitalMax} onChange={e => update('capitalMax', e.target.value.replace(/\D/g, ''))} placeholder="Máximo" style={{ ...iS, resize: 'none' }} />
+              </div>
+              {(icp.capitalMin || icp.capitalMax) && (
+                <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>
+                  {icp.capitalMin ? `De R$ ${Number(icp.capitalMin).toLocaleString('pt-BR')}` : 'Sem mín.'}
+                  {' — '}
+                  {icp.capitalMax ? `até R$ ${Number(icp.capitalMax).toLocaleString('pt-BR')}` : 'Sem máx.'}
+                </p>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <label style={lS}>UF</label>
+                <div style={{ position: 'relative' }}>
+                  <select value={icp.uf} onChange={e => update('uf', e.target.value)} style={{ ...iS, appearance: 'none', paddingRight: 28, cursor: 'pointer' }}>
+                    <option value="">Todos</option>
+                    {UFS_ICP.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                  </select>
+                  <ChevronDown size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+                </div>
+              </div>
+              <div>
+                <label style={lS}>Município</label>
+                <input value={icp.municipio} onChange={e => update('municipio', e.target.value)} placeholder="Ex: São Paulo" style={{ ...iS, resize: 'none' }} />
+              </div>
+            </div>
+
+            <div>
+              <label style={lS}>Natureza jurídica</label>
+              <input value={icp.naturezaJuridica} onChange={e => update('naturezaJuridica', e.target.value)} placeholder="Ex: Ltda, S/A, MEI…" style={{ ...iS, resize: 'none' }} />
+            </div>
+          </div>
+
+          {/* Bloco 2 — Qualitativos */}
+          <div style={{ background: 'rgba(176,110,245,0.06)', border: '1px solid rgba(176,110,245,0.2)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(176,110,245,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Target size={14} color="var(--purple)" />
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--purple)' }}>Critérios qualitativos</span>
+            </div>
+
+            <div>
+              <label style={lS}>Principal dor que resolvemos</label>
+              <textarea rows={3} value={icp.dorPrincipal} onChange={e => update('dorPrincipal', e.target.value)} placeholder="Qual o maior problema que esse cliente tem e que sua solução resolve?" style={iS} />
+            </div>
+
+            <div>
+              <label style={lS}>Gatilho de compra</label>
+              <textarea rows={2} value={icp.gatilhoCompra} onChange={e => update('gatilhoCompra', e.target.value)} placeholder="O que faz esse cliente decidir comprar agora? (ex: cresceu a equipe, perdeu vendas por falta de processo…)" style={iS} />
+            </div>
+
+            <div>
+              <label style={lS}>Quem é o decisor</label>
+              <textarea rows={2} value={icp.decisor} onChange={e => update('decisor', e.target.value)} placeholder="Cargo ou perfil de quem aprova a compra" style={iS} />
+              <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 6, background: 'rgba(91,110,245,0.06)', border: '1px solid rgba(91,110,245,0.15)' }}>
+                <p style={{ fontSize: 10, color: 'var(--accent2)' }}>
+                  💡 Veja também a seção <strong>Personas</strong> para o perfil detalhado do decisor.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label style={lS}>Ticket médio esperado (R$) — opcional</label>
+              <input
+                value={icp.ticketMedio}
+                onChange={e => update('ticketMedio', e.target.value.replace(/\D/g, ''))}
+                placeholder="Ex: 4200"
+                style={{ ...iS, resize: 'none' }}
+              />
+              {icp.ticketMedio && (
+                <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>
+                  {`R$ ${Number(icp.ticketMedio).toLocaleString('pt-BR')}`}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewVersion && (
+        <IcpVersionModal
+          version={viewVersion}
+          onClose={() => setViewId(null)}
+          onRestore={data => { setIcp(data); setLastUpdated(new Date().toISOString()); setViewId(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ─── Diagnostico (main) ─────────────────────────────────────────────────── */
 export default function Diagnostico() {
   const { openAI } = useUI();
@@ -4347,16 +4749,24 @@ export default function Diagnostico() {
   const [personasUpdated, setPersonasUpdated] = useState(null);
   const [loadingDiag, setLoadingDiag] = useState(true);
 
+  // ── ICP — Perfil de Cliente Ideal (Supabase) ─────────────────────────────
+  const [icp, setIcp] = useState(INITIAL_ICP);
+  const [icpUpdated, setIcpUpdated] = useState(null);
+  const [icpVersions, setIcpVersions] = useLocalStorage('diag_icp_versions', []);
+  const icpSkipSave  = useRef(true);
+  const icpSaveTimer = useRef(null);
+
   // ── Fetch SWOT + Personas on mount ───────────────────────────────────────
   useEffect(() => {
     if (!empresaId) { setLoadingDiag(false); return; }
     let cancelled = false;
 
     async function fetchDiagData() {
-      const [swotRes, personasRes, psRes] = await Promise.all([
+      const [swotRes, personasRes, psRes, icpRes] = await Promise.all([
         supabase.from('diagnostico_swot').select('*').eq('empresa_id', empresaId).maybeSingle(),
         supabase.from('diagnostico_personas').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true }),
         supabase.from('diagnostico_4ps').select('*').eq('empresa_id', empresaId).maybeSingle(),
+        supabase.from('diagnostico_icp').select('*').eq('empresa_id', empresaId).maybeSingle(),
       ]);
       if (cancelled) return;
 
@@ -4392,6 +4802,12 @@ export default function Diagnostico() {
           processos: r.processos ?? INITIAL_4PS.processos,
         });
         setFourPsUpdated(r.atualizado_em ?? null);
+      }
+
+      if (icpRes.data) {
+        icpSkipSave.current = true;
+        setIcp(icpFromRow(icpRes.data));
+        setIcpUpdated(icpRes.data.atualizado_em ?? null);
       }
 
       setLoadingDiag(false);
@@ -4453,6 +4869,24 @@ export default function Diagnostico() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_fourPsStr]);
 
+  // ── Auto-save ICP on change (debounced, skips DB-loaded changes) ─────────
+  const _icpStr = JSON.stringify(icp);
+  useEffect(() => {
+    if (!empresaId) return;
+    if (icpSkipSave.current) { icpSkipSave.current = false; return; }
+    clearTimeout(icpSaveTimer.current);
+    icpSaveTimer.current = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from('diagnostico_icp')
+        .upsert(icpToRow(icp, empresaId), { onConflict: 'empresa_id' })
+        .select().single();
+      if (error) { console.error('Erro ao salvar ICP:', error.message); return; }
+      setIcpUpdated(data.atualizado_em);
+    }, 800);
+    return () => clearTimeout(icpSaveTimer.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_icpStr]);
+
   const totalScore = Math.round(DIMENSIONS.reduce((s, d) => s + d.score, 0) / DIMENSIONS.length * 10);
   const scoreLabel = totalScore >= 70 ? 'Maduro' : totalScore >= 45 ? 'Em desenvolvimento' : 'Inicial';
   const scoreColor = totalScore >= 70 ? 'var(--green)' : totalScore >= 45 ? 'var(--amber)' : 'var(--red)';
@@ -4481,6 +4915,14 @@ export default function Diagnostico() {
       iconColor: 'var(--purple)',
       iconBg: 'rgba(176,110,245,0.1)',
       lastUpdated: personasUpdated,
+    },
+    {
+      id: 'icp',
+      name: 'ICP — Perfil de Cliente Ideal',
+      Icon: Target,
+      iconColor: 'var(--teal)',
+      iconBg: 'rgba(56,201,224,0.1)',
+      lastUpdated: icpUpdated,
     },
   ];
 
@@ -4518,6 +4960,16 @@ export default function Diagnostico() {
         setPersonas={setPersonas}
         lastUpdated={personasUpdated}
         setLastUpdated={setPersonasUpdated}
+        openAI={openAI}
+      />
+
+      <IcpSection
+        icp={icp}
+        setIcp={setIcp}
+        lastUpdated={icpUpdated}
+        setLastUpdated={setIcpUpdated}
+        versions={icpVersions}
+        setVersions={setIcpVersions}
         openAI={openAI}
       />
 

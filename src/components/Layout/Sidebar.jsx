@@ -27,7 +27,7 @@ const NAV_GROUPS = [
     label: 'Comercial',
     items: [
       { path: '/crm',        icon: Users,        label: 'CRM',                   module: 'crm',        badge: 12 },
-      { path: '/prospeccao', icon: Search,        label: 'Prospecção Ativa',      module: 'prospeccao', badge: 3  },
+      { path: '/prospeccao', icon: Search,        label: 'Prospecção Ativa',      module: 'prospeccao', badge: 3,  hidden: true },
       { path: '/regua',      icon: MessageSquare, label: 'Régua de Comunicação',  module: 'regua'       },
       { path: '/tickets',    icon: Headphones,    label: 'Chamados',              module: 'tickets',    getBadge: getOpenTickets },
     ],
@@ -72,7 +72,7 @@ export default function Sidebar({ onOpenAI }) {
       {/* Navigation */}
       <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
         {NAV_GROUPS.map(({ label, items }) => {
-          const visible = items.filter((item) => hasPermission(item.module, 'view'));
+          const visible = items.filter((item) => !item.hidden && hasPermission(item.module, 'view'));
           if (!visible.length) return null;
           return (
             <div key={label} style={{ marginBottom: '18px' }}>
