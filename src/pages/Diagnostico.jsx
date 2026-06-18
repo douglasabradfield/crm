@@ -742,7 +742,7 @@ function VersionPanel({ versions, onCompare, compareId, onSave, onView }) {
 }
 
 /* ─── VersionDropdown ────────────────────────────────────────────────────── */
-function VersionDropdown({ versions, currentData, onRestore, renderPreview, onView }) {
+function VersionDropdown({ versions, currentData, onRestore, renderPreview, onView, compareId, onCompare }) {
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [hovered, setHovered] = useState(null);
@@ -786,36 +786,55 @@ function VersionDropdown({ versions, currentData, onRestore, renderPreview, onVi
             borderRadius: 8, overflow: 'hidden',
           }}>
             {versions.map((v, i) => {
-              const isHov = hovered === v.id;
-              const isSel = selectedId === v.id;
+              const isHov  = hovered    === v.id;
+              const isSel  = selectedId === v.id;
+              const isComp = compareId  === v.id;
               return (
-                <button
+                <div
                   key={v.id}
-                  onClick={() => handleItemClick(v)}
                   onMouseEnter={() => setHovered(v.id)}
                   onMouseLeave={() => setHovered(null)}
                   style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                    display: 'flex', alignItems: 'center', gap: 8,
                     padding: '8px 12px',
-                    background: isSel ? 'rgba(91,110,245,0.1)' : isHov ? 'var(--bg4)' : 'transparent',
-                    border: 'none',
+                    background: isComp ? 'rgba(91,110,245,0.1)' : isSel ? 'rgba(91,110,245,0.1)' : isHov ? 'var(--bg4)' : 'transparent',
                     borderBottom: i < versions.length - 1 ? '1px solid var(--border)' : 'none',
-                    cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)',
                     transition: 'background 0.12s',
                   }}
-                  title={onView ? 'Clique para visualizar' : undefined}
                 >
-                  <Clock size={11} color="var(--text3)" />
-                  <span style={{
-                    fontSize: 12, flex: 1,
-                    color: isSel || (onView && isHov) ? 'var(--accent2)' : 'var(--text2)',
-                    textDecoration: onView && isHov ? 'underline' : 'none',
-                    transition: 'color 0.12s',
-                  }}>
-                    {fmtDateTime(v.date)}
-                  </span>
+                  <Clock size={11} color="var(--text3)" style={{ flexShrink: 0 }} />
+                  <button
+                    onClick={() => handleItemClick(v)}
+                    style={{
+                      flex: 1, background: 'none', border: 'none', cursor: 'pointer',
+                      textAlign: 'left', fontFamily: 'var(--font-body)', padding: 0,
+                    }}
+                    title={onView ? 'Clique para visualizar' : undefined}
+                  >
+                    <span style={{
+                      fontSize: 12,
+                      color: isSel || (onView && isHov) ? 'var(--accent2)' : 'var(--text2)',
+                      textDecoration: onView && isHov ? 'underline' : 'none',
+                      transition: 'color 0.12s',
+                    }}>
+                      {fmtDateTime(v.date)}
+                    </span>
+                  </button>
                   {isSel && !onView && <Check size={11} color="var(--accent2)" />}
-                </button>
+                  {onCompare && (
+                    <button
+                      onClick={() => onCompare(isComp ? null : v.id)}
+                      style={{
+                        background: 'none', border: '1px solid var(--border2)',
+                        borderRadius: 5, padding: '3px 8px', fontSize: 11,
+                        color: isComp ? 'var(--accent2)' : 'var(--text3)',
+                        cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0,
+                      }}
+                    >
+                      {isComp ? 'Ocultar' : 'Comparar'}
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1670,7 +1689,7 @@ function PersonaModal({ initial, onSave, onClose }) {
     );
   }
 
-  return (
+  return createPortal(
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1000,
       background: 'rgba(14,15,18,0.8)', backdropFilter: 'blur(4px)',
@@ -1784,7 +1803,8 @@ function PersonaModal({ initial, onSave, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -2018,8 +2038,10 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
   const [modal, setModal] = useState(null);
   const [saveErr, setSaveErr] = useState(null);
   const [viewId, setViewId] = useState(null);
+  const [compareId, setCompareId] = useState(null);
   const { versions: personaVersions, saveVersion: savePersonaVersion } = useVersionHistory('diag_personas_versions');
-  const viewVersion = viewId ? personaVersions.find(v => v.id === viewId) ?? null : null;
+  const viewVersion    = viewId    ? personaVersions.find(v => v.id === viewId)    ?? null : null;
+  const compareVersion = compareId ? personaVersions.find(v => v.id === compareId) ?? null : null;
 
   async function savePersona(data) {
     setSaveErr(null);
@@ -2108,6 +2130,8 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
           currentData={personas}
           onRestore={(data) => { setPersonas(data); setLastUpdated(nowISO()); }}
           onView={setViewId}
+          compareId={compareId}
+          onCompare={setCompareId}
           renderPreview={(data) => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {data.length === 0
@@ -2132,26 +2156,70 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
           />
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-          {personas.map(p => (
-            <PersonaCard
-              key={p.id}
-              persona={p}
-              onEdit={setModal}
-              onDelete={deletePersona}
-            />
-          ))}
-          {personas.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic', gridColumn: '1 / -1', padding: '20px 0' }}>
-              Nenhuma persona mapeada. Clique em "Nova persona" para começar.
-            </p>
-          )}
-          {saveErr && (
-            <p style={{ fontSize: 12, color: 'var(--red)', gridColumn: '1 / -1', padding: '4px 0' }}>
-              Erro ao salvar: {saveErr}
-            </p>
-          )}
-        </div>
+        {compareVersion ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: 'rgba(91,110,245,0.08)', border: '1px solid rgba(91,110,245,0.2)' }}>
+              <span style={{ fontSize: 12, color: 'var(--accent2)', fontWeight: 500 }}>
+                Comparando: versão de {fmtDateTime(compareVersion.date)} × Personas atuais
+              </span>
+              <button onClick={() => setCompareId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex', padding: 2 }}>
+                <X size={14} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {[{ data: compareVersion.data, label: `Versão de ${fmtDateTime(compareVersion.date)}` }, { data: personas, label: 'Versão atual' }].map(({ data, label }) => {
+                const arr = Array.isArray(data) ? data : [];
+                return (
+                  <div key={label}>
+                    <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, fontWeight: 500 }}>{label}</p>
+                    {arr.length === 0 ? (
+                      <p style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>Nenhuma persona</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {arr.slice(0, 6).map((p, i) => (
+                          <div key={i} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', display: 'flex', gap: 10 }}>
+                            <div style={{ width: 30, height: 30, borderRadius: '50%', background: `color-mix(in srgb, var(${p.color || '--accent2'}) 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: `var(${p.color || '--accent2'})`, flexShrink: 0 }}>
+                              {p.avatar || (p.nome || '').slice(0, 2).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', margin: 0 }}>{p.nome}</p>
+                              {p.cargo && <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{p.cargo}</p>}
+                              {Array.isArray(p.dores) && p.dores.slice(0, 2).map((d, j) => (
+                                <p key={j} style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>• {typeof d === 'string' ? d : d.text}</p>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        {arr.length > 6 && <p style={{ fontSize: 11, color: 'var(--text3)' }}>+{arr.length - 6} mais</p>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+            {personas.map(p => (
+              <PersonaCard
+                key={p.id}
+                persona={p}
+                onEdit={setModal}
+                onDelete={deletePersona}
+              />
+            ))}
+            {personas.length === 0 && (
+              <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic', gridColumn: '1 / -1', padding: '20px 0' }}>
+                Nenhuma persona mapeada. Clique em "Nova persona" para começar.
+              </p>
+            )}
+            {saveErr && (
+              <p style={{ fontSize: 12, color: 'var(--red)', gridColumn: '1 / -1', padding: '4px 0' }}>
+                Erro ao salvar: {saveErr}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {modal && (
@@ -2293,7 +2361,7 @@ function ConcorrenteModal({ initial, onSave, onClose }) {
     );
   }
 
-  return (
+  return createPortal(
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1000,
       background: 'rgba(14,15,18,0.82)', backdropFilter: 'blur(4px)',
@@ -2419,7 +2487,8 @@ function ConcorrenteModal({ initial, onSave, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -2680,6 +2749,7 @@ function ConcorrentesSection({ openAI }) {
   const [loadingConc, setLoadingConc] = useState(true);
   const [saveErr, setSaveErr] = useState(null);
   const [viewId, setViewId] = useState(null);
+  const [compareId, setCompareId] = useState(null);
   const [swot] = useLocalStorage('diag_swot', INITIAL_SWOT);
   const [modal, setModal] = useState(null);
   const [showTable, setShowTable] = useState(false);
@@ -2811,7 +2881,8 @@ function ConcorrentesSection({ openAI }) {
     },
   ];
 
-  const viewVersion = viewId ? concVersions.find(v => v.id === viewId) ?? null : null;
+  const viewVersion    = viewId    ? concVersions.find(v => v.id === viewId)    ?? null : null;
+  const compareVersion = compareId ? concVersions.find(v => v.id === compareId) ?? null : null;
 
   return (
     <>
@@ -2872,6 +2943,8 @@ function ConcorrentesSection({ openAI }) {
           currentData={competitors}
           onRestore={(data) => setCompetitors(data)}
           onView={setViewId}
+          compareId={compareId}
+          onCompare={setCompareId}
           renderPreview={(data) => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {data.length === 0
@@ -2950,9 +3023,55 @@ function ConcorrentesSection({ openAI }) {
           </div>
         )}
 
-        {/* Competitor cards */}
+        {/* Competitor cards / compare view */}
         {saveErr && <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 8 }}>Erro: {saveErr}</p>}
-        {loadingConc ? <SkeletonLoader rows={2} /> : (
+        {compareVersion ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: 'rgba(91,110,245,0.08)', border: '1px solid rgba(91,110,245,0.2)' }}>
+              <span style={{ fontSize: 12, color: 'var(--accent2)', fontWeight: 500 }}>
+                Comparando: versão de {fmtDateTime(compareVersion.date)} × Concorrentes atuais
+              </span>
+              <button onClick={() => setCompareId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex', padding: 2 }}>
+                <X size={14} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {[{ data: compareVersion.data, label: `Versão de ${fmtDateTime(compareVersion.date)}` }, { data: competitors, label: 'Versão atual' }].map(({ data, label }) => {
+                const arr = Array.isArray(data) ? data : [];
+                return (
+                  <div key={label}>
+                    <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, fontWeight: 500 }}>{label}</p>
+                    {arr.length === 0 ? (
+                      <p style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>Nenhum concorrente</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {arr.slice(0, 6).map((c, i) => {
+                          const priceCfg = FAIXA_PRECO_CFG.find(f => f.value === c.faixaPreco) || FAIXA_PRECO_CFG[1];
+                          return (
+                            <div key={i} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <div>
+                                  <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', margin: 0 }}>{c.nome}</p>
+                                  {c.site && <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>{c.site}</p>}
+                                </div>
+                                <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, color: priceCfg.color, background: priceCfg.bg, flexShrink: 0 }}>
+                                  {priceCfg.label}
+                                </span>
+                              </div>
+                              {c.forcas?.slice(0, 2).map((f, fi) => <p key={fi} style={{ fontSize: 11, color: 'var(--green)', margin: '2px 0' }}>+ {f}</p>)}
+                              {c.fraquezas?.slice(0, 2).map((f, fi) => <p key={fi} style={{ fontSize: 11, color: 'var(--red)', margin: '2px 0' }}>− {f}</p>)}
+                            </div>
+                          );
+                        })}
+                        {arr.length > 6 && <p style={{ fontSize: 11, color: 'var(--text3)' }}>+{arr.length - 6} mais</p>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : loadingConc ? <SkeletonLoader rows={2} /> : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
             {competitors.map(c => (
               <ConcorrenteCard key={c.id} comp={c} onEdit={setModal} onDelete={deleteCompetitor} />
@@ -3102,6 +3221,7 @@ function FunilVendasSection({ openAI }) {
   const [editingId, setEditingId] = useState(null);
   const [drafts, setDrafts] = useState({});
   const [viewId, setViewId] = useState(null);
+  const [compareId, setCompareId] = useState(null);
   const { versions: funilVersions, saveVersion: saveFunilVersion } = useVersionHistory('diag_funil_versions');
   const funilSkipSave = useRef(true);
   const funilVersionSkip = useRef(true);
@@ -3216,7 +3336,8 @@ function FunilVendasSection({ openAI }) {
     );
   }
 
-  const viewVersion = viewId ? funilVersions.find(v => v.id === viewId) ?? null : null;
+  const viewVersion    = viewId    ? funilVersions.find(v => v.id === viewId)    ?? null : null;
+  const compareVersion = compareId ? funilVersions.find(v => v.id === compareId) ?? null : null;
 
   const totalConv = stages[0]?.volume > 0
     ? Math.round((stages[stages.length - 1]?.volume / stages[0].volume) * 100)
@@ -3259,6 +3380,8 @@ function FunilVendasSection({ openAI }) {
         currentData={stages}
         onRestore={(data) => setStages(data)}
         onView={setViewId}
+        compareId={compareId}
+        onCompare={setCompareId}
         renderPreview={(data) => (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {data.map((s, i) => (
@@ -3270,6 +3393,50 @@ function FunilVendasSection({ openAI }) {
           </div>
         )}
       />
+
+      {compareVersion ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: 'rgba(91,110,245,0.08)', border: '1px solid rgba(91,110,245,0.2)' }}>
+            <span style={{ fontSize: 12, color: 'var(--accent2)', fontWeight: 500 }}>
+              Comparando: versão de {fmtDateTime(compareVersion.date)} × Funil atual
+            </span>
+            <button onClick={() => setCompareId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex', padding: 2 }}>
+              <X size={14} />
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {[{ data: compareVersion.data, label: `Versão de ${fmtDateTime(compareVersion.date)}` }, { data: stages, label: 'Versão atual' }].map(({ data, label }) => {
+              const arr = Array.isArray(data) ? data : [];
+              return (
+                <div key={label}>
+                  <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, fontWeight: 500 }}>{label}</p>
+                  {arr.length === 0 ? (
+                    <p style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>Nenhuma etapa</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px', gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase' }}>Etapa</span>
+                        <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase' }}>Leads</span>
+                        <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase' }}>Conv.</span>
+                      </div>
+                      {arr.map((s, i) => (
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px', gap: 6, padding: '6px 8px', borderRadius: 6, background: i % 2 === 0 ? 'var(--bg3)' : 'transparent' }}>
+                          <span style={{ fontSize: 12, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ fontSize: 10, color: 'var(--text3)', minWidth: 14 }}>{i + 1}.</span>
+                            {s.nome}
+                          </span>
+                          <span style={{ fontSize: 12, color: 'var(--text2)' }}>{s.volume}</span>
+                          <span style={{ fontSize: 12, color: 'var(--text2)' }}>{s.conversao}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (<>
 
       {/* Funnel visualization */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
@@ -3492,6 +3659,7 @@ function FunilVendasSection({ openAI }) {
           </Droppable>
         </DragDropContext>
       </div>
+      </>)}
       {viewVersion && (
         <FunilVersionModal
           version={viewVersion}
@@ -3946,7 +4114,7 @@ function EntrevistaModal({ initial, onSave, onClose }) {
 
   const canSave = form.clienteNome.trim().length > 0;
 
-  return (
+  return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(14,15,18,0.8)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: '100%', maxWidth: 540, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
@@ -4003,7 +4171,8 @@ function EntrevistaModal({ initial, onSave, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
