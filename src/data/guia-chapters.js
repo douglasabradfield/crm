@@ -90,17 +90,33 @@ Se você vende serviço (e não produto físico), Pessoas (quem executa e atende
     id: 'c-icp',
     numero: 2,
     titulo: 'Lead, Funil e Cliente Ideal (ICP)',
-    subtitulo: 'Defina quem você quer atrair antes de sair prospectar',
-    teoria: '',
-    checklist: [],
+    subtitulo: 'Antes de vender, entenda quem é seu cliente ideal e como cada contato vira oportunidade.',
+    teoria: `Todo negócio vive de uma pergunta simples: de onde vêm os clientes? Antes de pensar em fechar vendas, você precisa entender como alguém deixa de ser um desconhecido e vira cliente. Esse caminho tem nome — funil — e começa com uma palavra que você vai usar o tempo todo daqui pra frente: lead.
+
+Um lead é qualquer pessoa ou empresa que teve um primeiro contato com o seu negócio. Alguém que mandou mensagem perguntando preço, que pediu indicação, que parou no seu estande, que respondeu seu story. Ainda não comprou — mas demonstrou um sinal de interesse. Tratar cada contato desses como um lead (e não deixar se perder no WhatsApp ou na memória) é o primeiro passo pra vender com método em vez de sorte.
+
+Esses leads entram no seu funil de vendas pela primeira etapa. O funil é só uma forma de enxergar onde cada pessoa está no caminho até a compra: do primeiro 'oi' até o 'fechado'. Quem organiza isso para de perder venda por esquecimento e passa a saber exatamente quem precisa de um empurrão.
+
+Mas tem um detalhe que muda tudo: nem todo lead vale o mesmo. Se você tentar vender pra todo mundo, gasta energia com quem nunca vai comprar. É aí que entra o ICP (sigla em inglês para Perfil de Cliente Ideal). O ICP é a descrição do tipo de cliente que mais combina com o seu negócio — aquele que compra mais fácil, paga melhor, dá menos dor de cabeça e ainda indica outros. Quando você sabe quem é esse cliente, para de atirar para todos os lados e foca onde o resultado aparece.
+
+Neste capítulo você vai entender o conceito de lead, garantir que seu funil tenha uma porta de entrada organizada, e desenhar o seu Cliente Ideal — que fica salvo no seu Diagnóstico e passa a guiar todas as suas ações comerciais.`,
+    checklist: [
+      { id: 'c-icp-1', texto: 'Entenda o que é um lead', concluido: false },
+      { id: 'c-icp-2', texto: 'Garanta a etapa de entrada no seu funil', concluido: false, destino: { modulo: 'crm', secao: 'funis' } },
+      { id: 'c-icp-3', texto: 'Defina seu Cliente Ideal (ICP)', concluido: false, destino: { modulo: 'diagnostico', secao: 'icp' } },
+    ],
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
-    promptsIA: [],
+    promptsIA: [
+      'Me ajude a definir meu Perfil de Cliente Ideal (ICP)',
+      'Quais perguntas fazer para identificar meu melhor cliente?',
+      'Como estruturar a primeira etapa do meu funil de vendas?',
+    ],
     proximoPasso: {
       modulo: 'diagnostico',
       label: 'Diagnóstico',
-      mensagem: 'Formalize o perfil do seu cliente ideal no módulo Diagnóstico.',
+      mensagem: 'Formalize o perfil do seu cliente ideal no módulo Diagnóstico, na seção Cliente Ideal.',
       rota: '/diagnostico',
     },
   },

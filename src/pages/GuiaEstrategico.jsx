@@ -65,7 +65,7 @@ const CAP_META = {
     aiPrompt: 'Como criar alinhamento entre marketing, vendas e comunicação em uma PME em crescimento? Sugira a estrutura de uma reunião semanal tripartite de 30 minutos e como medir se o alinhamento está funcionando.',
   },
   'c-icp': {
-    icon: Target, color: '--teal', tempo: '60 min', acoes: 0,
+    icon: Target, color: '--teal', tempo: '60 min', acoes: 3,
     dica: 'Quem você não quer atender é tão importante quanto quem você quer. Um ICP bem definido elimina desperdício de tempo em leads que nunca vão fechar.',
     aiPrompt: 'Me ajude a definir o Perfil de Cliente Ideal (ICP) para uma PME B2B de serviços. Quais critérios firmográficos e comportamentais devo usar? Como identificar o decisor e qual dor principal meu produto resolve melhor?',
   },
@@ -88,10 +88,11 @@ const TASK_ACTIONS = {
   'c3-5': { label: 'Abrir Diretório',  to: '/diretorio'   },
   'c6-4': { label: 'Ir para CRM',      to: '/crm'         },
   'c7-1': { label: 'Ir para KPIs',     to: '/kpis'        },
+  'c-icp-2': { label: 'Abrir CRM',    to: '/crm'         },
 };
 
 /* ─── Auto-detect item IDs ───────────────────────────────────────────────────── */
-const AUTO_DETECT_IDS = new Set(['c1-1', 'c1-2', 'c1-3', 'c1-4', 'c1-6', 'c2-1', 'c2-2', 'c3-5', 'c4-1', 'c5-4', 'c6-4', 'c7-1']);
+const AUTO_DETECT_IDS = new Set(['c1-1', 'c1-2', 'c1-3', 'c1-4', 'c1-6', 'c2-1', 'c2-2', 'c3-5', 'c4-1', 'c5-4', 'c6-4', 'c7-1', 'c-icp-3']);
 
 /* ─── Three layers per task ──────────────────────────────────────────────────── */
 const TASK_LAYERS = {
@@ -299,6 +300,20 @@ const TASK_LAYERS = {
     como: '1. Abra o relatório de KPIs — qual está mais longe da meta?\n2. Escreva a hipótese de causa em 1 frase.\n3. Defina 1 experimento de 30 dias para testar.\n4. Documente antes e depois para aprender com o resultado.',
   },
 
+  /* ── Cap c-icp ── */
+  'c-icp-1': {
+    porque: 'A maioria das pequenas empresas perde vendas não por falta de interessados, mas por não acompanhar quem demonstrou interesse. Um lead anotado é uma venda possível; um lead esquecido é dinheiro que foi embora sem você perceber.',
+    como: 'Pense nos últimos contatos que você recebeu esta semana — mensagens, ligações, indicações. Cada um deles era um lead. A partir de agora, todo contato novo entra no seu funil em vez de ficar solto. Não precisa de ferramenta nova: precisa de hábito.',
+  },
+  'c-icp-2': {
+    porque: 'Sem uma porta de entrada definida, os contatos se espalham e você perde a noção de quantas oportunidades tem em aberto. Uma etapa inicial clara é o que transforma uma pilha de mensagens numa lista de oportunidades organizada.',
+    como: 'Abra seu CRM e verifique se existe uma primeira etapa para novos contatos (algo como \'Lead\', \'Novo contato\' ou \'Primeiro contato\'). Se não tiver, crie. Todo lead novo começa por aí. Ainda não tem seu funil definido? Não se preocupe: mais pra frente no guia você vai aprender a montá-lo. Por ora, só guarde a ideia de que a primeira etapa deve ser pensada para o lead.',
+  },
+  'c-icp-3': {
+    porque: 'Saber quem é seu cliente ideal faz você gastar tempo e dinheiro com quem realmente tem chance de comprar — e não com todo mundo. É a diferença entre prospecção focada e esforço desperdiçado.',
+    como: 'Preencha os campos pensando nos seus melhores clientes atuais: o que eles têm em comum? Que problema você resolve pra eles tão bem? Comece pelo que você já sabe de cabeça — não precisa preencher tudo de uma vez.',
+  },
+
   /* ── Cap 8 ── */
   'c8-1': {
     porque: 'Sem reunião semanal entre marketing, vendas e comunicação, cada área age por conta própria. O desalinhamento gera leads ruins, fechamentos perdidos e conteúdo inútil.',
@@ -362,6 +377,7 @@ const TASK_FORM_TYPE = {
   'c5-4': 'richtext',
   'c4-1': 'richtext',
   'c6-4': 'tools',
+  'c-icp-3': 'icp',
 };
 
 const TASK_DIR_META = {
@@ -1315,6 +1331,116 @@ function KPIsDefForm({ onComplete, done }) {
   );
 }
 
+/* ─── ICP Form (c-icp-3) ─────────────────────────────────────────────────────── */
+function IcpForm({ onComplete, done }) {
+  const navigate = useNavigate();
+  const { empresaId } = useAuth();
+  const { onIcpSaved } = useContext(GuiaCtx);
+  const [existingRow, setExistingRow] = useState(null);
+  const [vals, setVals] = useState({ dor_principal: '', gatilho_compra: '', decisor: '', ticket_medio: '' });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('diagnostico_icp').select('*')
+      .eq('empresa_id', empresaId).maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data) {
+          setExistingRow(data);
+          setVals({
+            dor_principal:  data.dor_principal  ?? '',
+            gatilho_compra: data.gatilho_compra ?? '',
+            decisor:        data.decisor        ?? '',
+            ticket_medio:   data.ticket_medio   ?? '',
+          });
+        }
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  const valid = Object.values(vals).some(v => v.trim());
+
+  async function handleSave() {
+    if (!valid || saving) return;
+    setSaving(true); setSaveErr(null);
+    const toUpsert = {
+      empresa_id:         empresaId,
+      atividade:          existingRow?.atividade          ?? null,
+      porte:              existingRow?.porte              ?? null,
+      capital_social:     existingRow?.capital_social     ?? null,
+      uf:                 existingRow?.uf                 ?? null,
+      municipio:          existingRow?.municipio          ?? null,
+      natureza_juridica:  existingRow?.natureza_juridica  ?? null,
+      dor_principal:      vals.dor_principal.trim()  || null,
+      gatilho_compra:     vals.gatilho_compra.trim() || null,
+      decisor:            vals.decisor.trim()         || null,
+      ticket_medio:       vals.ticket_medio.trim()    || null,
+      atualizado_em:      new Date().toISOString(),
+    };
+    const { data: saved, error } = await supabase
+      .from('diagnostico_icp')
+      .upsert(toUpsert, { onConflict: 'empresa_id' })
+      .select().single();
+    if (error) { setSaveErr('Erro ao salvar: ' + error.message); setSaving(false); return; }
+    setExistingRow(saved);
+    if (onIcpSaved) onIcpSaved(saved);
+    setSaving(false);
+    onComplete();
+  }
+
+  if (loading) return <SkeletonLoader rows={3} />;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div>
+        <FLabel color="var(--accent2)">Principal dor que você resolve pra esse cliente</FLabel>
+        <textarea value={vals.dor_principal}
+          onChange={e => setVals(v => ({ ...v, dor_principal: e.target.value }))}
+          rows={2} placeholder="Ex: Gasta tempo demais em tarefas administrativas sem ver resultado..."
+          style={{ ...INPUT_S, resize: 'vertical' }} />
+      </div>
+      <div>
+        <FLabel color="var(--green)">O que faz esse cliente decidir comprar — gatilho</FLabel>
+        <textarea value={vals.gatilho_compra}
+          onChange={e => setVals(v => ({ ...v, gatilho_compra: e.target.value }))}
+          rows={2} placeholder="Ex: Crescimento rápido que a operação manual não acompanha mais..."
+          style={{ ...INPUT_S, resize: 'vertical' }} />
+      </div>
+      <div>
+        <FLabel color="var(--teal)">Quem decide a compra</FLabel>
+        <input value={vals.decisor}
+          onChange={e => setVals(v => ({ ...v, decisor: e.target.value }))}
+          placeholder="Ex: Dono(a) da empresa, sócio(a) gestor(a)..."
+          style={INPUT_S} />
+        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3 }}>
+          Veja também suas Personas para mais detalhes sobre o decisor.
+        </div>
+      </div>
+      <div>
+        <FLabel color="var(--amber)">Ticket médio esperado (R$)</FLabel>
+        <input value={vals.ticket_medio}
+          onChange={e => setVals(v => ({ ...v, ticket_medio: e.target.value }))}
+          placeholder="Ex: R$ 3.500/mês ou R$ 12.000 por projeto"
+          style={INPUT_S} />
+      </div>
+      {saveErr && <div style={{ color: 'var(--red)', fontSize: 11 }}>{saveErr}</div>}
+      <SaveBtn onClick={handleSave} disabled={!valid || saving} done={done} />
+      <div style={{ marginTop: 2, padding: '9px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
+        Quer detalhar o perfil de empresa (setor, porte, região)?{' '}
+        <button onClick={() => navigate('/diagnostico')}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent2)', fontSize: 11, padding: 0, textDecoration: 'underline', fontFamily: 'var(--font-body)' }}>
+          Refine os critérios firmográficos no seu Diagnóstico, na seção Cliente Ideal.
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Rich Text Form (Diretório docs) ────────────────────────────────────────── */
 function RichTextForm({ taskId, onComplete, done }) {
   const meta = TASK_DIR_META[taskId] ?? { title: 'Documento', folder: 'processos' };
@@ -1487,6 +1613,7 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
     case 'kpis_def':   return <KPIsDefForm    onComplete={onComplete} done={done} />;
     case 'richtext':   return <RichTextForm   taskId={taskId} onComplete={onComplete} done={done} />;
     case 'tools':      return <ToolsForm      onComplete={onComplete} done={done} />;
+    case 'icp':        return <IcpForm        onComplete={onComplete} done={done} />;
     default:           return <SimpleCompleteForm onComplete={onComplete} done={done} destino={destino} />;
   }
 }
@@ -1494,7 +1621,7 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
 /* ─── ─────────────────────────────────────────────────────────────────────────── */
 
 /* ─── Detect auto-completed tasks from system state ─────────────────────────── */
-function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData) {
+function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData) {
   const set = new Set();
   // CRM configured
   if (leads.some((l) => l.col !== 'ganho')) {
@@ -1515,6 +1642,8 @@ function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatr
   if (Array.isArray(kpisData) && kpisData.length > 0) set.add('c2-1');
   if (Array.isArray(kpisData) && kpisData.some(k => k.nome === 'Orçamento de Marketing')) set.add('c2-2');
   if (Array.isArray(kpisData) && kpisData.length >= 3) set.add('c7-1');
+  // ICP preenchido — pelo menos um campo qualitativo preenchido
+  if (icpData && [icpData.dor_principal, icpData.gatilho_compra, icpData.decisor, icpData.ticket_medio].some(v => v && String(v).trim())) set.add('c-icp-3');
   // Guia docs
   try {
     const guiaDocs = loadLS('dir_guia_docs');
@@ -2239,6 +2368,24 @@ export default function GuiaEstrategico() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
+  /* ── ICP state (para raio auto-concluído) ── */
+  const [icpData, setIcpData] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase
+      .from('diagnostico_icp')
+      .select('dor_principal,gatilho_compra,decisor,ticket_medio')
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setIcpData(data ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   /* ── Customizations state ── */
   const [customizations, setCustomizations] = useState({});
   const [editMode,  setEditMode]  = useState(false);
@@ -2294,10 +2441,11 @@ export default function GuiaEstrategico() {
     onFunilSaved:        (newFunil)        => setFunilData(newFunil),
     onMetasSaved:        (newKpis)         => setKpisData(newKpis),
     onKpisSaved:         (newKpis)         => setKpisData(newKpis),
+    onIcpSaved:          (newIcp)          => setIcpData(newIcp),
   }), [TASK_LAYERS_EFFECTIVE, TASK_FORM_TYPE_EFFECTIVE, editMode]);
 
   /* ── Checklist helpers ── */
-  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData), [leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, revision]);
+  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData), [leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData, revision]);
 
   function toggleItem(capId, itemId) {
     if (autoChecked.has(itemId)) return;
