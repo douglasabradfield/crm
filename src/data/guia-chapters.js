@@ -419,17 +419,34 @@ Medir sem agir é desperdício de tempo. Para cada KPI abaixo da meta, defina um
     id: 'c-prospeccao',
     numero: 9,
     titulo: 'Prospecção Ativa',
-    subtitulo: 'Encontre e qualifique novos clientes de forma sistemática',
-    teoria: '',
-    checklist: [],
+    subtitulo: 'Não espere o cliente chegar. Aprenda a ir atrás das oportunidades certas.',
+    teoria: `Existem dois jeitos de conseguir clientes. No primeiro, você cria condições para que eles cheguem até você: um perfil ativo nas redes, indicações de quem já comprou, um cartão de visita bem posicionado, anúncios. O cliente vê, se interessa e procura você. Isso se chama inbound — atrair.
+
+No segundo, você não espera. Você identifica empresas ou pessoas que combinam com o seu negócio e vai até elas: uma mensagem, uma ligação, uma visita. Você dá o primeiro passo. Isso se chama outbound — ir atrás. É o que chamamos de prospecção ativa.
+
+Os dois funcionam, e o ideal é ter os dois. Mas tem uma diferença prática que importa pro seu bolso: atrair leva tempo para amadurecer, enquanto ir atrás dá resultado mais rápido — desde que você vá atrás das pessoas certas. E é aí que tudo se conecta com o que você já fez neste guia: lembra do seu Cliente Ideal, o ICP? É ele que diz exatamente quem você deve procurar. Prospecção sem ICP é tiro no escuro; com ICP, é pontaria.
+
+A boa notícia: você não precisa de nenhuma ferramenta sofisticada para começar. Prospecção ativa é, antes de tudo, uma atitude. Uma lista de empresas que combinam com você, um roteiro de abordagem honesto e a disciplina de fazer alguns contatos por dia já colocam você à frente da maioria dos concorrentes, que só esperam o telefone tocar.
+
+Neste capítulo você vai entender quando atrair e quando ir atrás, descobrir onde encontrar seus clientes ideais, e fazer sua primeira rodada de prospecção — na mão, hoje, sem depender de nada além de você e do seu ICP.`,
+    checklist: [
+      { id: 'c-prospeccao-1', texto: 'Entenda inbound e outbound', concluido: false },
+      { id: 'c-prospeccao-2', texto: 'Defina onde encontrar seus clientes ideais', concluido: false },
+      { id: 'c-prospeccao-3', texto: 'Faça sua primeira leva de prospecção manual', concluido: false },
+    ],
     tabela: null,
     status: 'nao_iniciado',
     progresso: 0,
-    promptsIA: [],
+    promptsIA: [
+      'Como montar uma lista de prospecção alinhada ao meu ICP?',
+      'Crie um roteiro de primeiro contato honesto e direto',
+      'Quais canais funcionam melhor para prospecção B2B de PMEs?',
+      'Como organizar minha rotina de prospecção ativa sem perder o foco?',
+    ],
     proximoPasso: {
       modulo: 'crm',
       label: 'CRM',
-      mensagem: 'Cadastre os leads encontrados no CRM e inicie o acompanhamento.',
+      mensagem: 'Cadastre os leads encontrados no CRM e inicie o acompanhamento de cada contato.',
       rota: '/crm',
     },
   },

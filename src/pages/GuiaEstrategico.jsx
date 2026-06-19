@@ -70,7 +70,7 @@ const CAP_META = {
     aiPrompt: 'Me ajude a definir o Perfil de Cliente Ideal (ICP) para uma PME B2B de serviços. Quais critérios firmográficos e comportamentais devo usar? Como identificar o decisor e qual dor principal meu produto resolve melhor?',
   },
   'c-prospeccao': {
-    icon: Search, color: '--green', tempo: '60 min', acoes: 0,
+    icon: Search, color: '--green', tempo: '60 min', acoes: 3,
     dica: 'Prospecção consistente é mais valiosa do que prospecção intensa. Reserve blocos fixos na agenda — 30 minutos por dia valem mais que 4 horas uma vez por mês.',
     aiPrompt: 'Como montar uma cadência de prospecção ativa B2B para uma PME de serviços? Inclua roteiro de primeiro contato, sequência de follow-ups e como qualificar rapidamente um lead antes de investir mais tempo.',
   },
@@ -89,6 +89,7 @@ const TASK_ACTIONS = {
   'c6-4': { label: 'Ir para CRM',      to: '/crm'         },
   'c7-1': { label: 'Ir para KPIs',     to: '/kpis'        },
   'c-icp-2': { label: 'Abrir CRM',    to: '/crm'         },
+  'c-prospeccao-2': { label: 'Rever meu ICP', to: '/diagnostico' },
 };
 
 /* ─── Auto-detect item IDs ───────────────────────────────────────────────────── */
@@ -312,6 +313,20 @@ const TASK_LAYERS = {
   'c-icp-3': {
     porque: 'Saber quem é seu cliente ideal faz você gastar tempo e dinheiro com quem realmente tem chance de comprar — e não com todo mundo. É a diferença entre prospecção focada e esforço desperdiçado.',
     como: 'Preencha os campos pensando nos seus melhores clientes atuais: o que eles têm em comum? Que problema você resolve pra eles tão bem? Comece pelo que você já sabe de cabeça — não precisa preencher tudo de uma vez.',
+  },
+
+  /* ── Cap c-prospeccao ── */
+  'c-prospeccao-1': {
+    porque: 'Quem só espera o cliente chegar fica refém da sorte e da sazonalidade. Quem só vai atrás se cansa e não constrói reputação. As duas juntas se equilibram: a atração aquece sua marca ao longo do tempo, e a prospecção traz oportunidades quando você precisa delas agora.',
+    como: 'Olhe seu negócio hoje. De onde vieram seus últimos 10 clientes? Se quase todos chegaram sozinhos (indicação, redes, busca), você depende de inbound e ganharia muito adicionando prospecção ativa. Se você vive correndo atrás e nunca sobra tempo, talvez precise fortalecer a atração. O objetivo é não depender de um só caminho.',
+  },
+  'c-prospeccao-2': {
+    porque: 'Prospecção ativa começa por uma lista. Sem saber onde procurar, você prospecta quem aparece pela frente — e perde tempo com quem nunca vai comprar. Quanto mais alinhada sua lista estiver com o seu Cliente Ideal, mais conversa vira venda.',
+    como: 'Volte ao seu ICP (lá no Diagnóstico) e pergunte: onde essas empresas estão? Pode ser mais simples do que parece — grupos de WhatsApp e associações do seu setor, feiras e eventos locais, perfis que seguem seus concorrentes, indicações de clientes atuais, listas de empresas da sua região. Escolha duas ou três fontes realistas para começar.',
+  },
+  'c-prospeccao-3': {
+    porque: 'Prospecção não se aprende lendo, se aprende fazendo. A primeira leva, mesmo pequena, ensina o que funciona na sua realidade: qual abordagem gera resposta, qual horário, qual canal. Cinco contatos feitos valem mais que cinquenta planejados.',
+    como: 'Pegue de 5 a 10 contatos da sua lista. Para cada um, escreva uma mensagem curta e honesta: quem é você, por que está falando com aquela empresa especificamente (mostre que não é mensagem em massa) e uma oferta clara de conversa — não de venda imediata. Registre cada contato como um lead no seu funil e acompanhe quem respondeu. Quando quiser organizar esses contatos numa sequência de mensagens ao longo do tempo, sua Régua de Comunicação ajuda nisso.',
   },
 
   /* ── Cap 8 ── */
