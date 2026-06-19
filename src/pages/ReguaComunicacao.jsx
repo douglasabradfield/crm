@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
   Mail, MessageCircle, Phone, Plus, X, ChevronDown, ChevronRight,
@@ -61,6 +62,52 @@ const STAT_CARDS = [
   { label: 'Contatos em fluxo', value: '82', icon: Users,            color: '--teal'    },
   { label: 'Taxa de abertura',  value: '34', icon: Eye,              color: '--green'   },
   { label: 'Taxa de resposta',  value: '18', icon: MousePointerClick, color: '--purple' },
+];
+
+const COR_OPTIONS = [
+  { value: '--accent', label: 'Azul'  },
+  { value: '--teal',   label: 'Verde' },
+  { value: '--amber',  label: 'Âmbar' },
+  { value: '--purple', label: 'Roxo'  },
+];
+
+const MODELOS_PRONTOS = [
+  {
+    id: 'm1',
+    nome: 'Pós-venda / Boas-vindas',
+    descricao: 'Sequência para novos clientes: boas-vindas, dúvidas frequentes e acompanhamento inicial.',
+    trigger: 'Novo cliente ativado',
+    color: '--teal',
+    steps: [
+      { id: 'ms1a', type: 'email',   delay: 0, assunto: 'Bem-vindo(a)! Seus próximos passos', corpo: 'Olá [Nome],\n\nSeja bem-vindo(a)! Estamos felizes em ter você como cliente.\n\nNas próximas semanas nossa equipe vai te acompanhar de perto. Qualquer dúvida, é só responder este e-mail.\n\nGrande abraço,\n[Seu Nome]', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 0, responded: 0 },
+      { id: 'ms1b', type: 'email',   delay: 3, assunto: 'Como está indo? Dúvidas mais comuns dos primeiros dias', corpo: 'Olá [Nome],\n\nJá faz 3 dias! Separei as dúvidas mais comuns de quem está começando:\n\n1. [Dúvida frequente 1]\n2. [Dúvida frequente 2]\n3. [Dúvida frequente 3]\n\nTem alguma pergunta que não está aqui? Responde este e-mail!\n\n[Seu Nome]', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 0, responded: 0 },
+      { id: 'ms1c', type: 'ligacao', delay: 7, objetivo: 'Checar satisfação e identificar próximos passos', script: 'Perguntar como está a experiência. Identificar se há algum gargalo. Oferecer ajuda proativa. Perguntar se indicaria para um colega.', responsavel: '', hasBranch: true, branchA: { action: 'end_flow' }, branchB: { action: 'end_flow' }, reached: 0, responded: 0 },
+    ],
+  },
+  {
+    id: 'm2',
+    nome: 'Reativação de ex-cliente',
+    descricao: 'Win-back para clientes ou ex-clientes sem contato há mais de 60 dias.',
+    trigger: 'Sem interação há 60 dias',
+    color: '--amber',
+    steps: [
+      { id: 'ms2a', type: 'email',    delay: 0,  assunto: 'Sentimos sua falta, [Nome]', corpo: 'Oi [Nome],\n\nFaz um tempão que não conversamos. Muita coisa evoluiu por aqui e queria te contar.\n\nTemos novidades que podem ser relevantes para o momento atual da [Empresa]. Posso te enviar um resumo?\n\n[Seu Nome]', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 0, responded: 0 },
+      { id: 'ms2b', type: 'whatsapp', delay: 4,  template: 'Oi [Nome]! Enviei um e-mail semana passada com uma novidade que pode te interessar. Recebeu? 😊', roteiro: 'Mensagem curta. Verificar se recebeu o e-mail. Se sim, perguntar o que achou. Se não, reforçar o convite.', responsavel: '', hasBranch: true, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 0, responded: 0 },
+      { id: 'ms2c', type: 'ligacao',  delay: 10, objetivo: 'Última tentativa de reconexão', script: 'Ligação curta e direta. Perguntar sobre o momento atual. Oferecer condição especial para retomada. Se não tiver interesse, encerrar com leveza e deixar porta aberta.', responsavel: '', hasBranch: true, branchA: { action: 'add_crm' }, branchB: { action: 'discard' }, reached: 0, responded: 0 },
+    ],
+  },
+  {
+    id: 'm3',
+    nome: 'Acompanhamento de proposta',
+    descricao: 'Follow-up para leads com proposta enviada aguardando decisão.',
+    trigger: 'Proposta enviada sem resposta',
+    color: '--accent',
+    steps: [
+      { id: 'ms3a', type: 'whatsapp', delay: 1, template: 'Oi [Nome]! Passando para confirmar que você recebeu a proposta que enviei ontem. Ficou alguma dúvida?', roteiro: 'Mensagem rápida de confirmação. Não pressionar — só verificar se recebeu.', responsavel: '', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 0, responded: 0 },
+      { id: 'ms3b', type: 'email',    delay: 3, assunto: 'Reforço de valor: por que faz sentido para a [Empresa]', corpo: 'Olá [Nome],\n\nPasso para reforçar os pontos mais relevantes para vocês:\n\n→ [Benefício 1]\n→ [Benefício 2]\n→ [Condição especial, se houver]\n\nPosso te ajudar com alguma dúvida antes da decisão?\n\n[Seu Nome]', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 0, responded: 0 },
+      { id: 'ms3c', type: 'ligacao',  delay: 6, objetivo: 'Ajudar na tomada de decisão', script: 'Perguntar sobre o estágio da decisão. Identificar objeções. Oferecer ajuda para adaptar a proposta. Definir próximo passo claro.', responsavel: '', hasBranch: true, branchA: { action: 'add_crm' }, branchB: { action: 'next_step' }, reached: 0, responded: 0 },
+    ],
+  },
 ];
 
 /* ─── Mock data ──────────────────────────────────────────────────────────────── */
@@ -832,14 +879,233 @@ function FlowBuilder({ fluxo, expandedStepId, onToggleStep, onUpdateStep, onDele
   );
 }
 
+/* ─── NovoFluxoModal ─────────────────────────────────────────────────────────── */
+
+function NovoFluxoModal({ onSave, onClose }) {
+  const [modeloId, setModeloId] = useState(null);
+  const [nome, setNome] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [trigger, setTrigger] = useState('');
+  const [cor, setCor] = useState('--accent');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  function selectModelo(id) {
+    if (id === modeloId) {
+      setModeloId(null); setNome(''); setDescricao(''); setTrigger(''); setCor('--accent');
+      return;
+    }
+    const m = MODELOS_PRONTOS.find(m => m.id === id);
+    if (m) { setModeloId(id); setNome(m.nome); setDescricao(m.descricao); setTrigger(m.trigger); setCor(m.color); }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!nome.trim()) { setError('O nome do fluxo é obrigatório.'); return; }
+    setSaving(true); setError('');
+    const steps = modeloId
+      ? (MODELOS_PRONTOS.find(m => m.id === modeloId)?.steps ?? []).map(s => ({ ...s, id: uid() }))
+      : [];
+    const err = await onSave({ nome: nome.trim(), descricao: descricao.trim(), trigger: trigger.trim(), cor }, steps);
+    if (err) { setError(err); setSaving(false); } else onClose();
+  }
+
+  const modelo = modeloId ? MODELOS_PRONTOS.find(m => m.id === modeloId) : null;
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      onClick={onClose}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Novo fluxo</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 4 }}><X size={16} /></button>
+        </div>
+
+        {/* Ponto de partida */}
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', marginBottom: 10 }}>PONTO DE PARTIDA</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <button onClick={() => { setModeloId(null); setNome(''); setDescricao(''); setTrigger(''); setCor('--accent'); }}
+              style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, border: `1px solid ${modeloId === null ? 'var(--accent)' : 'var(--border)'}`, background: modeloId === null ? 'rgba(91,110,245,0.1)' : 'var(--bg3)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>Em branco</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Criar do zero</div>
+            </button>
+            {MODELOS_PRONTOS.map(m => {
+              const active = modeloId === m.id;
+              return (
+                <button key={m.id} onClick={() => selectModelo(m.id)}
+                  style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, border: `1px solid ${active ? `var(${m.color})` : 'var(--border)'}`, background: active ? `color-mix(in srgb, var(${m.color}) 12%, transparent)` : 'var(--bg3)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{m.nome}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.4 }}>{m.steps.length} passos · {m.trigger}</div>
+                </button>
+              );
+            })}
+          </div>
+          {modelo && (
+            <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {modelo.steps.map((s, i) => {
+                const cfg = STEP_TYPE_CFG[s.type];
+                return (
+                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, fontSize: 11, background: cfg.bg, color: `var(${cfg.color})` }}>
+                    <cfg.Icon size={10} /> D+{s.delay} {cfg.label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {[
+            { label: 'Nome do fluxo *', value: nome, set: setNome, placeholder: 'Ex.: Pós-reunião de apresentação' },
+            { label: 'Descrição',       value: descricao, set: setDescricao, placeholder: 'Para que serve este fluxo?' },
+            { label: 'Gatilho de entrada', value: trigger, set: setTrigger, placeholder: 'Ex.: Proposta enviada sem resposta' },
+          ].map(({ label, value, set, placeholder }) => (
+            <div key={label}>
+              <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>{label}</label>
+              <input value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
+                style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }} />
+            </div>
+          ))}
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>Cor</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {COR_OPTIONS.map(opt => (
+                <button type="button" key={opt.value} onClick={() => setCor(opt.value)} title={opt.label}
+                  style={{ width: 26, height: 26, borderRadius: '50%', background: `var(${opt.value})`, border: `2px solid ${cor === opt.value ? '#fff' : 'transparent'}`, outline: `2px solid ${cor === opt.value ? `var(${opt.value})` : 'transparent'}`, cursor: 'pointer', transition: 'all .15s' }} />
+              ))}
+            </div>
+          </div>
+          {error && <div style={{ fontSize: 12, color: 'var(--red)', background: 'rgba(240,92,92,0.1)', padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            <button type="button" onClick={onClose}
+              style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-body)' }}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              style={{ padding: '8px 18px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 500, opacity: saving ? 0.7 : 1, fontFamily: 'var(--font-body)' }}>
+              {saving ? 'Criando…' : 'Criar fluxo'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* ─── EditarFluxoModal ───────────────────────────────────────────────────────── */
+
+function EditarFluxoModal({ fluxo, onSave, onClose }) {
+  const [nome, setNome] = useState(fluxo.nome);
+  const [descricao, setDescricao] = useState(fluxo.descricao ?? '');
+  const [trigger, setTrigger] = useState(fluxo.trigger ?? '');
+  const [cor, setCor] = useState(fluxo.color ?? '--accent');
+  const [status, setStatus] = useState(fluxo.status ?? 'ativo');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!nome.trim()) { setError('O nome é obrigatório.'); return; }
+    setSaving(true); setError('');
+    const err = await onSave(fluxo.id, {
+      cor,
+      nome: nome.trim(),
+      descricao: descricao.trim() || null,
+      trigger_texto: trigger.trim() || null,
+      status,
+    });
+    if (err) { setError(err); setSaving(false); } else onClose();
+  }
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      onClick={onClose}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 460, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Editar fluxo</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 4 }}><X size={16} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {[
+            { label: 'Nome *',             value: nome,     set: setNome },
+            { label: 'Descrição',          value: descricao, set: setDescricao },
+            { label: 'Gatilho de entrada', value: trigger,  set: setTrigger },
+          ].map(({ label, value, set }) => (
+            <div key={label}>
+              <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>{label}</label>
+              <input value={value} onChange={e => set(e.target.value)}
+                style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }} />
+            </div>
+          ))}
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>Cor</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {COR_OPTIONS.map(opt => (
+                <button type="button" key={opt.value} onClick={() => setCor(opt.value)} title={opt.label}
+                  style={{ width: 26, height: 26, borderRadius: '50%', background: `var(${opt.value})`, border: `2px solid ${cor === opt.value ? '#fff' : 'transparent'}`, outline: `2px solid ${cor === opt.value ? `var(${opt.value})` : 'transparent'}`, cursor: 'pointer', transition: 'all .15s' }} />
+              ))}
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>Status</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[
+                { value: 'ativo',   label: 'Ativo',   activeColor: '--green', activeBg: 'rgba(45,212,160,0.12)'  },
+                { value: 'pausado', label: 'Pausado', activeColor: '--amber', activeBg: 'rgba(240,168,50,0.12)' },
+              ].map(opt => (
+                <button type="button" key={opt.value} onClick={() => setStatus(opt.value)}
+                  style={{ padding: '5px 16px', borderRadius: 20, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s',
+                    border: `1px solid ${status === opt.value ? `var(${opt.activeColor})` : 'var(--border)'}`,
+                    background: status === opt.value ? opt.activeBg : 'transparent',
+                    color: status === opt.value ? `var(${opt.activeColor})` : 'var(--text3)',
+                  }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && <div style={{ fontSize: 12, color: 'var(--red)', background: 'rgba(240,92,92,0.1)', padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            <button type="button" onClick={onClose}
+              style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-body)' }}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              style={{ padding: '8px 18px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 500, opacity: saving ? 0.7 : 1, fontFamily: 'var(--font-body)' }}>
+              {saving ? 'Salvando…' : 'Salvar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* ─── FluxoCard ──────────────────────────────────────────────────────────────── */
 
-function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads }) {
+function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [subTab, setSubTab] = useState('steps');
   const [expandedStepId, setExpandedStepId] = useState(null);
   const [addStepPos, setAddStepPos] = useState(null);
   const [resultCtx, setResultCtx] = useState(null);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deletePending, setDeletePending] = useState(false);
+
+  async function handleDeleteConfirm() {
+    setDeletePending(true);
+    const err = await onDelete(fluxo.id);
+    if (err) { setDeleteError(err); setDeleteMode(false); setDeletePending(false); }
+  }
 
   function handleToggleStep(id) {
     setExpandedStepId((prev) => prev === id ? null : id);
@@ -914,9 +1180,43 @@ function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads }) {
                 <div style={{ fontSize: 10, color: 'var(--text3)' }}>{s.label}</div>
               </div>
             ))}
+            <PermissionGate module="regua" action="edit">
+              <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <button onClick={() => onEdit(fluxo)} title="Editar fluxo"
+                  style={{ width: 27, height: 27, borderRadius: 7, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Pencil size={11} />
+                </button>
+                {!deleteMode ? (
+                  <button onClick={() => { setDeleteMode(true); setDeleteError(''); }} title="Excluir fluxo"
+                    style={{ width: 27, height: 27, borderRadius: 7, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Trash2 size={11} />
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center', background: 'rgba(240,92,92,0.1)', padding: '3px 8px', borderRadius: 8, border: '1px solid rgba(240,92,92,0.3)' }}>
+                    <span style={{ fontSize: 11, color: 'var(--red)' }}>Excluir?</span>
+                    <button onClick={handleDeleteConfirm} disabled={deletePending}
+                      style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: deletePending ? 'not-allowed' : 'pointer', fontWeight: 600, padding: '0 2px', opacity: deletePending ? 0.6 : 1 }}>
+                      Sim
+                    </button>
+                    <button onClick={() => { setDeleteMode(false); setDeleteError(''); }}
+                      style={{ fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}>
+                      Não
+                    </button>
+                  </div>
+                )}
+              </div>
+            </PermissionGate>
             <ChevronDown size={16} style={{ color: 'var(--text3)', transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
           </div>
         </div>
+
+        {deleteError && (
+          <div style={{ padding: '8px 20px', background: 'rgba(240,92,92,0.08)', borderTop: '1px solid rgba(240,92,92,0.2)', fontSize: 12, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+            {deleteError}
+            <button onClick={() => setDeleteError('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: 0, display: 'flex' }}><X size={12} /></button>
+          </div>
+        )}
 
         {/* Expanded body */}
         {expanded && (
@@ -1212,24 +1512,36 @@ function TemplateModal({ tpl, onSave, onClose }) {
 
 /* ─── Sections ───────────────────────────────────────────────────────────────── */
 
-function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads }) {
+function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads, onCreateFluxo, onUpdateFluxo, onDeleteFluxo }) {
   const { openAI } = useUI();
+  const [showNovoModal, setShowNovoModal] = useState(false);
+  const [editingFluxo, setEditingFluxo] = useState(null);
+
   const filtered = fluxos.filter((f) =>
-    !query || f.nome.toLowerCase().includes(query.toLowerCase()) || f.trigger.toLowerCase().includes(query.toLowerCase())
+    !query || f.nome.toLowerCase().includes(query.toLowerCase()) || (f.trigger ?? '').toLowerCase().includes(query.toLowerCase())
   );
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8 }}>
         <span style={{ fontSize: 13, color: 'var(--text3)' }}>{filtered.length} fluxo{filtered.length !== 1 ? 's' : ''}</span>
         <PermissionGate module="regua" action="edit">
-          <button
-            onClick={() => openAI('Crie um novo fluxo de nurturing B2B com trigger de entrada, 5 touchpoints com canais e mensagens-chave, timing entre cada step e métricas para avaliar o sucesso.')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 13px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-            <Plus size={13} /> Novo fluxo com IA
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => setShowNovoModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 13px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              <Plus size={13} /> Novo fluxo
+            </button>
+            <button
+              onClick={() => openAI('Crie um novo fluxo de nurturing B2B com trigger de entrada, 5 touchpoints com canais e mensagens-chave, timing entre cada step e métricas para avaliar o sucesso.')}
+              title="Gerar fluxo com IA"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 11px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              <Bot size={13} /> IA
+            </button>
+          </div>
         </PermissionGate>
       </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {filtered.map((f) => (
           <FluxoCard
@@ -1237,9 +1549,22 @@ function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads }) {
             fluxo={f}
             onUpdateSteps={(steps) => onUpdateSteps(f.id, steps)}
             onUpdateLeads={(leads) => onUpdateLeads(f.id, leads)}
+            onEdit={setEditingFluxo}
+            onDelete={onDeleteFluxo}
           />
         ))}
       </div>
+
+      {showNovoModal && (
+        <NovoFluxoModal onSave={onCreateFluxo} onClose={() => setShowNovoModal(false)} />
+      )}
+      {editingFluxo && (
+        <EditarFluxoModal
+          fluxo={editingFluxo}
+          onSave={onUpdateFluxo}
+          onClose={() => setEditingFluxo(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1356,6 +1681,38 @@ export default function ReguaComunicacao() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
+  async function handleCreateFluxo(form, steps) {
+    const { data, error } = await supabase
+      .from('regua_fluxos')
+      .insert({ cor: form.cor, nome: form.nome, descricao: form.descricao || null, trigger_texto: form.trigger || null, status: 'ativo', steps })
+      .select().single();
+    if (error) return error.message;
+    setFluxos(prev => [...prev, { ...fluxoFromRow(data), leads: [] }]);
+    return null;
+  }
+
+  async function handleUpdateFluxo(fluxoId, updates) {
+    const { data, error } = await supabase
+      .from('regua_fluxos').update(updates).eq('id', fluxoId).select().single();
+    if (error) return error.message;
+    setFluxos(prev => prev.map(f => f.id === fluxoId ? { ...fluxoFromRow(data), leads: f.leads } : f));
+    return null;
+  }
+
+  async function handleDeleteFluxo(fluxoId) {
+    const { count } = await supabase
+      .from('regua_fluxo_leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('fluxo_id', fluxoId);
+    if ((count ?? 0) > 0) {
+      return `Este fluxo tem ${count} contato${count !== 1 ? 's' : ''} vinculado${count !== 1 ? 's' : ''}. Remova-os antes de excluir.`;
+    }
+    const { error } = await supabase.from('regua_fluxos').delete().eq('id', fluxoId);
+    if (error) return 'Erro ao excluir o fluxo. Tente novamente.';
+    setFluxos(prev => prev.filter(f => f.id !== fluxoId));
+    return null;
+  }
+
   async function handleUpdateSteps(fluxoId, steps) {
     setFluxos(prev => prev.map(f => f.id === fluxoId ? { ...f, steps } : f));
     await supabase.from('regua_fluxos').update({ steps }).eq('id', fluxoId);
@@ -1423,7 +1780,15 @@ export default function ReguaComunicacao() {
       </div>
 
       {activeTab === 'fluxos'
-        ? <FluxosSection query={query} fluxos={fluxos} onUpdateSteps={handleUpdateSteps} onUpdateLeads={handleUpdateLeads} />
+        ? <FluxosSection
+            query={query}
+            fluxos={fluxos}
+            onUpdateSteps={handleUpdateSteps}
+            onUpdateLeads={handleUpdateLeads}
+            onCreateFluxo={handleCreateFluxo}
+            onUpdateFluxo={handleUpdateFluxo}
+            onDeleteFluxo={handleDeleteFluxo}
+          />
         : <TemplatesSection query={query} templates={templates} onOpen={setActiveTemplate} />
       }
 
