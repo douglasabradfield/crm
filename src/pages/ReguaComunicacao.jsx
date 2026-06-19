@@ -110,6 +110,22 @@ const MODELOS_PRONTOS = [
   },
 ];
 
+/* ─── Template ↔ Step helpers ────────────────────────────────────────────────── */
+
+const STEP_TYPE_TO_TPL_CHANNEL = { email: 'email', whatsapp: 'whatsapp', ligacao: 'phone' };
+
+function tplContentFromStep(step) {
+  if (step.type === 'email')    return { assunto: step.assunto ?? '', corpo: step.corpo ?? '' };
+  if (step.type === 'whatsapp') return { assunto: null,                corpo: step.template ?? '' };
+  return { assunto: step.objetivo ?? '', corpo: step.script ?? '' };
+}
+
+function applyTplToStep(step, tpl) {
+  if (step.type === 'email')    return { assunto: tpl.assunto ?? '', corpo: tpl.corpo ?? '' };
+  if (step.type === 'whatsapp') return { template: tpl.corpo ?? '' };
+  return { objetivo: tpl.assunto ?? '', script: tpl.corpo ?? '' };
+}
+
 /* ─── Mock data ──────────────────────────────────────────────────────────────── */
 
 const FLUXOS_INIT = [
@@ -207,7 +223,7 @@ function uid() {
 }
 
 function makeStep(type) {
-  const base = { id: uid(), type, delay: 1, hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 0, responded: 0 };
+  const base = { id: uid(), type, delay: 1, template_id: null, hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 0, responded: 0 };
   if (type === 'email')    return { ...base, assunto: '', corpo: '', integration: 'resend', condition: 'auto' };
   if (type === 'whatsapp') return { ...base, template: '', roteiro: '', responsavel: '' };
   return { ...base, objetivo: '', script: '', responsavel: '' };
@@ -308,9 +324,42 @@ function FluxoStatusBadge({ status }) {
 
 /* ─── StepCard ───────────────────────────────────────────────────────────────── */
 
-function StepCard({ step, index, cumDay, fluxoColor, expanded, onToggle, onChange, onDelete, dragHandleProps, isDragging }) {
+function StepCard({ step, index, cumDay, fluxoColor, expanded, onToggle, onChange, onDelete, dragHandleProps, isDragging, templates, onCreateTemplate }) {
   const cfg = STEP_TYPE_CFG[step.type];
   const isManual = step.type !== 'email';
+
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [showSaveAs, setShowSaveAs] = useState(false);
+  const [saveAsName, setSaveAsName] = useState('');
+  const [saveAsPending, setSaveAsPending] = useState(false);
+  const [saveAsError, setSaveAsError] = useState('');
+  const [saveAsJustCreated, setSaveAsJustCreated] = useState(null);
+
+  const tplChannel = STEP_TYPE_TO_TPL_CHANNEL[step.type];
+  const compatibleTpls = (templates ?? []).filter(t => t.channel === tplChannel && t.status !== 'inativo');
+  const linkedTpl = step.template_id ? (templates ?? []).find(t => t.id === step.template_id) : null;
+  const isLinked = !!linkedTpl;
+
+  function handleLink(tpl) {
+    onChange({ template_id: tpl.id, ...applyTplToStep(step, tpl) });
+    setShowLinkPicker(false);
+    setSaveAsJustCreated(null);
+  }
+
+  function handleUnlink() {
+    onChange({ template_id: null });
+  }
+
+  async function handleSaveAs(e) {
+    e.preventDefault();
+    if (!saveAsName.trim()) return;
+    setSaveAsPending(true); setSaveAsError('');
+    const result = await onCreateTemplate({ channel: tplChannel, nome: saveAsName.trim(), ...tplContentFromStep(step) });
+    if (result?.error) { setSaveAsError(result.error); setSaveAsPending(false); }
+    else { setSaveAsJustCreated(result?.tpl ?? null); setShowSaveAs(false); setSaveAsName(''); setSaveAsPending(false); }
+  }
+
+  const roReadOnly = { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text3)', fontFamily: 'var(--font-body)', opacity: 0.75 };
 
   return (
     <div style={{
@@ -340,6 +389,12 @@ function StepCard({ step, index, cumDay, fluxoColor, expanded, onToggle, onChang
         <span style={{ flex: 1, fontSize: 12, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {getStepTitle(step)}
         </span>
+
+        {isLinked && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 20, fontSize: 10, background: 'rgba(45,212,160,0.12)', color: 'var(--green)', flexShrink: 0 }}>
+            <Check size={9} /> Template
+          </span>
+        )}
 
         <TypeBadge type={step.type} />
 
@@ -373,22 +428,82 @@ function StepCard({ step, index, cumDay, fluxoColor, expanded, onToggle, onChang
               <span style={{ fontSize: 11, color: 'var(--text3)' }}>após step anterior</span>
             </div>
 
+            {/* ── Template link panel ── */}
+            {tplChannel && (isLinked ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'rgba(45,212,160,0.08)', border: '1px solid rgba(45,212,160,0.25)', borderRadius: 8 }}>
+                  <Check size={12} style={{ color: 'var(--green)', flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 11, color: 'var(--green)' }}>Vinculado: <strong>{linkedTpl.nome}</strong></span>
+                  <button onClick={handleUnlink}
+                    style={{ fontSize: 11, color: 'var(--text3)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                    Desvincular
+                  </button>
+                </div>
+                <div style={{ padding: '6px 10px', background: 'rgba(240,168,50,0.08)', border: '1px solid rgba(240,168,50,0.2)', borderRadius: 8, fontSize: 11, color: 'var(--amber)', lineHeight: 1.5 }}>
+                  Este passo usa um template. Para alterar o texto, edite o template ou clique em "Desvincular".
+                </div>
+              </>
+            ) : (
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => { setShowLinkPicker(v => !v); setShowSaveAs(false); setSaveAsJustCreated(null); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--accent2)', background: 'rgba(91,110,245,0.08)', border: '1px solid rgba(91,110,245,0.2)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  <ArrowRight size={11} /> Usar um template{compatibleTpls.length > 0 ? ` (${compatibleTpls.length})` : ''}
+                </button>
+                {showLinkPicker && (
+                  <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 20, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, width: 290, maxHeight: 220, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.35)' }}>
+                    {compatibleTpls.length === 0 ? (
+                      <div style={{ padding: 14, fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+                        Nenhum template de {CHANNEL_CFG[tplChannel]?.label ?? tplChannel} disponível
+                      </div>
+                    ) : compatibleTpls.map((t, ti) => (
+                      <button key={t.id} onClick={() => handleLink(t)}
+                        style={{ width: '100%', textAlign: 'left', padding: '9px 12px', background: 'transparent', border: 'none', borderBottom: ti < compatibleTpls.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg3)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{t.nome}</div>
+                        {t.assunto && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.assunto}</div>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Offer to link after save-as */}
+            {saveAsJustCreated && (
+              <div style={{ padding: '8px 10px', background: 'rgba(45,212,160,0.08)', border: '1px solid rgba(45,212,160,0.25)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: 'var(--green)', flex: 1 }}>Template "{saveAsJustCreated.nome}" criado!</span>
+                <button onClick={() => { handleLink(saveAsJustCreated); setSaveAsJustCreated(null); }}
+                  style={{ fontSize: 11, color: 'var(--green)', background: 'rgba(45,212,160,0.15)', border: '1px solid rgba(45,212,160,0.3)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                  Vincular agora
+                </button>
+                <button onClick={() => setSaveAsJustCreated(null)}
+                  style={{ fontSize: 11, color: 'var(--text3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 4px' }}>✕</button>
+              </div>
+            )}
+
             {/* Email fields */}
             {step.type === 'email' && (
               <>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Assunto</label>
-                  <input value={step.assunto} onChange={(e) => onChange({ assunto: e.target.value })}
-                    placeholder="Assunto do e-mail..."
-                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', fontFamily: 'var(--font-body)' }}
-                  />
+                  {isLinked
+                    ? <div style={roReadOnly}>{step.assunto}</div>
+                    : <input value={step.assunto} onChange={(e) => onChange({ assunto: e.target.value })}
+                        placeholder="Assunto do e-mail..."
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', fontFamily: 'var(--font-body)' }}
+                      />
+                  }
                 </div>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Corpo</label>
-                  <textarea value={step.corpo} onChange={(e) => onChange({ corpo: e.target.value })}
-                    rows={4} placeholder="Conteúdo do e-mail..."
-                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}
-                  />
+                  {isLinked
+                    ? <pre style={{ ...roReadOnly, whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.6, minHeight: 80 }}>{step.corpo}</pre>
+                    : <textarea value={step.corpo} onChange={(e) => onChange({ corpo: e.target.value })}
+                        rows={4} placeholder="Conteúdo do e-mail..."
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}
+                      />
+                  }
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <div>
@@ -421,10 +536,13 @@ function StepCard({ step, index, cumDay, fluxoColor, expanded, onToggle, onChang
               <>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Template de mensagem</label>
-                  <textarea value={step.template} onChange={(e) => onChange({ template: e.target.value })}
-                    rows={3} placeholder="Mensagem a ser enviada..."
-                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}
-                  />
+                  {isLinked
+                    ? <pre style={{ ...roReadOnly, whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.6, minHeight: 60 }}>{step.template}</pre>
+                    : <textarea value={step.template} onChange={(e) => onChange({ template: e.target.value })}
+                        rows={3} placeholder="Mensagem a ser enviada..."
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}
+                      />
+                  }
                 </div>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Roteiro de abordagem</label>
@@ -448,17 +566,23 @@ function StepCard({ step, index, cumDay, fluxoColor, expanded, onToggle, onChang
               <>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Objetivo da call</label>
-                  <input value={step.objetivo} onChange={(e) => onChange({ objetivo: e.target.value })}
-                    placeholder="O que deve ser alcançado nesta ligação..."
-                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', fontFamily: 'var(--font-body)' }}
-                  />
+                  {isLinked
+                    ? <div style={roReadOnly}>{step.objetivo}</div>
+                    : <input value={step.objetivo} onChange={(e) => onChange({ objetivo: e.target.value })}
+                        placeholder="O que deve ser alcançado nesta ligação..."
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', fontFamily: 'var(--font-body)' }}
+                      />
+                  }
                 </div>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Script de ligação</label>
-                  <textarea value={step.script} onChange={(e) => onChange({ script: e.target.value })}
-                    rows={3} placeholder="Script para conduzir a ligação..."
-                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}
-                  />
+                  {isLinked
+                    ? <pre style={{ ...roReadOnly, whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.6, minHeight: 60 }}>{step.script}</pre>
+                    : <textarea value={step.script} onChange={(e) => onChange({ script: e.target.value })}
+                        rows={3} placeholder="Script para conduzir a ligação..."
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}
+                      />
+                  }
                 </div>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Responsável</label>
@@ -468,6 +592,34 @@ function StepCard({ step, index, cumDay, fluxoColor, expanded, onToggle, onChang
                   />
                 </div>
               </>
+            )}
+
+            {/* Salvar como template (only when not linked) */}
+            {!isLinked && tplChannel && (
+              <div>
+                {!showSaveAs ? (
+                  <button onClick={() => { setShowSaveAs(true); setShowLinkPicker(false); setSaveAsJustCreated(null); }}
+                    style={{ fontSize: 11, color: 'var(--text3)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 9px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    Salvar como template
+                  </button>
+                ) : (
+                  <form onSubmit={handleSaveAs} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input value={saveAsName} onChange={e => setSaveAsName(e.target.value)}
+                      placeholder="Nome do template..." autoFocus
+                      style={{ flex: 1, minWidth: 160, background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 8px', fontSize: 12, color: 'var(--text)', outline: 'none', fontFamily: 'var(--font-body)' }}
+                    />
+                    <button type="submit" disabled={!saveAsName.trim() || saveAsPending}
+                      style={{ padding: '5px 10px', borderRadius: 6, background: saveAsName.trim() && !saveAsPending ? 'var(--accent)' : 'var(--bg3)', color: saveAsName.trim() && !saveAsPending ? '#fff' : 'var(--text3)', border: 'none', cursor: saveAsName.trim() && !saveAsPending ? 'pointer' : 'not-allowed', fontSize: 11, fontFamily: 'var(--font-body)' }}>
+                      {saveAsPending ? '...' : 'Salvar'}
+                    </button>
+                    <button type="button" onClick={() => { setShowSaveAs(false); setSaveAsName(''); setSaveAsError(''); }}
+                      style={{ padding: '5px 8px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text3)', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--font-body)' }}>
+                      Cancelar
+                    </button>
+                    {saveAsError && <div style={{ width: '100%', fontSize: 11, color: 'var(--red)', marginTop: 2 }}>{saveAsError}</div>}
+                  </form>
+                )}
+              </div>
             )}
 
             {/* Branching (manual steps only) */}
@@ -826,7 +978,7 @@ function AddStepButton({ onClick }) {
   );
 }
 
-function FlowBuilder({ fluxo, expandedStepId, onToggleStep, onUpdateStep, onDeleteStep, onReorderSteps, onAddStep }) {
+function FlowBuilder({ fluxo, expandedStepId, onToggleStep, onUpdateStep, onDeleteStep, onReorderSteps, onAddStep, templates, onCreateTemplate }) {
   const cumulDays = getCumulativeDays(fluxo.steps);
 
   function handleDragEnd(result) {
@@ -862,6 +1014,8 @@ function FlowBuilder({ fluxo, expandedStepId, onToggleStep, onUpdateStep, onDele
                         onDelete={() => onDeleteStep(i)}
                         dragHandleProps={dragProvided.dragHandleProps}
                         isDragging={snapshot.isDragging}
+                        templates={templates}
+                        onCreateTemplate={onCreateTemplate}
                       />
                       <PermissionGate module="regua" action="edit">
                         <AddStepButton onClick={() => onAddStep(i + 1)} />
@@ -1091,7 +1245,7 @@ function EditarFluxoModal({ fluxo, onSave, onClose }) {
 
 /* ─── FluxoCard ──────────────────────────────────────────────────────────────── */
 
-function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete }) {
+function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete, templates, onCreateTemplate }) {
   const [expanded, setExpanded] = useState(false);
   const [subTab, setSubTab] = useState('steps');
   const [expandedStepId, setExpandedStepId] = useState(null);
@@ -1253,6 +1407,8 @@ function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete }) {
                     onDeleteStep={handleDeleteStep}
                     onReorderSteps={onUpdateSteps}
                     onAddStep={(pos) => setAddStepPos(pos)}
+                    templates={templates}
+                    onCreateTemplate={onCreateTemplate}
                   />
                 </>
               ) : (
@@ -1281,6 +1437,109 @@ function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete }) {
         />
       )}
     </>
+  );
+}
+
+/* ─── NovoTemplateModal ──────────────────────────────────────────────────────── */
+
+function NovoTemplateModal({ onSave, onClose }) {
+  const [channel, setChannel] = useState('email');
+  const [nome, setNome] = useState('');
+  const [assunto, setAssunto] = useState('');
+  const [corpo, setCorpo] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const channelOpts = [
+    { value: 'email',    label: 'E-mail'   },
+    { value: 'whatsapp', label: 'WhatsApp' },
+    { value: 'phone',    label: 'Ligação'  },
+  ];
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!nome.trim()) { setError('O nome é obrigatório.'); return; }
+    setSaving(true); setError('');
+    const result = await onSave({
+      channel,
+      nome: nome.trim(),
+      assunto: channel === 'whatsapp' ? null : (assunto.trim() || null),
+      corpo: corpo.trim() || null,
+    });
+    if (result?.error) { setError(result.error); setSaving(false); }
+    else onClose();
+  }
+
+  const labelAssunto = channel === 'phone' ? 'Objetivo' : 'Assunto';
+  const labelCorpo   = channel === 'email' ? 'Corpo do e-mail' : channel === 'phone' ? 'Script de ligação' : 'Mensagem';
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      onClick={onClose}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Novo template</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 4 }}><X size={16} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>Canal</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {channelOpts.map(opt => {
+                const optCfg = CHANNEL_CFG[opt.value];
+                const active = channel === opt.value;
+                return (
+                  <button type="button" key={opt.value} onClick={() => setChannel(opt.value)}
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '10px 8px', borderRadius: 10,
+                      border: `1px solid ${active ? `var(${optCfg.color})` : 'var(--border)'}`,
+                      background: active ? `color-mix(in srgb, var(${optCfg.color}) 12%, transparent)` : 'var(--bg3)',
+                      cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    <optCfg.Icon size={15} style={{ color: `var(${optCfg.color})` }} />
+                    <span style={{ fontSize: 11, color: active ? `var(${optCfg.color})` : 'var(--text3)' }}>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>Nome *</label>
+            <input value={nome} onChange={e => setNome(e.target.value)}
+              placeholder={channel === 'email' ? 'Ex.: Boas-vindas ao cliente' : channel === 'whatsapp' ? 'Ex.: Follow-up pós-reunião' : 'Ex.: Script de reativação'}
+              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }} />
+          </div>
+          {channel !== 'whatsapp' && (
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>{labelAssunto}</label>
+              <input value={assunto} onChange={e => setAssunto(e.target.value)}
+                placeholder={channel === 'phone' ? 'O que alcançar nesta ligação...' : 'Assunto do e-mail...'}
+                style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }} />
+            </div>
+          )}
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>{labelCorpo}</label>
+            <textarea value={corpo} onChange={e => setCorpo(e.target.value)}
+              rows={channel === 'email' ? 6 : 4}
+              placeholder={channel === 'email' ? 'Olá [Nome],\n\n...' : channel === 'phone' ? 'Script para conduzir a conversa...' : 'Oi [Nome]! ...'}
+              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)', resize: 'vertical', lineHeight: 1.6 }} />
+          </div>
+          {error && <div style={{ fontSize: 12, color: 'var(--red)', background: 'rgba(240,92,92,0.1)', padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="button" onClick={onClose}
+              style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-body)' }}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              style={{ padding: '8px 18px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 500, opacity: saving ? 0.7 : 1, fontFamily: 'var(--font-body)' }}>
+              {saving ? 'Salvando…' : 'Criar template'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1331,9 +1590,10 @@ function TemplateCard({ tpl, onOpen }) {
 
 /* ─── TemplateModal ──────────────────────────────────────────────────────────── */
 
-function TemplateModal({ tpl, onSave, onClose }) {
+function TemplateModal({ tpl, onSave, onClose, fluxos = [] }) {
   const cfg = CHANNEL_CFG[tpl.channel];
   const [editing, setEditing] = useState(false);
+  const usageCount = fluxos.reduce((acc, f) => acc + (f.steps ?? []).filter(s => s.template_id === tpl.id).length, 0);
   const [content, setContent] = useState(tpl.content);
   const { send, loading, error } = useAI();
   const [messages, setMessages] = useState([]);
@@ -1394,6 +1654,12 @@ function TemplateModal({ tpl, onSave, onClose }) {
 
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           <div style={{ flex: 3, padding: 24, overflowY: 'auto', borderRight: '1px solid var(--border)' }}>
+            {usageCount > 0 && (
+              <div style={{ marginBottom: 14, padding: '8px 12px', background: 'rgba(240,168,50,0.08)', border: '1px solid rgba(240,168,50,0.25)', borderRadius: 8, fontSize: 11, color: 'var(--amber)', lineHeight: 1.5, display: 'flex', gap: 6 }}>
+                <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>Este template está vinculado a <strong>{usageCount} passo{usageCount !== 1 ? 's' : ''}</strong> em fluxos ativos. Alterações no corpo afetarão todos esses passos.</span>
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
               <ChannelBadge channel={tpl.channel} />
               {tpl.tags.map((t) => (
@@ -1512,7 +1778,7 @@ function TemplateModal({ tpl, onSave, onClose }) {
 
 /* ─── Sections ───────────────────────────────────────────────────────────────── */
 
-function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads, onCreateFluxo, onUpdateFluxo, onDeleteFluxo }) {
+function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads, onCreateFluxo, onUpdateFluxo, onDeleteFluxo, templates, onCreateTemplate }) {
   const { openAI } = useUI();
   const [showNovoModal, setShowNovoModal] = useState(false);
   const [editingFluxo, setEditingFluxo] = useState(null);
@@ -1551,6 +1817,8 @@ function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads, onCreateFl
             onUpdateLeads={(leads) => onUpdateLeads(f.id, leads)}
             onEdit={setEditingFluxo}
             onDelete={onDeleteFluxo}
+            templates={templates}
+            onCreateTemplate={onCreateTemplate}
           />
         ))}
       </div>
@@ -1569,9 +1837,10 @@ function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads, onCreateFl
   );
 }
 
-function TemplatesSection({ query, templates, onOpen }) {
+function TemplatesSection({ query, templates, onOpen, onCreateTemplate, fluxos = [] }) {
   const { openAI } = useUI();
   const [channelFilter, setChannelFilter] = useState('todos');
+  const [showNovoModal, setShowNovoModal] = useState(false);
   const channels = [
     { id: 'todos', label: 'Todos' }, { id: 'email', label: 'E-mail' },
     { id: 'whatsapp', label: 'WhatsApp' }, { id: 'linkedin', label: 'LinkedIn' }, { id: 'phone', label: 'Ligação' },
@@ -1598,16 +1867,26 @@ function TemplatesSection({ query, templates, onOpen }) {
           ))}
         </div>
         <PermissionGate module="regua" action="edit">
-          <button
-            onClick={() => openAI('Crie um template de e-mail de prospecção fria B2B. Deve ser curto (máx 150 palavras), ter assunto com alta taxa de abertura, variáveis dinâmicas e CTA claro. Foco em resultados, não em features.')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 13px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-            <Plus size={13} /> Novo template com IA
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => setShowNovoModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 13px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              <Plus size={13} /> Novo template
+            </button>
+            <button
+              onClick={() => openAI('Crie um template de e-mail de prospecção fria B2B. Deve ser curto (máx 150 palavras), ter assunto com alta taxa de abertura, variáveis dinâmicas e CTA claro. Foco em resultados, não em features.')}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 11px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              <Bot size={13} /> IA
+            </button>
+          </div>
         </PermissionGate>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
         {filtered.map((t) => <TemplateCard key={t.id} tpl={t} onOpen={onOpen} />)}
       </div>
+      {showNovoModal && (
+        <NovoTemplateModal onSave={onCreateTemplate} onClose={() => setShowNovoModal(false)} />
+      )}
     </div>
   );
 }
@@ -1736,6 +2015,17 @@ export default function ReguaComunicacao() {
     }
   }
 
+  async function handleCreateTemplate(form) {
+    const { data, error } = await supabase
+      .from('regua_templates')
+      .insert({ channel: form.channel, nome: form.nome, assunto: form.assunto ?? null, corpo: form.corpo ?? null, preview: null, tags: [], open_rate: null, response_rate: 0, uses: 0, status: 'ativo', atualizado_em: new Date().toISOString() })
+      .select().single();
+    if (error) return { error: error.message };
+    const tpl = templateFromRow(data);
+    setTemplates(prev => [...prev, tpl]);
+    return { tpl };
+  }
+
   if (loadingRegua) return <SkeletonLoader rows={6} />;
 
   const TABS = [
@@ -1788,11 +2078,19 @@ export default function ReguaComunicacao() {
             onCreateFluxo={handleCreateFluxo}
             onUpdateFluxo={handleUpdateFluxo}
             onDeleteFluxo={handleDeleteFluxo}
+            templates={templates}
+            onCreateTemplate={handleCreateTemplate}
           />
-        : <TemplatesSection query={query} templates={templates} onOpen={setActiveTemplate} />
+        : <TemplatesSection
+            query={query}
+            templates={templates}
+            onOpen={setActiveTemplate}
+            onCreateTemplate={handleCreateTemplate}
+            fluxos={fluxos}
+          />
       }
 
-      {activeTemplate && <TemplateModal tpl={activeTemplate} onSave={handleSaveTemplate} onClose={() => setActiveTemplate(null)} />}
+      {activeTemplate && <TemplateModal tpl={activeTemplate} onSave={handleSaveTemplate} onClose={() => setActiveTemplate(null)} fluxos={fluxos} />}
     </div>
   );
 }
