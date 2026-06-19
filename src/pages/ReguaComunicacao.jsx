@@ -183,7 +183,26 @@ function fluxoFromRow(r) {
   return { id: r.id, color: r.cor, nome: r.nome, descricao: r.descricao, trigger: r.trigger_texto, status: r.status, steps: r.steps ?? [], leads: [], contacts: 0, responseRate: 0, crmConversion: 0, dropOffStep: 0 };
 }
 function fluxoLeadFromRow(r) {
-  return { id: r.id, company: r.company, contact: r.contact, stepIdx: r.step_idx, daysInStep: r.days_in_step, responsavel: r.responsavel, status: r.status };
+  return {
+    id:             r.id,
+    company:        r.company        ?? '',
+    contact:        r.contact        ?? '',
+    stepIdx:        r.step_idx       ?? 0,
+    daysInStep:     r.days_in_step   ?? 0,
+    responsavel:    r.responsavel    ?? '',
+    status:         r.status         ?? 'ativo',
+    // vínculo polimórfico (Migration 3)
+    leadId:         r.lead_id        ?? null,
+    clienteId:      r.cliente_id     ?? null,
+    origem:         r.origem         ?? 'avulso',
+    email:          r.email          ?? null,
+    // resultado do último passo
+    outcome:        r.outcome        ?? null,
+    outcomeNotes:   r.outcome_notes  ?? null,
+    // controle temporal real
+    lastContactAt:  r.last_contact_at  ?? null,
+    nextStepDueAt:  r.next_step_due_at ?? null,
+  };
 }
 function templateFromRow(r) {
   return { id: r.id, channel: r.channel, nome: r.nome, assunto: r.assunto, corpo: r.corpo, preview: r.preview, tags: r.tags ?? [], openRate: r.open_rate, responseRate: r.response_rate, uses: r.uses, status: r.status, updatedAt: ddmmyyyyR(r.atualizado_em), content: r.corpo };

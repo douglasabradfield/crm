@@ -26,7 +26,8 @@ export const CAMPO_STD_LABEL = {
 // Real leads columns:
 //   id, empresa_id, responsavel_id, funil_id, col, company, contact, email,
 //   phone, sector, value, tags, notes, convertido, follow_up_date,
-//   campos_personalizados, atividades, tarefas, documentos, criado_em, atualizado_em
+//   campos_personalizados, atividades, tarefas, documentos, criado_em, atualizado_em,
+//   em_regua (boolean), regua_fluxo_id (uuid FK → regua_fluxos)
 //
 // Real clientes columns:
 //   id, empresa_id, responsavel_id, company, contact, email, phone, sector,
@@ -61,6 +62,8 @@ function leadFromRow(r) {
     followUpDate:         r.follow_up_date        ?? null,
     notes:                r.notes                 ?? '',
     convertido:           r.convertido            ?? false,
+    emRegua:              r.em_regua              ?? false,
+    reguaFluxoId:         r.regua_fluxo_id        ?? null,
     responsavel:          '',
     responsavelId:        r.responsavel_id        ?? null,
     camposPersonalizados: r.campos_personalizados ?? {},
@@ -84,6 +87,8 @@ function leadToRow(l) {
   if ('followUpDate'         in l) r.follow_up_date        = dateOrNull(l.followUpDate);
   if ('notes'                in l) r.notes                 = l.notes;
   if ('convertido'           in l) r.convertido            = l.convertido;
+  if ('emRegua'              in l) r.em_regua              = l.emRegua;
+  if ('reguaFluxoId'         in l) r.regua_fluxo_id        = l.reguaFluxoId;
   if ('responsavelId'        in l) r.responsavel_id        = l.responsavelId;
   if ('camposPersonalizados' in l) r.campos_personalizados = l.camposPersonalizados;
   if ('atividades'           in l) r.atividades            = l.atividades;
