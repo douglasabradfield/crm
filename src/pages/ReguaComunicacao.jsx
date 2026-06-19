@@ -1593,6 +1593,7 @@ function TemplateCard({ tpl, onOpen }) {
 function TemplateModal({ tpl, onSave, onClose, fluxos = [] }) {
   const cfg = CHANNEL_CFG[tpl.channel];
   const [editing, setEditing] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const usageCount = fluxos.reduce((acc, f) => acc + (f.steps ?? []).filter(s => s.template_id === tpl.id).length, 0);
   const [content, setContent] = useState(tpl.content);
   const { send, loading, error } = useAI();
@@ -1623,6 +1624,7 @@ function TemplateModal({ tpl, onSave, onClose, fluxos = [] }) {
   }, [onClose]);
 
   return (
+    <>
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: '85vw', height: '85vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
@@ -1640,7 +1642,11 @@ function TemplateModal({ tpl, onSave, onClose, fluxos = [] }) {
             )}
             <span style={{ fontSize: 12, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4 }}><MousePointerClick size={11} />{tpl.responseRate}% resposta</span>
             <PermissionGate module="regua" action="edit">
-              <button onClick={() => { if (editing) onSave(tpl.id, content); setEditing((v) => !v); }}
+              <button onClick={() => {
+                  if (!editing) { setEditing(true); return; }
+                  if (usageCount > 0) { setShowConfirm(true); }
+                  else { onSave(tpl.id, content); setEditing(false); }
+                }}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, background: editing ? 'var(--accent)' : 'transparent', border: '1px solid var(--border2)', borderRadius: 8, padding: '5px 10px', fontSize: 12, color: editing ? '#fff' : 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                 <Pencil size={12} />{editing ? 'Salvar' : 'Editar'}
               </button>
@@ -1773,6 +1779,34 @@ function TemplateModal({ tpl, onSave, onClose, fluxos = [] }) {
         </div>
       </div>
     </div>
+
+    {showConfirm && createPortal(
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 440, padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <AlertTriangle size={20} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Salvar alterações no template?</div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
+                Este template é usado em <strong style={{ color: 'var(--text)' }}>{usageCount} passo{usageCount !== 1 ? 's' : ''}</strong> de fluxo{usageCount !== 1 ? 's' : ''} de comunicação. Salvar vai alterar a mensagem em todos eles, inclusive campanhas que já estejam em andamento. Deseja continuar?
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button onClick={() => setShowConfirm(false)}
+              style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-body)' }}>
+              Cancelar
+            </button>
+            <button onClick={() => { onSave(tpl.id, content); setEditing(false); setShowConfirm(false); }}
+              style={{ padding: '8px 18px', borderRadius: 8, background: 'var(--amber)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-body)' }}>
+              Salvar mesmo assim
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   );
 }
 
