@@ -5,12 +5,13 @@ import {
   X, Bot, Send, Pencil, Check, Plus, Phone, Mail,
   Building2, Tag, Clock, Calendar, DollarSign,
   MessageSquare, ShoppingBag, FileText, AlertCircle,
-  User, Hash, Star, Bell,
+  User, Hash, Star, Bell, Zap,
 } from 'lucide-react';
-import { useAI }          from '../../hooks/useAI.js';
-import { useCRM }         from '../../store/crm.js';
-import { useUI }          from '../../store/index.js';
-import PermissionGate     from '../Auth/PermissionGate.jsx';
+import { useAI }              from '../../hooks/useAI.js';
+import { useCRM }             from '../../store/crm.js';
+import { useUI }              from '../../store/index.js';
+import PermissionGate         from '../Auth/PermissionGate.jsx';
+import EnviarParaReguaModal   from './EnviarParaReguaModal.jsx';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
 const fmtBRL   = (n) => `R$ ${Number(n).toLocaleString('pt-BR')}`;
@@ -857,8 +858,9 @@ export default function ClienteModal({ cliente: initialCliente, onClose }) {
   const { updateCliente } = useCRM();
   const [cliente,   setCliente]   = useState(initialCliente);
   const [activeTab, setActiveTab] = useState('visao-geral');
-  const [editando,  setEditando]  = useState(false);
-  const [form,      setForm]      = useState({ ...initialCliente });
+  const [editando,         setEditando]         = useState(false);
+  const [form,             setForm]             = useState({ ...initialCliente });
+  const [showEnviarRegua,  setShowEnviarRegua]  = useState(false);
 
   function set(key, val) { setForm((p) => ({ ...p, [key]: val })); }
 
@@ -894,7 +896,7 @@ export default function ClienteModal({ cliente: initialCliente, onClose }) {
   const st       = STATUS_CFG[cliente.status] ?? STATUS_CFG.ativo;
   const pr       = PRIORIDADE_CFG[cliente.prioridade] ?? PRIORIDADE_CFG.B;
 
-  return createPortal(
+  const portal = createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto' }}>
       <div style={{ width: '85vw', maxHeight: '90vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>
 
@@ -924,6 +926,13 @@ export default function ClienteModal({ cliente: initialCliente, onClose }) {
                   <Pencil size={12} /> Editar
                 </button>
               )}
+            </PermissionGate>
+            <PermissionGate module="regua" action="edit">
+              <button
+                onClick={() => setShowEnviarRegua(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, background: 'transparent', border: '1px solid rgba(56,201,224,0.35)', color: 'var(--teal)', cursor: 'pointer', fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-body)' }}>
+                <Zap size={11} /> Enviar para régua
+              </button>
             </PermissionGate>
             <button onClick={onClose}
               style={{ width: 30, height: 30, borderRadius: 8, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -969,5 +978,19 @@ export default function ClienteModal({ cliente: initialCliente, onClose }) {
       </div>
     </div>,
     document.body,
+  );
+
+  return (
+    <>
+      {portal}
+      {showEnviarRegua && (
+        <EnviarParaReguaModal
+          contato={cliente}
+          origem="cliente"
+          onClose={() => setShowEnviarRegua(false)}
+          onSuccess={() => setShowEnviarRegua(false)}
+        />
+      )}
+    </>
   );
 }

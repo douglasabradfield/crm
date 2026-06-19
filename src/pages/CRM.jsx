@@ -110,6 +110,7 @@ function LeadCard({ lead, etapa, index, onEdit, onAI, onConvert, isLast }) {
             </p>
             <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
               {overdue && <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--amber)', background: 'rgba(240,168,50,0.12)', border: '1px solid rgba(240,168,50,0.25)', borderRadius: 20, padding: '1px 6px' }}>URGENTE</span>}
+              {lead.emRegua && <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--teal)', background: 'rgba(56,201,224,0.1)', border: '1px solid rgba(56,201,224,0.2)', borderRadius: 20, padding: '1px 6px' }}>RÉGUA</span>}
               {lead.convertido && <span style={{ fontSize: 9, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 2 }}><CheckCircle2 size={10} />cliente</span>}
             </div>
           </div>

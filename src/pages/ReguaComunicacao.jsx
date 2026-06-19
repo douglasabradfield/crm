@@ -5,12 +5,14 @@ import {
   Mail, MessageCircle, Phone, Plus, X, ChevronDown, ChevronRight,
   Bot, Send, Pencil, Eye, MousePointerClick, Zap, Clock,
   Users, BarChart2, Check, GripVertical, Trash2, GitBranch,
-  AlertTriangle, ArrowRight, TrendingDown, Briefcase,
+  AlertTriangle, ArrowRight, TrendingDown, Briefcase, Search,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
 import { useAI } from '../hooks/useAI.js';
 import { useAuth } from '../store/auth.js';
+import { useCRM } from '../store/crm.js';
 import { supabase } from '../services/supabase.js';
+import { addContatoAoFluxo } from '../services/regua.js';
 import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 import PermissionGate from '../components/Auth/PermissionGate.jsx';
 
@@ -1245,15 +1247,16 @@ function EditarFluxoModal({ fluxo, onSave, onClose }) {
 
 /* ─── FluxoCard ──────────────────────────────────────────────────────────────── */
 
-function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete, templates, onCreateTemplate }) {
-  const [expanded, setExpanded] = useState(false);
-  const [subTab, setSubTab] = useState('steps');
-  const [expandedStepId, setExpandedStepId] = useState(null);
-  const [addStepPos, setAddStepPos] = useState(null);
-  const [resultCtx, setResultCtx] = useState(null);
-  const [deleteMode, setDeleteMode] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
-  const [deletePending, setDeletePending] = useState(false);
+function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete, templates, onCreateTemplate, onAdicionarContato }) {
+  const [expanded,          setExpanded]          = useState(false);
+  const [subTab,            setSubTab]            = useState('steps');
+  const [expandedStepId,    setExpandedStepId]    = useState(null);
+  const [addStepPos,        setAddStepPos]        = useState(null);
+  const [resultCtx,         setResultCtx]         = useState(null);
+  const [deleteMode,        setDeleteMode]        = useState(false);
+  const [deleteError,       setDeleteError]       = useState('');
+  const [deletePending,     setDeletePending]     = useState(false);
+  const [showAdicionarModal, setShowAdicionarModal] = useState(false);
 
   async function handleDeleteConfirm() {
     setDeletePending(true);
@@ -1412,12 +1415,35 @@ function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete, temp
                   />
                 </>
               ) : (
-                <LeadsTable
-                  leads={fluxo.leads}
-                  steps={fluxo.steps}
-                  onRegisterResult={handleRegisterResult}
-                  onRemove={handleRemoveLead}
-                />
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                    <PermissionGate module="regua" action="edit">
+                      <button
+                        onClick={() => setShowAdicionarModal(true)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, background: 'rgba(56,201,224,0.1)', border: '1px solid rgba(56,201,224,0.25)', color: 'var(--teal)', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-body)' }}>
+                        <Plus size={12} /> Adicionar contato
+                      </button>
+                    </PermissionGate>
+                  </div>
+                  <LeadsTable
+                    leads={fluxo.leads}
+                    steps={fluxo.steps}
+                    onRegisterResult={handleRegisterResult}
+                    onRemove={handleRemoveLead}
+                  />
+                  {showAdicionarModal && (
+                    <AdicionarContatoModal
+                      fluxoId={fluxo.id}
+                      fluxoNome={fluxo.nome}
+                      fluxoSteps={fluxo.steps}
+                      onClose={() => setShowAdicionarModal(false)}
+                      onAdded={(rows) => {
+                        onAdicionarContato(fluxo.id, rows);
+                        setShowAdicionarModal(false);
+                      }}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -1810,9 +1836,289 @@ function TemplateModal({ tpl, onSave, onClose, fluxos = [] }) {
   );
 }
 
+/* ─── AdicionarContatoModal ──────────────────────────────────────────────────── */
+
+function AdicionarContatoModal({ fluxoId, fluxoNome, fluxoSteps, onClose, onAdded }) {
+  const { leads, clientes } = useCRM();
+
+  const [wizStep,             setWizStep]             = useState('origem');
+  const [origem,              setOrigem]              = useState(null);
+  const [selectedLeadIds,     setSelectedLeadIds]     = useState([]);
+  const [selectedClienteIds,  setSelectedClienteIds]  = useState([]);
+  const [avulsoForm,          setAvulsoForm]          = useState({ contact: '', email: '', company: '' });
+  const [avulsoErro,          setAvulsoErro]          = useState('');
+  const [query,               setQuery]               = useState('');
+  const [adding,              setAdding]              = useState(false);
+  const [resultado,           setResultado]           = useState(null);
+
+  function toggleLead(id) {
+    setSelectedLeadIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+  function toggleCliente(id) {
+    setSelectedClienteIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function handleEscolherOrigem(o) {
+    setOrigem(o); setQuery(''); setWizStep('contatos');
+  }
+
+  async function handleConfirmar() {
+    if (!fluxoSteps?.length) {
+      setResultado({ adicionados: [], ignorados: [], erros: [{ name: 'Fluxo sem passos', erro: 'Este fluxo não tem passos. Adicione passos antes de incluir contatos.' }] });
+      setWizStep('resultado');
+      return;
+    }
+
+    if (origem === 'avulso') {
+      if (!avulsoForm.email.trim()) { setAvulsoErro('O e-mail é obrigatório para contatos avulsos.'); return; }
+    }
+
+    setAdding(true);
+
+    let tarefas = [];
+    if (origem === 'funil') {
+      tarefas = selectedLeadIds.map(id => {
+        const l = leads.find(x => x.id === id);
+        return { leadId: id, company: l?.company ?? '', contact: l?.contact ?? '', email: l?.email ?? '' };
+      });
+    } else if (origem === 'cliente') {
+      tarefas = selectedClienteIds.map(id => {
+        const c = clientes.find(x => x.id === id);
+        return { clienteId: id, company: c?.empresaNome ?? '', contact: c?.contato ?? '', email: c?.email ?? '' };
+      });
+    } else {
+      tarefas = [{ company: avulsoForm.company, contact: avulsoForm.contact, email: avulsoForm.email }];
+    }
+
+    const adicionados = [];
+    const ignorados   = [];
+    const erros       = [];
+
+    for (const item of tarefas) {
+      const name = item.contact || item.company || item.email || 'Contato';
+      const res = await addContatoAoFluxo({
+        fluxoId, fluxoSteps, origem, responsavel: '',
+        leadId:    item.leadId,
+        clienteId: item.clienteId,
+        company:   item.company,
+        contact:   item.contact,
+        email:     item.email,
+      });
+      if (res.ok) adicionados.push({ name, row: res.row });
+      else if (res.motivo === 'duplicata') ignorados.push(name);
+      else erros.push({ name, erro: res.error ?? res.motivo });
+    }
+
+    if (adicionados.length) onAdded(adicionados.map(a => a.row));
+    setResultado({ adicionados, ignorados, erros });
+    setAdding(false);
+    setWizStep('resultado');
+  }
+
+  const leadsVisiveis    = leads.filter(l => !l.convertido && (!query || l.company.toLowerCase().includes(query.toLowerCase()) || (l.contact ?? '').toLowerCase().includes(query.toLowerCase())));
+  const clientesVisiveis = clientes.filter(c => !query || (c.empresaNome ?? '').toLowerCase().includes(query.toLowerCase()) || (c.contato ?? '').toLowerCase().includes(query.toLowerCase()));
+
+  const podeContinuar =
+    (origem === 'funil'    && selectedLeadIds.length > 0)  ||
+    (origem === 'cliente'  && selectedClienteIds.length > 0) ||
+    (origem === 'avulso'   && avulsoForm.email.trim() !== '');
+
+  return createPortal(
+    <div onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 520, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Adicionar contato</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+              {fluxoNome}
+              {wizStep === 'contatos' && origem && (
+                <> · <span style={{ color: 'var(--accent2)' }}>
+                  {origem === 'funil' ? 'Do funil (CRM)' : origem === 'cliente' ? 'De clientes' : 'Avulso'}
+                </span></>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* ── Passo: escolher origem ── */}
+        {wizStep === 'origem' && (
+          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { id: 'funil',   label: 'Do funil (CRM)', desc: 'Leads ativos no funil de vendas', icon: TrendingDown, color: '--accent' },
+              { id: 'cliente', label: 'De clientes',    desc: 'Clientes e ex-clientes cadastrados', icon: Briefcase, color: '--teal'   },
+              { id: 'avulso',  label: 'Avulso',         desc: 'Adicionar por nome e e-mail', icon: Plus, color: '--amber'     },
+            ].map(op => {
+              const Icon = op.icon;
+              return (
+                <button key={op.id} onClick={() => handleEscolherOrigem(op.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)', transition: 'border-color .15s' }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = `var(${op.color})`}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+                  <div style={{ width: 36, height: 36, borderRadius: 9, background: `color-mix(in srgb, var(${op.color}) 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon size={16} style={{ color: `var(${op.color})` }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{op.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{op.desc}</div>
+                  </div>
+                  <ChevronRight size={14} style={{ marginLeft: 'auto', color: 'var(--text3)', flexShrink: 0 }} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Passo: escolher contatos (funil ou cliente) ── */}
+        {wizStep === 'contatos' && (origem === 'funil' || origem === 'cliente') && (
+          <>
+            <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+                <input value={query} onChange={e => setQuery(e.target.value)}
+                  placeholder={origem === 'funil' ? 'Buscar leads…' : 'Buscar clientes…'}
+                  style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px 7px 30px', fontSize: 12, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }} />
+              </div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {origem === 'funil' && leadsVisiveis.length === 0 && (
+                <div style={{ padding: '32px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>Nenhum lead encontrado.</div>
+              )}
+              {origem === 'funil' && leadsVisiveis.map((l, i) => {
+                const sel = selectedLeadIds.includes(l.id);
+                return (
+                  <button key={l.id} onClick={() => toggleLead(l.id)}
+                    style={{ width: '100%', textAlign: 'left', padding: '9px 20px', background: sel ? 'rgba(91,110,245,0.08)' : 'transparent', border: 'none', borderBottom: i < leadsVisiveis.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${sel ? 'var(--accent)' : 'var(--border2)'}`, background: sel ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .1s' }}>
+                      {sel && <Check size={10} style={{ color: '#fff' }} />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{l.company}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{l.contact}{l.email ? ` · ${l.email}` : ''}</div>
+                    </div>
+                    {l.emRegua && (
+                      <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 20, background: 'rgba(56,201,224,0.1)', color: 'var(--teal)', border: '1px solid rgba(56,201,224,0.2)', flexShrink: 0 }}>
+                        já na régua
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              {origem === 'cliente' && clientesVisiveis.length === 0 && (
+                <div style={{ padding: '32px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>Nenhum cliente encontrado.</div>
+              )}
+              {origem === 'cliente' && clientesVisiveis.map((c, i) => {
+                const sel = selectedClienteIds.includes(c.id);
+                return (
+                  <button key={c.id} onClick={() => toggleCliente(c.id)}
+                    style={{ width: '100%', textAlign: 'left', padding: '9px 20px', background: sel ? 'rgba(91,110,245,0.08)' : 'transparent', border: 'none', borderBottom: i < clientesVisiveis.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${sel ? 'var(--accent)' : 'var(--border2)'}`, background: sel ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .1s' }}>
+                      {sel && <Check size={10} style={{ color: '#fff' }} />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{c.empresaNome}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{c.contato}{c.email ? ` · ${c.email}` : ''}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* ── Passo: avulso ── */}
+        {wizStep === 'contatos' && origem === 'avulso' && (
+          <div style={{ padding: '20px', flex: 1 }}>
+            {[
+              { key: 'contact', label: 'Nome', placeholder: 'Nome do contato', required: false },
+              { key: 'email',   label: 'E-mail', placeholder: 'email@empresa.com.br', required: true },
+              { key: 'company', label: 'Empresa', placeholder: 'Nome da empresa', required: false },
+            ].map(f => (
+              <div key={f.key} style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>
+                  {f.label}{f.required && <span style={{ color: 'var(--red)', marginLeft: 2 }}>*</span>}
+                </label>
+                <input
+                  value={avulsoForm[f.key]}
+                  onChange={e => { setAvulsoForm(p => ({ ...p, [f.key]: e.target.value })); if (f.key === 'email') setAvulsoErro(''); }}
+                  placeholder={f.placeholder}
+                  style={{ width: '100%', background: 'var(--bg3)', border: `1px solid ${f.key === 'email' && avulsoErro ? 'var(--red)' : 'var(--border)'}`, borderRadius: 8, padding: '8px 10px', fontSize: 12, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }} />
+              </div>
+            ))}
+            {avulsoErro && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: -8 }}>{avulsoErro}</div>}
+          </div>
+        )}
+
+        {/* ── Passo: resultado ── */}
+        {wizStep === 'resultado' && resultado && (
+          <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 22, fontWeight: 600, color: resultado.adicionados.length > 0 ? 'var(--green)' : 'var(--text3)', marginBottom: 4 }}>
+                {resultado.adicionados.length} adicionado{resultado.adicionados.length !== 1 ? 's' : ''}
+              </div>
+              {resultado.ignorados.length > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--amber)', marginTop: 8 }}>
+                  {resultado.ignorados.length} já estava{resultado.ignorados.length !== 1 ? 'm' : ''} na régua e fo{resultado.ignorados.length !== 1 ? 'ram' : 'i'} ignorado{resultado.ignorados.length !== 1 ? 's' : ''}:&nbsp;
+                  <span style={{ color: 'var(--text2)' }}>{resultado.ignorados.join(', ')}</span>
+                </div>
+              )}
+              {resultado.erros.length > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 8 }}>
+                  {resultado.erros.length} erro{resultado.erros.length !== 1 ? 's' : ''}:&nbsp;
+                  {resultado.erros.map((e, i) => (
+                    <span key={i} style={{ color: 'var(--text2)' }}>{e.name} ({e.erro}){i < resultado.erros.length - 1 ? ', ' : ''}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: wizStep === 'contatos' ? 'space-between' : 'flex-end', alignItems: 'center', flexShrink: 0 }}>
+          {wizStep === 'contatos' && (
+            <button onClick={() => { setWizStep('origem'); setQuery(''); setSelectedLeadIds([]); setSelectedClienteIds([]); setAvulsoErro(''); }}
+              style={{ padding: '7px 14px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
+              ← Voltar
+            </button>
+          )}
+          {wizStep === 'resultado' ? (
+            <button onClick={onClose}
+              style={{ padding: '7px 16px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-body)' }}>
+              Fechar
+            </button>
+          ) : wizStep === 'contatos' ? (
+            <button onClick={handleConfirmar} disabled={!podeContinuar || adding}
+              style={{ padding: '7px 16px', borderRadius: 8, background: podeContinuar && !adding ? 'var(--teal)' : 'var(--bg3)', border: 'none', color: podeContinuar && !adding ? '#fff' : 'var(--text3)', cursor: podeContinuar && !adding ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-body)', transition: 'all .15s' }}>
+              {adding ? 'Adicionando…' : (
+                origem === 'funil'   ? `Adicionar ${selectedLeadIds.length > 0 ? `${selectedLeadIds.length} lead${selectedLeadIds.length > 1 ? 's' : ''}` : 'leads'}` :
+                origem === 'cliente' ? `Adicionar ${selectedClienteIds.length > 0 ? `${selectedClienteIds.length} cliente${selectedClienteIds.length > 1 ? 's' : ''}` : 'clientes'}` :
+                'Confirmar'
+              )}
+            </button>
+          ) : (
+            <button onClick={onClose}
+              style={{ padding: '7px 14px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
+              Cancelar
+            </button>
+          )}
+        </div>
+
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* ─── Sections ───────────────────────────────────────────────────────────────── */
 
-function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads, onCreateFluxo, onUpdateFluxo, onDeleteFluxo, templates, onCreateTemplate }) {
+function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads, onCreateFluxo, onUpdateFluxo, onDeleteFluxo, templates, onCreateTemplate, onAdicionarContato }) {
   const { openAI } = useUI();
   const [showNovoModal, setShowNovoModal] = useState(false);
   const [editingFluxo, setEditingFluxo] = useState(null);
@@ -1853,6 +2159,7 @@ function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads, onCreateFl
             onDelete={onDeleteFluxo}
             templates={templates}
             onCreateTemplate={onCreateTemplate}
+            onAdicionarContato={onAdicionarContato}
           />
         ))}
       </div>
@@ -2035,9 +2342,30 @@ export default function ReguaComunicacao() {
     setFluxos(prev => prev.map(f => f.id === fluxoId ? { ...f, leads } : f));
     await supabase.from('regua_fluxo_leads').delete().eq('fluxo_id', fluxoId);
     if (leads.length > 0) {
-      const rows = leads.map(l => ({ fluxo_id: fluxoId, step_idx: l.stepIdx, days_in_step: l.daysInStep, status: l.status ?? 'ativo', company: l.company ?? null, contact: l.contact ?? null, responsavel: l.responsavel ?? null }));
+      const rows = leads.map(l => ({
+        fluxo_id:          fluxoId,
+        step_idx:          l.stepIdx          ?? 0,
+        days_in_step:      l.daysInStep       ?? 0,
+        status:            l.status           ?? 'ativo',
+        company:           l.company          ?? null,
+        contact:           l.contact          ?? null,
+        responsavel:       l.responsavel      ?? null,
+        lead_id:           l.leadId           ?? null,
+        cliente_id:        l.clienteId        ?? null,
+        origem:            l.origem           ?? 'avulso',
+        email:             l.email            ?? null,
+        outcome:           l.outcome          ?? null,
+        outcome_notes:     l.outcomeNotes     ?? null,
+        last_contact_at:   l.lastContactAt    ?? null,
+        next_step_due_at:  l.nextStepDueAt    ?? null,
+      }));
       await supabase.from('regua_fluxo_leads').insert(rows);
     }
+  }
+
+  function handleLeadAdicionado(fluxoId, newRows) {
+    const newLeads = newRows.map(fluxoLeadFromRow);
+    setFluxos(prev => prev.map(f => f.id === fluxoId ? { ...f, leads: [...f.leads, ...newLeads] } : f));
   }
 
   async function handleSaveTemplate(id, content) {
@@ -2114,6 +2442,7 @@ export default function ReguaComunicacao() {
             onDeleteFluxo={handleDeleteFluxo}
             templates={templates}
             onCreateTemplate={handleCreateTemplate}
+            onAdicionarContato={handleLeadAdicionado}
           />
         : <TemplatesSection
             query={query}

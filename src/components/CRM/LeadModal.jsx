@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom';
 import {
   X, Phone, Mail, Building2, Tag, DollarSign, Calendar, FileText,
   Clock, User, Plus, Check, Trash2, AlertCircle, Upload,
-  MessageSquare, PhoneCall, Video, Edit3,
+  MessageSquare, PhoneCall, Video, Edit3, Zap,
 } from 'lucide-react';
 import { useCRM } from '../../store/crm.js';
 import PermissionGate from '../Auth/PermissionGate.jsx';
+import EnviarParaReguaModal from './EnviarParaReguaModal.jsx';
 
 const fmtDate = (d) => d ? d.split('-').reverse().join('/') : '—';
 const today   = () => new Date().toISOString().split('T')[0];
@@ -444,10 +445,11 @@ function DocumentosTab({ lead }) {
 
 /* ─── Modal principal ────────────────────────────────────────────────────────── */
 export default function LeadModal({ lead: initialLead, onClose, funil }) {
-  const { leads, deleteLead } = useCRM();
+  const { leads, deleteLead, updateLead } = useCRM();
   const lead = leads.find((l) => l.id === initialLead.id) ?? initialLead;
 
-  const [activeTab, setActiveTab] = useState('visao-geral');
+  const [activeTab,       setActiveTab]       = useState('visao-geral');
+  const [showEnviarRegua, setShowEnviarRegua] = useState(false);
   const campos = funil
     ? (funil.camposPersonalizados ?? [])
     : [];
@@ -462,7 +464,7 @@ export default function LeadModal({ lead: initialLead, onClose, funil }) {
     { id: 'documentos',   label: 'Documentos'   },
   ];
 
-  return createPortal(
+  const portal = createPortal(
     <div onClick={onClose}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()}
@@ -486,7 +488,20 @@ export default function LeadModal({ lead: initialLead, onClose, funil }) {
               </span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {lead.emRegua ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: 'rgba(56,201,224,0.12)', color: 'var(--teal)', border: '1px solid rgba(56,201,224,0.25)' }}>
+                <Zap size={10} /> Em régua
+              </span>
+            ) : (
+              <PermissionGate module="regua" action="edit">
+                <button
+                  onClick={() => setShowEnviarRegua(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, background: 'transparent', border: '1px solid rgba(56,201,224,0.35)', color: 'var(--teal)', cursor: 'pointer', fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-body)' }}>
+                  <Zap size={11} /> Enviar para régua
+                </button>
+              </PermissionGate>
+            )}
             <PermissionGate module="crm" action="delete">
               <button onClick={() => { deleteLead(lead.id); onClose(); }}
                 style={{ width: 28, height: 28, borderRadius: 7, background: 'transparent', border: '1px solid rgba(240,92,92,0.3)', color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -521,5 +536,22 @@ export default function LeadModal({ lead: initialLead, onClose, funil }) {
       </div>
     </div>,
     document.body,
+  );
+
+  return (
+    <>
+      {portal}
+      {showEnviarRegua && (
+        <EnviarParaReguaModal
+          contato={lead}
+          origem="funil"
+          onClose={() => setShowEnviarRegua(false)}
+          onSuccess={(fluxoId, _fluxoNome, _row) => {
+            updateLead({ ...lead, emRegua: true, reguaFluxoId: fluxoId });
+            setShowEnviarRegua(false);
+          }}
+        />
+      )}
+    </>
   );
 }
