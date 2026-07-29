@@ -93,7 +93,25 @@ const TASK_ACTIONS = {
 };
 
 /* ─── Auto-detect item IDs ───────────────────────────────────────────────────── */
+// Tarefas cujo estado é sempre derivado do banco — nunca gravado como marcação manual (ver buildAutoChecked).
 const AUTO_DETECT_IDS = new Set(['c1-1', 'c1-2', 'c1-3', 'c1-4', 'c1-6', 'c2-1', 'c2-2', 'c3-5', 'c4-1', 'c5-4', 'c6-4', 'c7-1', 'c-icp-3']);
+
+// Texto do tooltip do ícone de raio — explica qual dado real dispara a detecção automática.
+const AUTO_DETECT_DESC = {
+  'c1-1':     'Marcada automaticamente quando sua SWOT tiver itens cadastrados no Diagnóstico.',
+  'c1-2':     'Marcada automaticamente quando houver personas cadastradas no Diagnóstico.',
+  'c1-3':     'Marcada automaticamente quando houver um funil de vendas ou leads cadastrados no CRM.',
+  'c1-4':     'Marcada automaticamente quando os 4Ps (ou 6Ps) estiverem preenchidos no Diagnóstico.',
+  'c1-6':     'Marcada automaticamente quando houver concorrentes cadastrados no Diagnóstico.',
+  'c2-1':     'Marcada automaticamente quando houver metas ou KPIs cadastrados.',
+  'c2-2':     'Marcada automaticamente quando o orçamento de marketing estiver definido.',
+  'c3-5':     'Marcada automaticamente quando o organograma de marketing estiver salvo no Diretório.',
+  'c4-1':     'Marcada automaticamente quando houver um funil de vendas ou leads cadastrados no CRM.',
+  'c5-4':     'Marcada automaticamente quando o guia de marca estiver salvo no Diretório.',
+  'c6-4':     'Marcada automaticamente quando houver leads cadastrados no CRM.',
+  'c7-1':     'Marcada automaticamente quando houver pelo menos 3 KPIs cadastrados.',
+  'c-icp-3':  'Marcada automaticamente quando o Perfil de Cliente Ideal (ICP) estiver preenchido.',
+};
 
 /* ─── Three layers per task ──────────────────────────────────────────────────── */
 const TASK_LAYERS = {
@@ -1659,11 +1677,11 @@ function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatr
   if (Array.isArray(kpisData) && kpisData.length >= 3) set.add('c7-1');
   // ICP preenchido — pelo menos um campo qualitativo preenchido
   if (icpData && [icpData.dor_principal, icpData.gatilho_compra, icpData.decisor, icpData.ticket_medio].some(v => v && String(v).trim())) set.add('c-icp-3');
-  // Guia docs
+  // Guia docs — 'c6-4' fica de fora: sua detecção depende só de leads reais no CRM (regra acima).
   try {
     const guiaDocs = loadLS('dir_guia_docs');
     if (Array.isArray(guiaDocs)) {
-      ['c3-5', 'c5-4', 'c4-1', 'c6-4'].forEach(tid => {
+      ['c3-5', 'c5-4', 'c4-1'].forEach(tid => {
         if (guiaDocs.some(d => d.taskId === tid)) set.add(tid);
       });
     }
@@ -1810,12 +1828,20 @@ function ChecklistItem({ item, capId, capColor, done, onToggle, onSaveComplete, 
         onMouseLeave={() => setHovered(false)}
         style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 10px', borderRadius: 8, transition: 'background .12s', background: hovered ? 'var(--bg4)' : 'transparent' }}
       >
-        {/* Checkbox */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggle(capId, item.id); }}
-          style={{ flexShrink: 0, marginTop: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: done ? `var(${capColor})` : 'var(--text3)', display: 'flex' }}>
-          {done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-        </button>
+        {/* Checkbox — somente leitura quando a tarefa tem detecção automática */}
+        {autoDetected ? (
+          <span
+            title="Marcação automática — não pode ser alterada manualmente"
+            style={{ flexShrink: 0, marginTop: 1, padding: 0, color: done ? `var(${capColor})` : 'var(--text3)', display: 'flex', cursor: 'default', opacity: 0.85 }}>
+            {done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+          </span>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggle(capId, item.id); }}
+            style={{ flexShrink: 0, marginTop: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: done ? `var(${capColor})` : 'var(--text3)', display: 'flex' }}>
+            {done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+          </button>
+        )}
 
         {/* Auto-detect badge */}
         {autoDetected && (
@@ -1824,8 +1850,8 @@ function ChecklistItem({ item, capId, capColor, done, onToggle, onSaveComplete, 
             onMouseLeave={() => setShowTip(false)}>
             <Zap size={13} style={{ color: 'var(--amber)', cursor: 'default' }} />
             {showTip && (
-              <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 10px', fontSize: 11, color: 'var(--text2)', whiteSpace: 'nowrap', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                Detectado automaticamente pelo sistema
+              <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 10px', fontSize: 11, color: 'var(--text2)', whiteSpace: 'normal', width: 220, lineHeight: 1.4, textAlign: 'left', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                {AUTO_DETECT_DESC[item.id] ?? 'Marcada automaticamente quando o dado correspondente existir no sistema.'}
               </div>
             )}
           </div>
@@ -2112,7 +2138,9 @@ function CapituloCard({ cap, progress, autoChecked, onToggle, onSaveComplete, on
   const { openAI } = useUI();
 
   function isChecked(itemId) {
-    return (progress[cap.id] ?? []).includes(itemId) || autoChecked.has(itemId);
+    // Tarefas de detecção automática: estado sempre derivado do banco, nunca do progresso salvo manualmente.
+    if (AUTO_DETECT_IDS.has(itemId)) return autoChecked.has(itemId);
+    return (progress[cap.id] ?? []).includes(itemId);
   }
 
   const total    = cap.checklist.length;
@@ -2463,7 +2491,8 @@ export default function GuiaEstrategico() {
   const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData), [leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData, revision]);
 
   function toggleItem(capId, itemId) {
-    if (autoChecked.has(itemId)) return;
+    // Tarefas de detecção automática não são clicáveis — o estado vem sempre do banco.
+    if (AUTO_DETECT_IDS.has(itemId)) return;
     setProgress((prev) => {
       const current = prev[capId] ?? [];
       const next = current.includes(itemId)
@@ -2474,6 +2503,9 @@ export default function GuiaEstrategico() {
   }
 
   function handleSaveComplete(capId, itemId) {
+    // Tarefas de detecção automática nunca gravam marcação manual: o formulário salva o dado real
+    // (SWOT, persona, KPI...), e a detecção reavalia sozinha a partir dele no próximo render.
+    if (AUTO_DETECT_IDS.has(itemId)) { setRevision((r) => r + 1); return; }
     setProgress((prev) => {
       const current = prev[capId] ?? [];
       if (current.includes(itemId)) return prev;
@@ -2483,7 +2515,9 @@ export default function GuiaEstrategico() {
   }
 
   function isChecked(cap, itemId) {
-    return (progress[cap.id] ?? []).includes(itemId) || autoChecked.has(itemId);
+    // Tarefas de detecção automática: estado sempre derivado do banco, nunca do progresso salvo manualmente.
+    if (AUTO_DETECT_IDS.has(itemId)) return autoChecked.has(itemId);
+    return (progress[cap.id] ?? []).includes(itemId);
   }
 
   /* ── Edit mode functions ── */
