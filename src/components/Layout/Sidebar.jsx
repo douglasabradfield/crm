@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, Users, Search, MessageSquare,
@@ -6,14 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../store/auth.js';
 import { ROLES } from '../../data/users.js';
-
-function getOpenTickets() {
-  try {
-    const t = JSON.parse(localStorage.getItem('crm_tickets') || '[]');
-    const n = t.filter(tk => tk.status !== 'concluido').length;
-    return n > 0 ? n : null;
-  } catch { return null; }
-}
+import { supabase } from '../../services/supabase.js';
 
 const NAV_GROUPS = [
   {
@@ -26,10 +20,10 @@ const NAV_GROUPS = [
   {
     label: 'Comercial',
     items: [
-      { path: '/crm',        icon: Users,        label: 'CRM',                   module: 'crm',        badge: 12 },
+      { path: '/crm',        icon: Users,        label: 'CRM',                   module: 'crm',        badgeKey: 'crm' },
       { path: '/prospeccao', icon: Search,        label: 'Prospecção Ativa',      module: 'prospeccao', badge: 3,  hidden: true },
       { path: '/regua',      icon: MessageSquare, label: 'Régua de Comunicação',  module: 'regua'       },
-      { path: '/tickets',    icon: Headphones,    label: 'Chamados',              module: 'tickets',    getBadge: getOpenTickets },
+      { path: '/tickets',    icon: Headphones,    label: 'Chamados',              module: 'tickets',    badgeKey: 'tickets' },
     ],
   },
   {
@@ -49,7 +43,28 @@ const NAV_GROUPS = [
 ];
 
 export default function Sidebar({ onOpenAI }) {
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout, hasPermission, empresaId } = useAuth();
+  const [badges, setBadges] = useState({ crm: null, tickets: null });
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+
+    async function loadBadges() {
+      const [leadsRes, ticketsRes] = await Promise.all([
+        supabase.from('leads').select('id', { count: 'exact', head: true }).eq('convertido', false),
+        supabase.from('tickets').select('id', { count: 'exact', head: true }).not('status', 'in', '(concluido,cancelado)'),
+      ]);
+      if (cancelled) return;
+      setBadges({
+        crm:     leadsRes.error   || !leadsRes.count   ? null : leadsRes.count,
+        tickets: ticketsRes.error || !ticketsRes.count ? null : ticketsRes.count,
+      });
+    }
+
+    loadBadges();
+    return () => { cancelled = true; };
+  }, [empresaId]);
 
   return (
     <aside className="sidebar">
@@ -84,8 +99,8 @@ export default function Sidebar({ onOpenAI }) {
                 {label}
               </p>
 
-              {visible.map(({ path, icon: Icon, label: itemLabel, badge, getBadge }) => {
-                const badgeVal = getBadge ? getBadge() : badge;
+              {visible.map(({ path, icon: Icon, label: itemLabel, badge, badgeKey }) => {
+                const badgeVal = badgeKey ? badges[badgeKey] : badge;
                 return (
                   <NavLink
                     key={path}

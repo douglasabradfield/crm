@@ -65,36 +65,6 @@ const REGIOES = ['Sul', 'Sudeste', 'Centro-Oeste', 'Norte', 'Nordeste'];
 
 /* ─── Mock data ──────────────────────────────────────────────────────────────── */
 
-const KPIS_INIT = [
-  { id: 'k1', nome: 'Receita Mensal',      tipo: 'moeda',      calculo: 'manual',     fonte: null,             valor: 127000, meta: 150000, tendencia: 8.4,  prazo: '2026-06-30', frequencia: 'mensal', invertGoal: false, descricao: 'Total de receita reconhecida no mês vigente, incluindo novos contratos e recorrência.', formula: 'Soma de todas as faturas emitidas ou contratos fechados no período.', exemplo: 'Abril: R$ 117k → Maio: R$ 127k → variação +8,5%' },
-  { id: 'k2', nome: 'Novos Clientes',      tipo: 'numero',     calculo: 'automatico', fonte: 'clientes_ativos', valor: 8,      meta: 12,     tendencia: -16.7,prazo: '2026-06-30', frequencia: 'mensal', invertGoal: false, descricao: 'Número de novos clientes adquiridos no período. Não conta reativações.', formula: 'Contagem de leads convertidos com data de conversão dentro do período.', exemplo: 'Abril: 10 → Maio: 8 → meta: 12' },
-  { id: 'k3', nome: 'Taxa de Conversão',   tipo: 'percentual', calculo: 'automatico', fonte: 'conversao',       valor: 23,     meta: 30,     tendencia: 3.1,  prazo: '2026-06-30', frequencia: 'mensal', invertGoal: false, descricao: 'Percentual de leads qualificados que se tornam clientes.', formula: '(Clientes fechados ÷ Leads qualificados) × 100', exemplo: '165 leads → 38 fecharam → 23%' },
-  { id: 'k4', nome: 'CAC Médio',           tipo: 'moeda',      calculo: 'manual',     fonte: null,             valor: 420,    meta: 350,    tendencia: 12,   prazo: '2026-06-30', frequencia: 'mensal', invertGoal: true,  descricao: 'Custo médio para adquirir um novo cliente.', formula: 'Investimento total em marketing + vendas ÷ Clientes adquiridos', exemplo: 'R$ 3.360 ÷ 8 clientes = R$ 420 por cliente' },
-  { id: 'k5', nome: 'Ticket Médio',        tipo: 'moeda',      calculo: 'automatico', fonte: 'ticket_medio',   valor: 4200,   meta: 5000,   tendencia: 5.2,  prazo: '2026-06-30', frequencia: 'mensal', invertGoal: false, descricao: 'Valor médio de cada contrato fechado no período.', formula: 'Receita total ÷ Número de contratos fechados', exemplo: 'R$ 33.600 em 8 contratos = R$ 4.200' },
-  { id: 'k6', nome: 'Leads Qualificados',  tipo: 'numero',     calculo: 'automatico', fonte: 'leads',          valor: 38,     meta: 60,     tendencia: -5,   prazo: '2026-06-30', frequencia: 'mensal', invertGoal: false, descricao: 'Leads que passaram pelos critérios de qualificação (BANT ou similar) no período.', formula: 'Contagem de leads com estágio ≥ "Qualificado" criados no período.', exemplo: '165 leads totais → 38 qualificados (23%)' },
-];
-
-const OKRS_INIT = [
-  {
-    id: 'o1', ciclo: 'Trimestral', periodo: '2º trimestre de 2026',
-    titulo: 'Tornar o comercial o principal motor de crescimento da empresa',
-    krs: [
-      { id: 'kr1', descricao: 'Atingir R$ 150k de receita mensal', atual: 127000, meta: 150000, unidade: 'R$', prazo: '2026-06-30', invertGoal: false },
-      { id: 'kr2', descricao: 'Converter 30% dos leads qualificados em clientes', atual: 23, meta: 30, unidade: '%', prazo: '2026-06-30', invertGoal: false },
-      { id: 'kr3', descricao: 'Gerar 60 leads qualificados por mês', atual: 38, meta: 60, unidade: 'leads', prazo: '2026-06-30', invertGoal: false },
-      { id: 'kr4', descricao: 'Reduzir CAC para R$ 350', atual: 420, meta: 350, unidade: 'R$', prazo: '2026-06-30', invertGoal: true },
-    ],
-  },
-  {
-    id: 'o2', ciclo: 'Trimestral', periodo: '2º trimestre de 2026',
-    titulo: 'Elevar a satisfação e retenção dos clientes atuais',
-    krs: [
-      { id: 'kr5', descricao: 'Aumentar NPS para 70+', atual: 67, meta: 70, unidade: 'pts', prazo: '2026-06-30', invertGoal: false },
-      { id: 'kr6', descricao: 'Manter churn mensal abaixo de 2%', atual: 2.1, meta: 2, unidade: '%', prazo: '2026-06-30', invertGoal: true },
-    ],
-  },
-];
-
 const PROJETOS_INIT = [
   {
     id: 'p1', titulo: 'Régua de follow-up automatizada', responsavel: 'Douglas', prazo: '2026-06-10',
@@ -125,15 +95,6 @@ const PROJETOS_INIT = [
       { id: 'st8', texto: 'Integrar ferramenta com CRM', responsavel: 'Douglas', prazo: '2026-05-28', done: false },
     ],
   },
-];
-
-const BENCHMARKS_INIT = [
-  { id: 'b1', kpi: 'Taxa de Conversão', sua: 23,   bm: 18,   unidade: '%',    prefix: false, maior_melhor: true },
-  { id: 'b2', kpi: 'CAC',               sua: 420,  bm: 380,  unidade: 'R$',   prefix: true,  maior_melhor: false },
-  { id: 'b3', kpi: 'Ticket Médio',      sua: 4200, bm: 3600, unidade: 'R$',   prefix: true,  maior_melhor: true },
-  { id: 'b4', kpi: 'Ciclo de Venda',    sua: 28,   bm: 32,   unidade: 'dias', prefix: false, maior_melhor: false },
-  { id: 'b5', kpi: 'Churn Mensal',      sua: 2.1,  bm: 3.4,  unidade: '%',    prefix: false, maior_melhor: false },
-  { id: 'b6', kpi: 'LTV / CAC',         sua: 8.2,  bm: 6.0,  unidade: 'x',    prefix: false, maior_melhor: true },
 ];
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────────── */
@@ -969,39 +930,45 @@ Apresente faixas típicas (mínimo–máximo) e uma observação prática para c
       )}
 
       {/* Table */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: 'var(--bg3)' }}>
-              {['KPI', 'Sua empresa', 'Benchmark est.', 'Diferença'].map(h => (
-                <th key={h} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {benchmarks.map((b, i) => {
-              const better = b.maiorMelhor ? b.sua > b.bm : b.sua < b.bm;
-              const diff   = b.maiorMelhor
-                ? ((b.sua - b.bm) / b.bm * 100).toFixed(1)
-                : ((b.bm - b.sua) / b.bm * 100).toFixed(1);
-              const color  = better ? 'var(--green)' : 'var(--amber)';
-              const DiffIcon = better ? TrendingUp : TrendingDown;
-              return (
-                <tr key={b.id} style={{ borderBottom: i < benchmarks.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <td style={{ padding: '10px 14px', color: 'var(--text2)', fontWeight: 500 }}>{b.kpi}</td>
-                  <td style={{ padding: '10px 14px', color: 'var(--text)', fontWeight: 600 }}>{fmtBenchmark(b.sua, b.unidade, b.prefix)}</td>
-                  <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{fmtBenchmark(b.bm, b.unidade, b.prefix)}</td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color, fontSize: 11, fontWeight: 600 }}>
-                      <DiffIcon size={11} />{better ? '+' : '-'}{Math.abs(diff)}%
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {benchmarks.length === 0 ? (
+        <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>
+          Nenhum benchmark configurado ainda. Use "Consultar IA" para gerar uma estimativa do seu setor.
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg3)' }}>
+                {['KPI', 'Sua empresa', 'Benchmark est.', 'Diferença'].map(h => (
+                  <th key={h} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {benchmarks.map((b, i) => {
+                const better = b.maiorMelhor ? b.sua > b.bm : b.sua < b.bm;
+                const diff   = b.maiorMelhor
+                  ? ((b.sua - b.bm) / b.bm * 100).toFixed(1)
+                  : ((b.bm - b.sua) / b.bm * 100).toFixed(1);
+                const color  = better ? 'var(--green)' : 'var(--amber)';
+                const DiffIcon = better ? TrendingUp : TrendingDown;
+                return (
+                  <tr key={b.id} style={{ borderBottom: i < benchmarks.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <td style={{ padding: '10px 14px', color: 'var(--text2)', fontWeight: 500 }}>{b.kpi}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text)', fontWeight: 600 }}>{fmtBenchmark(b.sua, b.unidade, b.prefix)}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{fmtBenchmark(b.bm, b.unidade, b.prefix)}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color, fontSize: 11, fontWeight: 600 }}>
+                        <DiffIcon size={11} />{better ? '+' : '-'}{Math.abs(diff)}%
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* AI Commentary */}
       {aiComment && (
@@ -1192,45 +1159,15 @@ export default function KPIs() {
       let newProjetos   = projRes.error  ? [] : projRes.data.map(projetoFromRow);
       let newBenchmarks = bmRes.error    ? [] : bmRes.data.map(benchmarkFromRow);
 
-      if (!kpisRes.error && kpisRes.data.length === 0) {
-        const seeds = KPIS_INIT.map((k, i) => ({ ...kpiToRow(k), empresa_id: empresaId, ordem: i }));
-        const { data: seeded } = await supabase.from('kpis').insert(seeds).select();
-        if (cancelled) return;
-        if (seeded) newKpis = seeded.map(kpiFromRow);
-      }
-
-      let okrIdMap = {};
-      if (!okrsRes.error && okrsRes.data.length === 0) {
-        const seeds = OKRS_INIT.map(o => ({ ...okrToRow(o), empresa_id: empresaId }));
-        const { data: seeded } = await supabase.from('okrs').insert(seeds).select();
-        if (cancelled) return;
-        if (seeded) {
-          newOkrs = seeded.map(okrFromRow);
-          OKRS_INIT.forEach((o, i) => { if (seeded[i]) okrIdMap[o.id] = seeded[i].id; });
-        }
-      }
-
       if (!projRes.error && projRes.data.length === 0) {
         const seeds = PROJETOS_INIT.map(p => ({
           ...projetoToRow(p),
-          okr_vinculado: okrIdMap[p.okrVinculado] ?? null,
+          okr_vinculado: null,
           empresa_id: empresaId,
         }));
         const { data: seeded } = await supabase.from('projetos_kpi').insert(seeds).select();
         if (cancelled) return;
         if (seeded) newProjetos = seeded.map(projetoFromRow);
-      }
-
-      if (!bmRes.error && bmRes.data.length === 0) {
-        const seeds = BENCHMARKS_INIT.map(b => ({
-          kpi: b.kpi, sua: b.sua, bm: b.bm,
-          unidade: b.unidade, prefix: b.prefix,
-          maior_melhor: b.maior_melhor,
-          empresa_id: empresaId,
-        }));
-        const { data: seeded } = await supabase.from('benchmarks').insert(seeds).select();
-        if (cancelled) return;
-        if (seeded) newBenchmarks = seeded.map(benchmarkFromRow);
       }
 
       if (!cancelled) {
@@ -1246,15 +1183,20 @@ export default function KPIs() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
-  // Derive automatic KPI values from CRM store
+  // Derive automatic KPI values from CRM store (só entra aqui o que tem fonte real de dados)
+  const clientesComGasto = clientes.filter(c => c.valorTotalGasto > 0);
+  const todosNps = clientes.flatMap(c => c.npsHistorico ?? []);
+
   const autoValues = {
     leads:           leads.length,
     conversao:       leads.length > 0 ? Math.round((leads.filter(l => l.convertido).length / leads.length) * 100) : 0,
     clientes_ativos: clientes.filter(c => c.status === 'ativo').length,
-    ticket_medio:    4200,
-    cac:             420,
-    nps:             67,
-    posts:           24,
+    ...(clientesComGasto.length > 0 && {
+      ticket_medio: Math.round(clientesComGasto.reduce((s, c) => s + c.valorTotalGasto, 0) / clientesComGasto.length),
+    }),
+    ...(todosNps.length > 0 && {
+      nps: Math.round(todosNps.reduce((s, n) => s + n.nota, 0) / todosNps.length),
+    }),
   };
 
   const resolvedKpis = kpis.map(k => k.calculo === 'automatico' && k.fonte && autoValues[k.fonte] !== undefined
@@ -1415,18 +1357,33 @@ export default function KPIs() {
       {/* KPIs Tab */}
       {tab === 'kpis' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
-            {resolvedKpis.map(k => (
-              <MetricKPICard key={k.id} kpi={k} period={period} onHelp={setHelpKPI} />
-            ))}
-          </div>
-          <BenchmarkCard kpis={resolvedKpis} benchmarks={benchmarks} />
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => openAI(`Meus KPIs atuais: ${resolvedKpis.map(k => `${k.nome}: ${fmtValue(k.valor, k.tipo)} (meta: ${fmtValue(k.meta, k.tipo)}, ${Math.round((k.valor/k.meta)*100)}%)`).join(', ')}. Quais são as 3 ações prioritárias que devo tomar essa semana para fechar o período na meta?`)}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-              <Bot size={14} /> IA: Top 3 ações desta semana
-            </button>
-          </div>
+          {resolvedKpis.length === 0 ? (
+            <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: '48px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <BarChart2 size={28} style={{ color: 'var(--text3)' }} />
+              <p style={{ fontSize: 14, color: 'var(--text2)' }}>Nenhum KPI configurado ainda</p>
+              <PermissionGate module="kpis" action="edit">
+                <button onClick={() => setShowManage(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  <Settings size={13} /> Gerenciar KPIs
+                </button>
+              </PermissionGate>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+                {resolvedKpis.map(k => (
+                  <MetricKPICard key={k.id} kpi={k} period={period} onHelp={setHelpKPI} />
+                ))}
+              </div>
+              <BenchmarkCard kpis={resolvedKpis} benchmarks={benchmarks} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => openAI(`Meus KPIs atuais: ${resolvedKpis.map(k => `${k.nome}: ${fmtValue(k.valor, k.tipo)} (meta: ${fmtValue(k.meta, k.tipo)}, ${Math.round((k.valor/k.meta)*100)}%)`).join(', ')}. Quais são as 3 ações prioritárias que devo tomar essa semana para fechar o período na meta?`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  <Bot size={14} /> IA: Top 3 ações desta semana
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1460,6 +1417,9 @@ export default function KPIs() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {okrs.map(o => <OKRCard key={o.id} okr={o} onEdit={setOkrForm} onDelete={deleteOKR} />)}
+                {okrs.length === 0 && (
+                  <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Nenhum OKR cadastrado ainda.</div>
+                )}
               </div>
             </div>
           )}
