@@ -4,7 +4,7 @@ import {
   FileText, Lock, LayoutTemplate, GitBranch, FileSignature,
   CheckCircle2, AlertCircle, Clock, Bot, Copy, ExternalLink,
   ChevronRight, ChevronDown, GripVertical, User, Hash, Zap, X, Sparkles, Send,
-  Pencil, Check, Download, History, Tag, Upload,
+  Pencil, Check, Download, History, Tag, Upload, Trash2,
 } from 'lucide-react';
 import { useAuth }       from '../store/auth.js';
 import { useUI }         from '../store/index.js';
@@ -13,6 +13,7 @@ import PermissionGate    from '../components/Auth/PermissionGate.jsx';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase.js';
+import { docFromRow, docToRow, parseBRDate } from '../services/diretorio.js';
 import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 
 /* ─── Folder definitions ─────────────────────────────────────────────────────── */
@@ -96,22 +97,8 @@ function buildFolderTree(rows) {
   return roots;
 }
 
-function ddmmyyyy(iso) {
-  const d = new Date(iso);
-  if (isNaN(d)) return '';
-  return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
-}
-
-function parseBRDate(s) {
-  if (!s || !s.includes('/')) return new Date().toISOString();
-  const [d, m, y] = s.split('/');
-  return new Date(`${y}-${m}-${d}`).toISOString();
-}
-
 function pastaFromRow(r) { return { id: r.id, pastaPaiId: r.pasta_pai_id, emoji: r.emoji, nome: r.nome, ordem: r.ordem, shortcuts: r.shortcuts ?? [] }; }
 function pastaToRow(p) { return { pasta_pai_id: p.pastaPaiId ?? null, emoji: p.emoji, nome: p.nome, ordem: p.ordem ?? 0, shortcuts: p.shortcuts ?? [] }; }
-function docFromRow(r) { return { id: r.id, tipo: r.tipo, pasta_id: r.pasta_id, color: r.cor, nome: r.nome, responsavel: r.responsavel, versao: r.versao, formato: r.formato, status: r.status, partes: r.partes, passos: r.passos, uso: r.uso, descricao: r.descricao, tags: r.tags ?? [], updatedAt: ddmmyyyy(r.atualizado_em) }; }
-function docToRow(d, tipo, pasta_id) { return { tipo, pasta_id, cor: d.color, nome: d.nome, responsavel: d.responsavel ?? null, versao: d.versao ?? null, formato: d.formato ?? null, status: d.status, partes: d.partes ?? null, passos: d.passos ?? null, uso: d.uso ?? null, descricao: d.descricao ?? '', tags: d.tags ?? [], atualizado_em: parseBRDate(d.updatedAt) }; }
 function senhaFromRow(r) { return { id: r.id, plataforma: r.plataforma, icone: r.icone, usuario: r.usuario, senha: r.senha, categoria: r.categoria }; }
 function senhaToRow(s) { return { plataforma: s.plataforma, icone: s.icone ?? '', usuario: s.usuario ?? '', senha: s.senha ?? '', categoria: s.categoria ?? '' }; }
 
@@ -544,25 +531,7 @@ function InlineAIPanel({ doc, docType }) {
 }
 
 /* ─── Document body renderers ────────────────────────────────────────────────── */
-function DocBody({ doc, docType }) {
-  if (docType === 'guia_doc') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(91,110,245,0.12)', color: 'var(--accent2)', border: '1px solid rgba(91,110,245,0.25)' }}>
-            📖 Criado pelo Guia Estratégico
-          </span>
-          {doc.createdAt && (
-            <span style={{ fontSize: 10, color: 'var(--text3)' }}>
-              {(() => { const d = new Date(doc.createdAt); return isNaN(d) ? '' : `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`; })()}
-            </span>
-          )}
-        </div>
-        <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{doc.content}</p>
-      </div>
-    );
-  }
-
+function DocBody({ doc }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>{doc.descricao}</p>
@@ -576,12 +545,15 @@ function DocBody({ doc, docType }) {
 }
 
 /* ─── Document Modal ─────────────────────────────────────────────────────────── */
-function DocModal({ doc, docType, folderColor, onClose }) {
-  const color = doc.color ?? (docType === 'guia_doc' ? '--accent' : folderColor) ?? '--accent2';
+function DocModal({ doc, docType, folderColor, onClose, onSave, onDelete }) {
+  const color = doc.color ?? folderColor ?? '--accent2';
 
   const [editing,     setEditing]     = useState(false);
   const [editText,    setEditText]    = useState(doc.descricao ?? '');
+  const [saving,      setSaving]      = useState(false);
+  const [saveErr,     setSaveErr]     = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   // Lock body scroll
   useEffect(() => {
@@ -596,6 +568,25 @@ function DocModal({ doc, docType, folderColor, onClose }) {
     window.addEventListener('keydown', fn);
     return () => window.removeEventListener('keydown', fn);
   }, [onClose]);
+
+  async function handleEditToggle() {
+    if (!editing) { setEditing(true); return; }
+    setSaving(true); setSaveErr(null);
+    // updatedAt: undefined força atualizado_em para "agora" em docToRow (parseBRDate sem valor).
+    const result = await onSave({ ...doc, updatedAt: undefined, descricao: editText });
+    setSaving(false);
+    if (result?.error) { setSaveErr(result.error); return; }
+    setEditing(false);
+  }
+
+  function handleDeleteClick() {
+    if (deleteConfirm) {
+      onDelete();
+      return;
+    }
+    setDeleteConfirm(true);
+    setTimeout(() => setDeleteConfirm((c) => c === true ? false : c), 3000);
+  }
 
   const iconMap = { sop: FileText, template: LayoutTemplate, fluxograma: GitBranch, contrato: FileSignature };
   const DocIcon = iconMap[docType] ?? FileText;
@@ -627,7 +618,7 @@ function DocModal({ doc, docType, folderColor, onClose }) {
           {/* Name + meta */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.nome ?? doc.title}</p>
+              <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.nome}</p>
               {doc.status && <StatusBadge status={doc.status} />}
             </div>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
@@ -640,12 +631,21 @@ function DocModal({ doc, docType, folderColor, onClose }) {
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 7, flexShrink: 0, alignItems: 'center' }}>
+            {saveErr && <span style={{ fontSize: 11, color: 'var(--red)' }}>Erro ao salvar: {saveErr}</span>}
             <PermissionGate module="diretorio" action="edit">
               {actionBtn(
-                () => setEditing((v) => !v),
-                editing ? <><Check size={12} /> Salvar</> : <><Pencil size={12} /> Editar</>,
+                handleEditToggle,
+                editing ? <><Check size={12} /> {saving ? 'Salvando…' : 'Salvar'}</> : <><Pencil size={12} /> Editar</>,
                 editing,
+              )}
+            </PermissionGate>
+
+            <PermissionGate module="diretorio" action="delete">
+              {actionBtn(
+                handleDeleteClick,
+                deleteConfirm ? <><Trash2 size={12} /> Confirmar exclusão</> : <><Trash2 size={12} /> Excluir</>,
+                deleteConfirm,
               )}
             </PermissionGate>
 
@@ -691,7 +691,7 @@ function DocModal({ doc, docType, folderColor, onClose }) {
                 style={{ width: '100%', minHeight: '100%', background: 'var(--bg3)', border: '1px solid var(--accent)', borderRadius: 8, padding: '14px 16px', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-body)', resize: 'vertical', lineHeight: 1.7, outline: 'none', boxSizing: 'border-box' }}
               />
             ) : (
-              <DocBody doc={doc} docType={docType} />
+              <DocBody doc={doc} />
             )}
           </div>
 
@@ -706,54 +706,19 @@ function DocModal({ doc, docType, folderColor, onClose }) {
 }
 
 /* ─── Guide doc badge ────────────────────────────────────────────────────────── */
-function GuideDocCard({ doc, onOpen }) {
-  const d = new Date(doc.createdAt);
-  const dateStr = isNaN(d) ? '' : `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+function GuiaBadge() {
   return (
-    <div
-      style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent2)', borderRadius: 10, padding: '14px 16px', cursor: 'pointer', transition: 'border-color 0.13s, background 0.13s' }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent2)'; e.currentTarget.style.background = 'var(--bg4)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg3)'; }}
-      onClick={() => onOpen(doc, 'guia_doc')}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: 'rgba(91,110,245,0.12)', border: '1px solid rgba(91,110,245,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FileText size={14} style={{ color: 'var(--accent2)' }} />
-          </div>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', lineHeight: 1.3 }}>{doc.title}</p>
-            <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>
-              {doc.content?.split('\n')[0] ?? 'Documento criado pelo Guia Estratégico'}
-            </p>
-          </div>
-        </div>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(91,110,245,0.12)', color: 'var(--accent2)', border: '1px solid rgba(91,110,245,0.25)', flexShrink: 0, whiteSpace: 'nowrap' }}>
-          📖 Criado pelo Guia
-        </span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Clock size={11} style={{ color: 'var(--text3)' }} />
-        <span style={{ fontSize: 11, color: 'var(--text3)' }}>Criado em {dateStr}</span>
-        <ChevronRight size={13} style={{ color: 'var(--text3)', marginLeft: 'auto' }} />
-      </div>
-    </div>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(91,110,245,0.12)', color: 'var(--accent2)', border: '1px solid rgba(91,110,245,0.25)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+      📖 Criado pelo Guia
+    </span>
   );
-}
-
-function loadGuiaDocs(folder) {
-  try {
-    const all = JSON.parse(localStorage.getItem('dir_guia_docs') ?? 'null') ?? [];
-    return Array.isArray(all) ? all.filter(d => d.folder === folder) : [];
-  } catch { return []; }
 }
 
 /* ─── Folder content components ──────────────────────────────────────────────── */
 function ProcessosContent({ sops, query, onOpen, onCreateNew }) {
   const items = sops.filter((s) => !query || s.nome.toLowerCase().includes(query) || s.tags.some((t) => t.toLowerCase().includes(query)));
-  const guiaDocs = loadGuiaDocs('processos').filter(d => !query || d.title.toLowerCase().includes(query));
 
-  if (guiaDocs.length === 0 && items.length === 0) {
+  if (items.length === 0) {
     return query
       ? <EmptyFolderState message="Nenhum processo encontrado para essa busca" />
       : <EmptyFolderState icon={FileText} message="Nenhum processo documentado ainda" actionLabel="Novo processo" onAction={onCreateNew} />;
@@ -761,9 +726,6 @@ function ProcessosContent({ sops, query, onOpen, onCreateNew }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {guiaDocs.map(doc => (
-        <GuideDocCard key={doc.id} doc={doc} onOpen={onOpen} />
-      ))}
       {items.map((sop) => (
         <div key={sop.id}
           style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderLeft: `3px solid var(${sop.color})`, borderRadius: 10, padding: '14px 16px', cursor: 'pointer', transition: 'border-color 0.13s, background 0.13s' }}
@@ -781,7 +743,10 @@ function ProcessosContent({ sops, query, onOpen, onCreateNew }) {
                 <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{sop.descricao}</p>
               </div>
             </div>
-            <StatusBadge status={sop.status} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              {sop.origem === 'guia' && <GuiaBadge />}
+              <StatusBadge status={sop.status} />
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             {sop.responsavel && <MetaItem icon={User}  label={sop.responsavel} />}
@@ -946,9 +911,8 @@ function SenhasContent({ senhas, loadingSenhas, query, isAdmin, showAdd, setShow
 
 function TemplatesContent({ templates, query, onOpen, onCreateNew }) {
   const items = templates.filter((t) => !query || t.nome.toLowerCase().includes(query) || t.tags.some((tag) => tag.toLowerCase().includes(query)));
-  const guiaDocs = loadGuiaDocs('templates').filter((d) => !query || d.title.toLowerCase().includes(query));
 
-  if (guiaDocs.length === 0 && items.length === 0) {
+  if (items.length === 0) {
     return query
       ? <EmptyFolderState message="Nenhum template encontrado para essa busca" />
       : <EmptyFolderState icon={LayoutTemplate} message="Nenhum template criado ainda" actionLabel="Novo template" onAction={onCreateNew} />;
@@ -956,7 +920,6 @@ function TemplatesContent({ templates, query, onOpen, onCreateNew }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {guiaDocs.map((doc) => (<GuideDocCard key={doc.id} doc={doc} onOpen={onOpen} />))}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
       {items.map((tpl) => (
         <div key={tpl.id}
@@ -969,7 +932,10 @@ function TemplatesContent({ templates, query, onOpen, onCreateNew }) {
             <div style={{ width: 34, height: 34, borderRadius: 8, background: `color-mix(in srgb, var(${tpl.color}) 12%, transparent)`, border: `1px solid color-mix(in srgb, var(${tpl.color}) 25%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <LayoutTemplate size={15} style={{ color: `var(${tpl.color})` }} />
             </div>
-            <StatusBadge status={tpl.status} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {tpl.origem === 'guia' && <GuiaBadge />}
+              <StatusBadge status={tpl.status} />
+            </div>
           </div>
           <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 }}>{tpl.nome}</p>
           <p style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.45, marginBottom: 10 }}>{tpl.descricao}</p>
@@ -2038,6 +2004,29 @@ export default function DiretorioInterno() {
     setNovoDocModal(null);
   }
 
+  async function handleUpdateDoc(tipo, docId, updates) {
+    const row = docToRow(updates, tipo, updates.pasta_id ?? null);
+    const { data, error } = await supabase.from('diretorio_documentos').update(row).eq('id', docId).select().single();
+    if (error) return { error: error.message };
+    const updatedDoc = docFromRow(data);
+    if (tipo === 'sop')        setSops(prev => prev.map(d => d.id === docId ? updatedDoc : d));
+    if (tipo === 'template')   setTemplates(prev => prev.map(d => d.id === docId ? updatedDoc : d));
+    if (tipo === 'fluxograma') setFluxogramas(prev => prev.map(d => d.id === docId ? updatedDoc : d));
+    if (tipo === 'contrato')   setContratos(prev => prev.map(d => d.id === docId ? updatedDoc : d));
+    setDocModal(prev => prev ? { ...prev, doc: updatedDoc } : prev);
+    return { doc: updatedDoc };
+  }
+
+  async function handleDeleteDoc(tipo, docId) {
+    const { error } = await supabase.from('diretorio_documentos').delete().eq('id', docId);
+    if (error) return;
+    if (tipo === 'sop')        setSops(prev => prev.filter(d => d.id !== docId));
+    if (tipo === 'template')   setTemplates(prev => prev.filter(d => d.id !== docId));
+    if (tipo === 'fluxograma') setFluxogramas(prev => prev.filter(d => d.id !== docId));
+    if (tipo === 'contrato')   setContratos(prev => prev.filter(d => d.id !== docId));
+    closeDoc();
+  }
+
   function handleCriarIA() {
     openAI(
       `Crie um novo documento para a pasta "${activeConfig?.label ?? activeFolder}" do nosso diretório interno. ` +
@@ -2309,6 +2298,8 @@ export default function DiretorioInterno() {
           docType={docModal.docType}
           folderColor={FOLDERS.find((f) => f.id === activeFolder)?.color ?? '--accent2'}
           onClose={closeDoc}
+          onSave={(updates) => handleUpdateDoc(docModal.docType, docModal.doc.id, updates)}
+          onDelete={() => handleDeleteDoc(docModal.docType, docModal.doc.id)}
         />
       )}
 

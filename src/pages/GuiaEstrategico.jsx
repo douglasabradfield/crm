@@ -12,6 +12,7 @@ import { useAuth } from '../store/auth.js';
 import { useCRM } from '../store/crm.js';
 import { GUIA_CHAPTERS } from '../data/guia-chapters.js';
 import { supabase } from '../services/supabase.js';
+import { saveGuiaDoc, fetchGuiaDocTaskIds } from '../services/diretorio.js';
 import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 
 /* ─── Guia edit context (avoids prop-drilling 4 levels deep) ─────────────────── */
@@ -374,14 +375,6 @@ const TASK_LAYERS = {
   },
 };
 
-/* ─── localStorage helpers ───────────────────────────────────────────────────── */
-function loadLS(key, fallback = null) {
-  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback; }
-  catch { return fallback; }
-}
-function saveLS(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-}
 let _idSeq = Date.now();
 function genId(prefix = 'g') { return `${prefix}${_idSeq++}`; }
 
@@ -1477,23 +1470,37 @@ function IcpForm({ onComplete, done }) {
 /* ─── Rich Text Form (Diretório docs) ────────────────────────────────────────── */
 function RichTextForm({ taskId, onComplete, done }) {
   const meta = TASK_DIR_META[taskId] ?? { title: 'Documento', folder: 'processos' };
-  const existing = (loadLS('dir_guia_docs', []) ?? []).find(d => d.taskId === taskId);
-  const [content, setContent] = useState(existing?.content ?? '');
+  const { onGuiaDocSaved } = useContext(GuiaCtx);
+  const { empresaId } = useAuth();
+  const [content, setContent] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saveErr, setSaveErr] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('diretorio_documentos').select('descricao').eq('guia_task_id', taskId).maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data) setContent(data.descricao ?? '');
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId, taskId]);
+
   const valid = content.trim();
-  function handleSave() {
-    const all = loadLS('dir_guia_docs', []) ?? [];
-    const filtered = all.filter(d => d.taskId !== taskId);
-    saveLS('dir_guia_docs', [...filtered, {
-      id: existing?.id ?? genId('dg'),
-      taskId,
-      title: meta.title,
-      folder: meta.folder,
-      content: content.trim(),
-      createdAt: new Date().toISOString(),
-      fromGuia: true,
-    }]);
+
+  async function handleSave() {
+    setSaveErr(null);
+    const tipo = meta.folder === 'templates' ? 'template' : 'sop';
+    const result = await saveGuiaDoc({ taskId, tipo, nome: meta.title, descricao: content.trim() });
+    if (result.error) { setSaveErr(result.error); return; }
+    onGuiaDocSaved?.(taskId);
     onComplete();
   }
+
+  if (loading) return <div style={{ color: 'var(--text3)', fontSize: 12, padding: '8px 0' }}>Carregando...</div>;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.5 }}>
@@ -1502,6 +1509,7 @@ function RichTextForm({ taskId, onComplete, done }) {
       </div>
       <textarea value={content} onChange={e => setContent(e.target.value)} rows={6}
         placeholder="Escreva o conteúdo do documento..." style={{ ...INPUT_S, resize: 'vertical' }} />
+      {saveErr && <p style={{ fontSize: 11, color: 'var(--red)', margin: 0 }}>Erro ao salvar: {saveErr}</p>}
       <SaveBtn onClick={handleSave} disabled={!valid} done={done} />
     </div>
   );
@@ -1519,29 +1527,55 @@ const TOOLS_LIST = [
   { id: 't8', label: 'Meta Ads Manager',          desc: 'Anúncios no Instagram e Facebook' },
 ];
 
+// O conteúdo salvo é o texto composto (não há coluna própria para a seleção de checkboxes) —
+// reconstrói o estado do formulário a partir do texto no formato que handleSave gera abaixo.
+function parseToolsContent(text) {
+  if (!text) return { checked: TOOLS_LIST.map(() => false), notes: '' };
+  const [toolsPart, notesPart] = text.split('\n\nNotas:\n');
+  const selectedLabels = new Set(
+    (toolsPart ?? '').split('\n').filter(l => l.startsWith('• ')).map(l => l.slice(2))
+  );
+  return { checked: TOOLS_LIST.map(t => selectedLabels.has(t.label)), notes: notesPart ?? '' };
+}
+
 function ToolsForm({ onComplete, done }) {
-  const existing = (loadLS('dir_guia_docs', []) ?? []).find(d => d.taskId === 'c6-4');
-  const [checked, setChecked] = useState(existing?.tools ?? TOOLS_LIST.map(() => false));
-  const [notes, setNotes] = useState(existing?.notes ?? '');
+  const { onGuiaDocSaved } = useContext(GuiaCtx);
+  const { empresaId } = useAuth();
+  const [checked, setChecked] = useState(TOOLS_LIST.map(() => false));
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saveErr, setSaveErr] = useState(null);
+
+  useEffect(() => {
+    if (!empresaId) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.from('diretorio_documentos').select('descricao').eq('guia_task_id', 'c6-4').maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data?.descricao) {
+          const parsed = parseToolsContent(data.descricao);
+          setChecked(parsed.checked);
+          setNotes(parsed.notes);
+        }
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   const valid = checked.some(Boolean);
-  function handleSave() {
-    const all = loadLS('dir_guia_docs', []) ?? [];
-    const filtered = all.filter(d => d.taskId !== 'c6-4');
+
+  async function handleSave() {
+    setSaveErr(null);
     const selectedTools = TOOLS_LIST.filter((_, i) => checked[i]).map(t => t.label);
     const content = `Stack de ferramentas escolhidas:\n${selectedTools.map(t => `• ${t}`).join('\n')}${notes.trim() ? `\n\nNotas:\n${notes.trim()}` : ''}`;
-    saveLS('dir_guia_docs', [...filtered, {
-      id: existing?.id ?? genId('dg'),
-      taskId: 'c6-4',
-      title: 'Stack de Ferramentas',
-      folder: 'processos',
-      content,
-      tools: checked,
-      notes,
-      createdAt: new Date().toISOString(),
-      fromGuia: true,
-    }]);
+    const result = await saveGuiaDoc({ taskId: 'c6-4', tipo: 'sop', nome: 'Stack de Ferramentas', descricao: content });
+    if (result.error) { setSaveErr(result.error); return; }
+    onGuiaDocSaved?.('c6-4');
     onComplete();
   }
+
+  if (loading) return <div style={{ color: 'var(--text3)', fontSize: 12, padding: '8px 0' }}>Carregando...</div>;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <FLabel>Marque as ferramentas que vai usar na operação:</FLabel>
@@ -1566,6 +1600,7 @@ function ToolsForm({ onComplete, done }) {
         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
           placeholder="Outras ferramentas ou observações..." style={{ ...INPUT_S, resize: 'vertical' }} />
       </div>
+      {saveErr && <p style={{ fontSize: 11, color: 'var(--red)', margin: 0 }}>Erro ao salvar: {saveErr}</p>}
       <SaveBtn onClick={handleSave} disabled={!valid} done={done} />
     </div>
   );
@@ -1654,7 +1689,7 @@ function TaskInlineForm({ taskId, onComplete, done, destino }) {
 /* ─── ─────────────────────────────────────────────────────────────────────────── */
 
 /* ─── Detect auto-completed tasks from system state ─────────────────────────── */
-function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData) {
+function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData, guiaDocTaskIds) {
   const set = new Set();
   // CRM configured
   if (leads.some((l) => l.col !== 'ganho')) {
@@ -1677,15 +1712,11 @@ function buildAutoChecked(leads, swotData, personasData, concorrentesData, quatr
   if (Array.isArray(kpisData) && kpisData.length >= 3) set.add('c7-1');
   // ICP preenchido — pelo menos um campo qualitativo preenchido
   if (icpData && [icpData.dor_principal, icpData.gatilho_compra, icpData.decisor, icpData.ticket_medio].some(v => v && String(v).trim())) set.add('c-icp-3');
-  // Guia docs — 'c6-4' fica de fora: sua detecção depende só de leads reais no CRM (regra acima).
-  try {
-    const guiaDocs = loadLS('dir_guia_docs');
-    if (Array.isArray(guiaDocs)) {
-      ['c3-5', 'c5-4', 'c4-1'].forEach(tid => {
-        if (guiaDocs.some(d => d.taskId === tid)) set.add(tid);
-      });
-    }
-  } catch {}
+  // Guia docs — lido do Supabase (diretorio_documentos.guia_task_id). 'c6-4' fica de fora:
+  // sua detecção depende só de leads reais no CRM (regra acima).
+  ['c3-5', 'c5-4', 'c4-1'].forEach(tid => {
+    if (guiaDocTaskIds?.includes(tid)) set.add(tid);
+  });
   return set;
 }
 
@@ -2429,6 +2460,16 @@ export default function GuiaEstrategico() {
     return () => { cancelled = true; };
   }, [empresaId]);
 
+  /* ── Guia docs state (para raio auto-concluído de c3-5/c4-1/c5-4) ── */
+  const [guiaDocTaskIds, setGuiaDocTaskIds] = useState([]);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    fetchGuiaDocTaskIds().then((ids) => { if (!cancelled) setGuiaDocTaskIds(ids); });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
   /* ── Customizations state ── */
   const [customizations, setCustomizations] = useState({});
   const [editMode,  setEditMode]  = useState(false);
@@ -2485,10 +2526,11 @@ export default function GuiaEstrategico() {
     onMetasSaved:        (newKpis)         => setKpisData(newKpis),
     onKpisSaved:         (newKpis)         => setKpisData(newKpis),
     onIcpSaved:          (newIcp)          => setIcpData(newIcp),
+    onGuiaDocSaved:      (taskId)          => setGuiaDocTaskIds((prev) => prev.includes(taskId) ? prev : [...prev, taskId]),
   }), [TASK_LAYERS_EFFECTIVE, TASK_FORM_TYPE_EFFECTIVE, editMode]);
 
   /* ── Checklist helpers ── */
-  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData), [leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData, revision]);
+  const autoChecked = useMemo(() => buildAutoChecked(leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData, guiaDocTaskIds), [leads, swotData, personasData, concorrentesData, quatroPsData, funilData, kpisData, icpData, guiaDocTaskIds, revision]);
 
   function toggleItem(capId, itemId) {
     // Tarefas de detecção automática não são clicáveis — o estado vem sempre do banco.
