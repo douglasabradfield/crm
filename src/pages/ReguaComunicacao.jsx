@@ -59,12 +59,43 @@ const OUTCOMES = [
 
 const CALL_MOODS = ['Ótimo', 'Bom', 'Ruim', 'Não atendeu'];
 
-const STAT_CARDS = [
-  { label: 'Fluxos ativos',     value: '3',  icon: Zap,              color: '--accent'  },
-  { label: 'Contatos em fluxo', value: '82', icon: Users,            color: '--teal'    },
-  { label: 'Taxa de abertura',  value: '34', icon: Eye,              color: '--green'   },
-  { label: 'Taxa de resposta',  value: '18', icon: MousePointerClick, color: '--purple' },
+const STAT_CARDS_CFG = [
+  { key: 'fluxosAtivos',  label: 'Fluxos ativos',     icon: Zap,               color: '--accent'  },
+  { key: 'contatos',      label: 'Contatos em fluxo', icon: Users,             color: '--teal'    },
+  { key: 'taxaAbertura',  label: 'Taxa de abertura',  icon: Eye,               color: '--green'   },
+  { key: 'taxaResposta',  label: 'Taxa de resposta',  icon: MousePointerClick, color: '--purple'  },
 ];
+
+// Resposta = outcome preenchido e diferente de "sem resposta". Sem outcomes registrados, não há taxa a mostrar.
+function computeResponseRate(leads) {
+  const comOutcome = leads.filter(l => l.outcome);
+  if (comOutcome.length === 0) return null;
+  const respondidos = comOutcome.filter(l => l.outcome !== 'no_response');
+  return Math.round((respondidos.length / comOutcome.length) * 100);
+}
+
+// Etapa com maior queda de alcance em relação à anterior. -1 quando não há dados de alcance ainda.
+function computeDropOffStep(steps) {
+  let maxDrop = 0;
+  let idx = -1;
+  for (let i = 1; i < steps.length; i++) {
+    const drop = (steps[i - 1].reached || 0) - (steps[i].reached || 0);
+    if (drop > maxDrop) { maxDrop = drop; idx = i; }
+  }
+  return idx;
+}
+
+function computeStatCards(fluxos) {
+  const todosLeads = fluxos.flatMap(f => f.leads ?? []);
+  const responseRate = computeResponseRate(todosLeads);
+  return {
+    fluxosAtivos: fluxos.filter(f => f.status === 'ativo').length,
+    contatos:     todosLeads.length,
+    // Sem integração de rastreamento de abertura de e-mail conectada ainda.
+    taxaAbertura: null,
+    taxaResposta: responseRate,
+  };
+}
 
 const COR_OPTIONS = [
   { value: '--accent', label: 'Azul'  },
@@ -128,83 +159,6 @@ function applyTplToStep(step, tpl) {
   return { objetivo: tpl.assunto ?? '', script: tpl.corpo ?? '' };
 }
 
-/* ─── Mock data ──────────────────────────────────────────────────────────────── */
-
-const FLUXOS_INIT = [
-  {
-    id: 'f1', color: '--accent',
-    nome: 'Pós-Demo — Cold Leads',
-    descricao: 'Sequência para leads que assistiram à demo mas não avançaram para proposta.',
-    trigger: 'Demo realizada sem proposta',
-    status: 'ativo', contacts: 23, responseRate: 14, crmConversion: 6, dropOffStep: 2,
-    steps: [
-      { id: 's1a', type: 'email',    delay: 0, assunto: 'Obrigado pela atenção + resumo da demo', corpo: 'Olá [Nome],\n\nFoi ótimo conversar! Segue o resumo do que abordamos na demo...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 23, responded: 16 },
-      { id: 's1b', type: 'whatsapp', delay: 1, template: 'Oi [Nome]! Ficou alguma dúvida da demo? Posso te ajudar!', roteiro: 'Verificar objeções levantadas na demo e oferecer esclarecimento.', responsavel: 'Douglas', hasBranch: true, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 20, responded: 9 },
-      { id: 's1c', type: 'email',    delay: 2, assunto: 'Case de sucesso de cliente similar', corpo: 'Olá [Nome],\n\nQueria te contar como a [Empresa Similar] resolveu o mesmo desafio...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 17, responded: 8 },
-      { id: 's1d', type: 'email',    delay: 4, assunto: 'Sua equipe já tem meta de vendas para o próximo trimestre?', corpo: 'Olá [Nome],\n\nMuitas equipes ainda estão definindo metas para o segundo semestre...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 14, responded: 5 },
-      { id: 's1e', type: 'ligacao',  delay: 7, objetivo: 'Oferecer trial ou reunião de alinhamento', script: 'Verificar interesse em fechar até o fim do trimestre. Oferecer trial de 14 dias.', responsavel: 'Douglas', hasBranch: true, branchA: { action: 'add_crm' }, branchB: { action: 'end_flow' }, reached: 9, responded: 4 },
-    ],
-    leads: [
-      { id: 'l1', company: 'TechVision LTDA', contact: 'Carlos Mendes', stepIdx: 1, daysInStep: 2, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l2', company: 'InnovateBR LTDA', contact: 'Ana Lima', stepIdx: 2, daysInStep: 0, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l3', company: 'DataPrime SA', contact: 'Bruno Santos', stepIdx: 0, daysInStep: 1, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l4', company: 'SoftHouse LTDA', contact: 'Fernanda Rocha', stepIdx: 3, daysInStep: 5, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l5', company: 'RoboTech MEI', contact: 'Paulo Sílvio', stepIdx: 4, daysInStep: 7, responsavel: 'Douglas', status: 'ativo' },
-    ],
-  },
-  {
-    id: 'f2', color: '--teal',
-    nome: 'Nurturing Educacional',
-    descricao: 'Fluxo de conteúdo para novos leads frios que ainda não estão prontos para comprar.',
-    trigger: 'Lead novo sem reunião agendada',
-    status: 'ativo', contacts: 47, responseRate: 21, crmConversion: 9, dropOffStep: 3,
-    steps: [
-      { id: 's2a', type: 'email',    delay: 0, assunto: 'Boas-vindas + ebook "Como estruturar seu comercial"', corpo: 'Olá [Nome],\n\nSeja bem-vindo! Preparamos um material exclusivo para te ajudar...', integration: 'mailchimp', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 47, responded: 31 },
-      { id: 's2b', type: 'whatsapp', delay: 2, template: 'Oi [Nome]! Conseguiu baixar o ebook? Tem alguma dúvida?', roteiro: 'Verificar se recebeu e abriu o material. Perguntar sobre desafios atuais.', responsavel: 'Douglas', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 42, responded: 19 },
-      { id: 's2c', type: 'email',    delay: 3, assunto: '3 erros que PMEs cometem no comercial', corpo: 'Olá [Nome],\n\nNo material de ontem você viu a estrutura geral. Hoje quero te mostrar os erros...', integration: 'mailchimp', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 38, responded: 14 },
-      { id: 's2d', type: 'whatsapp', delay: 4, template: 'Oi [Nome]! Tenho um vídeo rápido com uma dica prática sobre [Tema]. Vale 3 minutos!', roteiro: 'Enviar link do vídeo. Perguntar se faz sentido para a realidade deles.', responsavel: 'Douglas', hasBranch: true, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 31, responded: 12 },
-      { id: 's2e', type: 'email',    delay: 5, assunto: 'Case de sucesso + convite para webinar', corpo: 'Olá [Nome],\n\nA [Empresa] estava no mesmo ponto que você. Em 3 meses eles mudaram tudo...', integration: 'mailchimp', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 25, responded: 9 },
-      { id: 's2f', type: 'email',    delay: 7, assunto: 'Pronto para dar o próximo passo?', corpo: 'Olá [Nome],\n\nVocê recebeu muito conteúdo nas últimas semanas. Que tal uma conversa de 20 min?', integration: 'mailchimp', condition: 'auto', hasBranch: false, branchA: { action: 'add_crm' }, branchB: { action: 'end_flow' }, reached: 18, responded: 8 },
-    ],
-    leads: [
-      { id: 'l6',  company: 'Logix Transportes', contact: 'Roberto Alves', stepIdx: 0, daysInStep: 0, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l7',  company: 'VidaNet Telecom', contact: 'Sônia Faria', stepIdx: 1, daysInStep: 1, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l8',  company: 'MedCenter LTDA', contact: 'Dr. Hugo Lima', stepIdx: 2, daysInStep: 3, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l9',  company: 'AgroSul SA', contact: 'Renata Costa', stepIdx: 3, daysInStep: 4, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l10', company: 'ConnectBR MEI', contact: 'Felipe Dias', stepIdx: 4, daysInStep: 2, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l11', company: 'StartHub LTDA', contact: 'Bianca Martins', stepIdx: 5, daysInStep: 6, responsavel: 'Douglas', status: 'ativo' },
-    ],
-  },
-  {
-    id: 'f3', color: '--amber',
-    nome: 'Reativação de Inativos',
-    descricao: 'Win-back para leads ou clientes sem contato há mais de 60 dias.',
-    trigger: 'Sem interação há 60 dias',
-    status: 'ativo', contacts: 12, responseRate: 11, crmConversion: 2, dropOffStep: 1,
-    steps: [
-      { id: 's3a', type: 'email',    delay: 0, assunto: 'Sumiu! Posso te ajudar com algo?', corpo: 'Oi [Nome], faz um tempo que não conversamos. Muita coisa boa aconteceu por aqui...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 12, responded: 5 },
-      { id: 's3b', type: 'whatsapp', delay: 3, template: 'Oi [Nome]! Vi que você não recebeu meu e-mail. Tudo bem por aí?', roteiro: 'Mensagem curta e direta. Perguntar sobre momento atual da empresa.', responsavel: 'Douglas', hasBranch: true, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 9, responded: 3 },
-      { id: 's3c', type: 'email',    delay: 4, assunto: 'Novidade do produto + condição especial', corpo: 'Oi [Nome], lançamos uma funcionalidade que parece feita para o seu caso...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'next_step' }, branchB: { action: 'next_step' }, reached: 7, responded: 2 },
-      { id: 's3d', type: 'ligacao',  delay: 7, objetivo: 'Última tentativa de reconexão', script: 'Ligação curta. Perguntar se ainda faz sentido. Oferecer desconto especial para reativação.', responsavel: 'Douglas', hasBranch: true, branchA: { action: 'add_crm' }, branchB: { action: 'discard' }, reached: 5, responded: 1 },
-      { id: 's3e', type: 'email',    delay: 7, assunto: 'Vou te remover da lista — confirma?', corpo: 'Oi [Nome], tentei algumas vezes mas entendo que pode não ser o momento. Se mudar de ideia, é só responder este e-mail...', integration: 'resend', condition: 'auto', hasBranch: false, branchA: { action: 'end_flow' }, branchB: { action: 'discard' }, reached: 4, responded: 1 },
-    ],
-    leads: [
-      { id: 'l12', company: 'OldTech LTDA', contact: 'Márcio Braga', stepIdx: 1, daysInStep: 1, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l13', company: 'Retro Systems', contact: 'Cláudia Neves', stepIdx: 2, daysInStep: 5, responsavel: 'Douglas', status: 'ativo' },
-      { id: 'l14', company: 'PastBiz MEI', contact: 'André Moura', stepIdx: 3, daysInStep: 8, responsavel: 'Douglas', status: 'ativo' },
-    ],
-  },
-];
-
-const TEMPLATES = [
-  { id: 'tm1', channel: 'email', nome: 'Introdução + Proposta de Valor', assunto: 'Uma pergunta rápida sobre [Empresa] 🚀', tags: ['Outbound', 'Primeiro contato'], openRate: 45, responseRate: 12, uses: 134, status: 'ativo', updatedAt: '12/05/2026', preview: 'Olá [Nome], vi que a [Empresa] atua no segmento de [Segmento]. Muitos dos nossos clientes conseguiram [Resultado] em [Prazo]...', content: `Olá [Nome],\n\nVi que a [Empresa] atua no segmento de [Segmento] e queria compartilhar algo relevante.\n\nMuitos dos nossos clientes nesse mercado conseguiram [Resultado] em [Prazo]. O [Cliente Referência], por exemplo, aumentou sua conversão em 35% no primeiro trimestre.\n\nFaria sentido conversar 20 minutos para entender a realidade de vocês?\n\nTenho horários em [Dia 1] ou [Dia 2] — funciona?\n\nAbraços,\n[Seu Nome]` },
-  { id: 'tm2', channel: 'whatsapp', nome: 'Follow-up Pós Reunião', assunto: 'Mensagem pós-call', tags: ['Follow-up', 'Pós-reunião'], openRate: 78, responseRate: 31, uses: 89, status: 'ativo', updatedAt: '08/05/2026', preview: 'Oi [Nome]! Que ótima conversa 🤝 Conforme alinhamos, vou te enviar a proposta até amanhã com escopo, investimento...', content: `Oi [Nome]! Que ótima conversa tivemos 🤝\n\nConforme alinhamos, vou te enviar a proposta até amanhã com:\n✅ Escopo do projeto\n✅ Investimento e formas de pagamento\n✅ Próximos passos\n\nQualquer dúvida é só chamar. Um abraço! 🚀` },
-  { id: 'tm3', channel: 'email', nome: 'Case de Sucesso', assunto: 'Como a [Empresa Similar] cresceu [X]% com a gente', tags: ['Nurturing', 'Social proof'], openRate: 52, responseRate: 8, uses: 67, status: 'ativo', updatedAt: '22/04/2026', preview: 'Olá [Nome], quero te contar a história da [Empresa Similar], que tinha o mesmo desafio que vocês...', content: `Olá [Nome],\n\nQuero te contar a história da [Empresa Similar], que tinha o mesmo desafio que vocês: [Desafio Principal].\n\nEm [Prazo], eles conseguiram:\n📈 [Resultado 1]\n💰 [Resultado 2]\n⏱️ [Resultado 3]\n\nO diferencial? [Diferencial Principal].\n\nConsigo marcar uma call de 15 min para te mostrar como replicamos isso para a [Empresa] de vocês?\n\nAbraços,\n[Seu Nome]` },
-  { id: 'tm4', channel: 'whatsapp', nome: 'Lembrete de Reunião', assunto: 'Lembrete call', tags: ['Reunião', 'Lembrete'], openRate: 85, responseRate: 42, uses: 203, status: 'ativo', updatedAt: '15/05/2026', preview: 'Oi [Nome]! Confirmando nossa conversa amanhã às [Hora] 🗓 Vou te enviar o link do Meet...', content: `Oi [Nome]! 👋\n\nSó confirmando nossa conversa amanhã, [Data], às [Hora] 🗓\n\n📎 Link: [Link Meet]\n⏱️ Duração: 30 minutos\n📋 Pauta: [Tópicos]\n\nSe precisar remarcar, é só avisar!\n\nAté amanhã 🚀` },
-  { id: 'tm5', channel: 'email', nome: 'E-mail de Reativação', assunto: 'Ainda faz sentido conversarmos, [Nome]?', tags: ['Reativação', 'Win-back'], openRate: 33, responseRate: 9, uses: 41, status: 'ativo', updatedAt: '10/04/2026', preview: 'Oi [Nome], tentei contato algumas vezes mas entendo que o timing pode não ser ideal agora...', content: `Oi [Nome],\n\nTentei contato algumas vezes mas entendo que o timing pode não ser ideal agora.\n\nSó queria deixar registrado que:\n→ Nossa plataforma evoluiu bastante desde nossa última conversa\n→ Temos novidades que se encaixam no [Desafio mencionado]\n→ Condição especial para retomadas até [Data]\n\nSe não fizer mais sentido, tudo bem — é só me falar!\n\nSe tiver interesse: [Link Calendly]\n\nAbraços,\n[Seu Nome]` },
-  { id: 'tm6', channel: 'linkedin', nome: 'Conexão Inicial LinkedIn', assunto: 'Mensagem de conexão', tags: ['LinkedIn', 'Outbound'], openRate: null, responseRate: 15, uses: 78, status: 'ativo', updatedAt: '01/05/2026', preview: 'Olá [Nome]! Vi que você está à frente do comercial na [Empresa]. Tenho trabalhado com empresas de [Segmento]...', content: `Olá [Nome]!\n\nVi que você está à frente do comercial na [Empresa] e queria conectar.\n\nTenho trabalhado com empresas de [Segmento] para [Resultado Principal] — sem precisar contratar mais vendedores.\n\nSeria legal trocar uma ideia sobre os desafios de vocês. Posso te enviar algo útil?\n\nAbraços! 👋` },
-];
-
 /* ─── Helpers ─────────────────────────────────────────────────────────────────── */
 
 function getCumulativeDays(steps) {
@@ -238,14 +192,8 @@ function ddmmyyyyR(iso) {
   if (isNaN(d)) return '';
   return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
 }
-function parseBRDateR(s) {
-  if (!s || !s.includes('/')) return new Date().toISOString();
-  const [d, m, y] = s.split('/');
-  return new Date(`${y}-${m}-${d}`).toISOString();
-}
-
 function fluxoFromRow(r) {
-  return { id: r.id, color: r.cor, nome: r.nome, descricao: r.descricao, trigger: r.trigger_texto, status: r.status, steps: r.steps ?? [], leads: [], contacts: 0, responseRate: 0, crmConversion: 0, dropOffStep: 0 };
+  return { id: r.id, color: r.cor, nome: r.nome, descricao: r.descricao, trigger: r.trigger_texto, status: r.status, steps: r.steps ?? [], leads: [] };
 }
 function fluxoLeadFromRow(r) {
   return {
@@ -844,15 +792,18 @@ function ResultModal({ lead, step, onSave, onClose }) {
 function MetricsCard({ fluxo }) {
   const cumulDays = getCumulativeDays(fluxo.steps);
   const maxReached = fluxo.steps[0]?.reached || 1;
+  const responseRate = computeResponseRate(fluxo.leads ?? []);
+  const dropOffStep = computeDropOffStep(fluxo.steps);
 
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 14 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
         {[
           { label: 'Leads ativos',   value: fluxo.leads?.filter(l => l.status === 'ativo').length ?? 0, color: '--accent' },
-          { label: 'Taxa de resposta', value: `${fluxo.responseRate}%`,  color: fluxo.responseRate >= 15 ? '--green' : '--amber' },
-          { label: 'Maior abandono', value: `Step ${fluxo.dropOffStep + 1}`, color: '--red' },
-          { label: 'Conversão CRM',  value: `${fluxo.crmConversion}%`,  color: '--purple' },
+          { label: 'Taxa de resposta', value: responseRate == null ? '—' : `${responseRate}%`, color: responseRate == null ? '--text3' : responseRate >= 15 ? '--green' : '--amber' },
+          { label: 'Maior abandono', value: dropOffStep === -1 ? '—' : `Step ${dropOffStep + 1}`, color: dropOffStep === -1 ? '--text3' : '--red' },
+          // Conversão para CRM ainda não é rastreada automaticamente.
+          { label: 'Conversão CRM',  value: '—', color: '--text3' },
         ].map((m) => (
           <div key={m.label} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 16, fontWeight: 600, color: `var(${m.color})`, fontFamily: 'var(--font-display)', lineHeight: 1.2 }}>{m.value}</div>
@@ -871,7 +822,7 @@ function MetricsCard({ fluxo }) {
               <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 10, color: 'var(--text3)', width: 28, flexShrink: 0 }}>D+{cumulDays[i]}</span>
                 <cfg.Icon size={10} style={{ color: `var(${cfg.color})`, flexShrink: 0 }} />
-                <CSSBar pct={pct} color={step.reached > 0 && i === fluxo.dropOffStep ? '--red' : cfg.color} />
+                <CSSBar pct={pct} color={step.reached > 0 && i === dropOffStep ? '--red' : cfg.color} />
                 <span style={{ fontSize: 10, color: 'var(--text3)', width: 34, textAlign: 'right', flexShrink: 0 }}>{step.reached}</span>
               </div>
             );
@@ -1306,6 +1257,7 @@ function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete, temp
   }
 
   const activeLeads = fluxo.leads?.filter(l => l.status === 'ativo') ?? [];
+  const headerResponseRate = computeResponseRate(fluxo.leads ?? []);
 
   return (
     <>
@@ -1329,8 +1281,8 @@ function FluxoCard({ fluxo, onUpdateSteps, onUpdateLeads, onEdit, onDelete, temp
             {[
               { label: 'Steps',    value: fluxo.steps.length },
               { label: 'Leads',    value: activeLeads.length, color: '--teal' },
-              { label: 'Resposta', value: `${fluxo.responseRate}%`, color: fluxo.responseRate >= 15 ? '--green' : '--amber' },
-              { label: 'CRM',      value: `${fluxo.crmConversion}%`, color: '--purple' },
+              { label: 'Resposta', value: headerResponseRate == null ? '—' : `${headerResponseRate}%`, color: headerResponseRate == null ? '--text3' : headerResponseRate >= 15 ? '--green' : '--amber' },
+              { label: 'CRM',      value: '—', color: '--text3' },
             ].map((s) => (
               <div key={s.label} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: s.color ? `var(${s.color})` : 'var(--text)' }}>{s.value}</div>
@@ -2162,6 +2114,11 @@ function FluxosSection({ query, fluxos, onUpdateSteps, onUpdateLeads, onCreateFl
             onAdicionarContato={onAdicionarContato}
           />
         ))}
+        {filtered.length === 0 && (
+          <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic', textAlign: 'center', padding: '30px 0' }}>
+            {fluxos.length === 0 ? 'Nenhum fluxo criado ainda. Clique em "Novo fluxo" para começar.' : 'Nenhum fluxo encontrado com essa busca.'}
+          </p>
+        )}
       </div>
 
       {showNovoModal && (
@@ -2224,6 +2181,11 @@ function TemplatesSection({ query, templates, onOpen, onCreateTemplate, fluxos =
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
         {filtered.map((t) => <TemplateCard key={t.id} tpl={t} onOpen={onOpen} />)}
+        {filtered.length === 0 && (
+          <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic', textAlign: 'center', padding: '30px 0', gridColumn: '1 / -1' }}>
+            {templates.length === 0 ? 'Nenhum template criado ainda. Clique em "Novo template" para começar.' : 'Nenhum template encontrado com essa busca.'}
+          </p>
+        )}
       </div>
       {showNovoModal && (
         <NovoTemplateModal onSave={onCreateTemplate} onClose={() => setShowNovoModal(false)} />
@@ -2256,33 +2218,6 @@ export default function ReguaComunicacao() {
       let fluxoRows = fluxosRes.data ?? [];
       let leadRows = leadsRes.data ?? [];
       let tplRows = tplsRes.data ?? [];
-
-      if (fluxoRows.length === 0) {
-        const seedFluxos = FLUXOS_INIT.map(f => ({ cor: f.color, nome: f.nome, descricao: f.descricao, trigger_texto: f.trigger, status: f.status, steps: f.steps }));
-        const { data: ins } = await supabase.from('regua_fluxos').insert(seedFluxos).select();
-        if (cancelled) return;
-        fluxoRows = ins ?? [];
-        const seedLeads = [];
-        FLUXOS_INIT.forEach((f, i) => {
-          const realId = fluxoRows[i]?.id;
-          if (!realId) return;
-          (f.leads || []).forEach(l => {
-            seedLeads.push({ fluxo_id: realId, step_idx: l.stepIdx, days_in_step: l.daysInStep, status: l.status, company: l.company, contact: l.contact, responsavel: l.responsavel });
-          });
-        });
-        if (seedLeads.length) {
-          const { data: insL } = await supabase.from('regua_fluxo_leads').insert(seedLeads).select();
-          if (cancelled) return;
-          leadRows = insL ?? [];
-        }
-      }
-
-      if (tplRows.length === 0) {
-        const seedTpls = TEMPLATES.map(t => ({ channel: t.channel, nome: t.nome, assunto: t.assunto ?? null, corpo: t.content, preview: t.preview ?? null, tags: t.tags, open_rate: t.openRate ?? null, response_rate: t.responseRate ?? 0, uses: t.uses ?? 0, status: t.status, atualizado_em: parseBRDateR(t.updatedAt) }));
-        const { data: insT } = await supabase.from('regua_templates').insert(seedTpls).select();
-        if (cancelled) return;
-        tplRows = insT ?? [];
-      }
 
       const leadsGrouped = {};
       leadRows.forEach(r => {
@@ -2395,10 +2330,16 @@ export default function ReguaComunicacao() {
     { id: 'templates', label: 'Templates',            count: templates.length },
   ];
 
+  const stats = computeStatCards(fluxos);
+
   return (
     <div style={{ padding: '24px', fontFamily: 'var(--font-body)', color: 'var(--text)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }}>
-        {STAT_CARDS.map((s) => <StatCard key={s.label} {...s} />)}
+        {STAT_CARDS_CFG.map((s) => {
+          const raw = stats[s.key];
+          const value = raw == null ? '—' : (s.key === 'taxaAbertura' || s.key === 'taxaResposta') ? `${raw}%` : raw;
+          return <StatCard key={s.key} label={s.label} icon={s.icon} color={s.color} value={value} />;
+        })}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginBottom: 24, borderBottom: '1px solid var(--border)' }}>
