@@ -59,6 +59,7 @@ function leadFromRow(r) {
     tags:                 r.tags                  ?? [],
     value:                r.value                 ?? 0,
     daysSinceContact:     daysSince(r.criado_em),
+    createdAt:            r.criado_em             ?? null,
     followUpDate:         r.follow_up_date        ?? null,
     notes:                r.notes                 ?? '',
     convertido:           r.convertido            ?? false,

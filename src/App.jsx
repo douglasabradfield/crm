@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useUI } from './store/index.js';
 import { useAuth } from './store/auth.js';
+import { useCRM } from './store/crm.js';
+import { useNotifications } from './hooks/useNotifications.js';
 import { SkeletonPageLoader } from './components/UI/SkeletonLoader.jsx';
 
 import Sidebar          from './components/Layout/Sidebar';
@@ -36,8 +38,8 @@ const PAGE_META = {
   '/tickets':       { title: 'Chamados',               subtitle: 'Atendimento interno e externo'    },
 };
 
+// '/' não entra aqui — o contexto do Painel é montado com dados reais em buildDashboardContext().
 const PAGE_AI_CONTEXT = {
-  '/':              '12 leads ativos, pipeline R$84.500, taxa de conversão 23%, CAC médio R$420, 3 follow-ups vencidos.',
   '/guia':          'Guia Estratégico: capítulos 1-3 completos (100%), capítulo 4 em andamento (60%), capítulos 5-8 pendentes.',
   '/crm':           'Pipeline: 4 leads em Prospecção, 3 em Qualificação, 3 em Proposta, 2 em Negociação. Total R$84.500. 3 follow-ups vencidos há mais de 5 dias.',
   '/prospeccao':    'Última busca: CNAE 6201-5 (Desenvolvimento de software), 47 empresas encontradas. Hunter.io integrado e ativo. Apollo.io inativo.',
@@ -55,13 +57,26 @@ function resolveRoute(pathname) {
   return Object.keys(PAGE_META).find((k) => k !== '/' && pathname.startsWith(k)) ?? '/';
 }
 
+// Contexto do Painel montado a partir de dados reais do CRM (nunca fixo).
+function buildDashboardContext(leads, overdueCount) {
+  if (leads.length === 0) return 'Nenhum lead cadastrado ainda.';
+  const abertos = leads.filter((l) => l.col !== 'ganho' && !l.convertido);
+  const pipelineValor = abertos.reduce((s, l) => s + (l.value || 0), 0);
+  const convertidos = leads.filter((l) => l.convertido).length;
+  const conversao = Math.round((convertidos / leads.length) * 100);
+  return `${abertos.length} leads em aberto, pipeline R$ ${pipelineValor.toLocaleString('pt-BR')}, ` +
+    `taxa de conversão ${conversao}%, ${overdueCount} follow-up${overdueCount !== 1 ? 's' : ''} vencido${overdueCount !== 1 ? 's' : ''}.`;
+}
+
 function Layout() {
   const location = useLocation();
   const { aiState, openAI, closeAI } = useUI();
+  const { leads } = useCRM();
+  const { overdueCount } = useNotifications();
 
   const routeKey    = resolveRoute(location.pathname);
   const { title, subtitle } = PAGE_META[routeKey];
-  const pageContext = PAGE_AI_CONTEXT[routeKey] ?? '';
+  const pageContext = routeKey === '/' ? buildDashboardContext(leads, overdueCount) : (PAGE_AI_CONTEXT[routeKey] ?? '');
 
   return (
     <div className="app-layout">
