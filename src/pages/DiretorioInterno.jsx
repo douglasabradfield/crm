@@ -24,47 +24,6 @@ const FOLDERS = [
   { id: 'contratos',   label: 'Contratos',         Icon: FileSignature,  color: '--green'   },
 ];
 
-/* ─── SOPs ───────────────────────────────────────────────────────────────────── */
-const SOPS = [
-  { id: 's1', color: '--accent2', nome: 'Processo de Qualificação de Leads (BANT)',     responsavel: 'Gestor Comercial',  passos: 7,  status: 'ativo',   updatedAt: '15/05/2026', descricao: 'Define os critérios de Budget, Authority, Need e Timeline (BANT) para qualificar ou descartar leads no pipeline.',            tags: ['Comercial', 'Qualificação'] },
-  { id: 's2', color: '--teal',    nome: 'Onboarding de Novos Clientes',                 responsavel: 'Customer Success',  passos: 12, status: 'ativo',   updatedAt: '02/05/2026', descricao: 'Fluxo completo de boas-vindas, configuração da conta e primeira reunião de alinhamento com o novo cliente.',          tags: ['CS', 'Onboarding'] },
-  { id: 's3', color: '--amber',   nome: 'Follow-up Pós-Reunião de Demo',                responsavel: 'João Vendedor',     passos: 5,  status: 'revisar', updatedAt: '20/04/2026', descricao: 'Sequência de contatos após demonstração do produto — e-mail, WhatsApp e ligação em 24h, 72h e 7 dias.',              tags: ['Comercial', 'Follow-up'] },
-  { id: 's4', color: '--green',   nome: 'Renovação e Upsell Anual',                     responsavel: 'Gestor Comercial',  passos: 8,  status: 'ativo',   updatedAt: '10/05/2026', descricao: 'Processo de renovação 90 dias antes do vencimento com análise de NPS e oportunidades de expansão.',                  tags: ['CS', 'Renovação'] },
-  { id: 's5', color: '--red',     nome: 'Gestão de Churn e Cancelamentos',              responsavel: 'Customer Success',  passos: 6,  status: 'revisar', updatedAt: '08/04/2026', descricao: 'Protocolo de ação ao receber sinal de churn: identificação, salvar, NPS e offboarding.',                              tags: ['CS', 'Churn'] },
-  { id: 's6', color: '--purple',  nome: 'Prospecção Outbound Semanal',                  responsavel: 'João Vendedor',     passos: 9,  status: 'ativo',   updatedAt: '18/05/2026', descricao: 'Rotina semanal de prospecção: pesquisa de ICP, listas por CNAE, cadência de contatos e registro no CRM.',              tags: ['Comercial', 'Prospecção'] },
-];
-
-/* ─── Templates ──────────────────────────────────────────────────────────────── */
-const TEMPLATES = [
-  { id: 't1', color: '--accent2', nome: 'Proposta Comercial Padrão',           versao: 'v3.2', updatedAt: '12/05/2026', status: 'atual',   formato: 'Google Docs',      uso: 47,  descricao: 'Template de proposta com precificação, escopo, prazo e cases de sucesso.', tags: ['Proposta', 'Comercial'] },
-  { id: 't2', color: '--purple',  nome: 'E-mail de Prospecção Fria',           versao: 'v2.1', updatedAt: '08/05/2026', status: 'atual',   formato: 'Gmail Template',   uso: 134, descricao: 'Sequência de 3 e-mails para primeiro contato outbound — curto, direto e com CTA claro.', tags: ['E-mail', 'Outbound'] },
-  { id: 't3', color: '--teal',    nome: 'Follow-up Pós Demo',                  versao: 'v1.8', updatedAt: '22/04/2026', status: 'revisar', formato: 'WhatsApp + E-mail', uso: 89,  descricao: 'Mensagens de follow-up em 24h, 72h e 7 dias após demonstração do produto.', tags: ['Follow-up', 'Demo'] },
-  { id: 't4', color: '--green',   nome: 'Apresentação Institucional',          versao: 'v4.0', updatedAt: '01/05/2026', status: 'atual',   formato: 'Google Slides',    uso: 23,  descricao: 'Deck de 15 slides com pitch, diferenciais, cases e próximos passos.', tags: ['Apresentação', 'Pitch'] },
-  { id: 't5', color: '--amber',   nome: 'Contrato de Prestação de Serviços',  versao: 'v2.0', updatedAt: '15/03/2026', status: 'revisar', formato: 'Google Docs',      uso: 31,  descricao: 'Minuta jurídica padrão com cláusulas de SLA, confidencialidade e rescisão.', tags: ['Jurídico', 'Contrato'] },
-  { id: 't6', color: '--red',     nome: 'NPS & Pesquisa de Satisfação',       versao: 'v1.3', updatedAt: '10/04/2026', status: 'atual',   formato: 'Google Forms',     uso: 56,  descricao: 'Formulário de NPS trimestral com perguntas abertas e escala 0–10.', tags: ['CS', 'Pesquisa'] },
-];
-
-const SENHAS = [
-  { id: 'pw1', plataforma: 'HubSpot CRM',    icone: '🟠', usuario: 'admin@empresa.com',    senha: 'Hs!k9#mPqR', categoria: 'CRM'          },
-  { id: 'pw2', plataforma: 'Hunter.io',       icone: '🔵', usuario: 'comercial@empresa.com', senha: 'Hn$42xVbWz', categoria: 'Prospecção'   },
-  { id: 'pw3', plataforma: 'Google Analytics',icone: '🟡', usuario: 'mkt@empresa.com',       senha: 'Ga&78nLpKs', categoria: 'Marketing'    },
-  { id: 'pw4', plataforma: 'Notion',          icone: '⚫', usuario: 'equipe@empresa.com',    senha: 'Nt!33rFgMn', categoria: 'Produtividade' },
-  { id: 'pw5', plataforma: 'Apollo.io',       icone: '🔵', usuario: 'leads@empresa.com',     senha: 'Ap#91wQhTj', categoria: 'Prospecção'   },
-  { id: 'pw6', plataforma: 'RD Station',      icone: '🟢', usuario: 'mkt@empresa.com',       senha: 'Rd@56uYcBe', categoria: 'Marketing'    },
-];
-
-const FLUXOGRAMAS = [
-  { id: 'fl1', nome: 'Funil de Vendas Completo', color: '--teal', updatedAt: '14/05/2026', status: 'ativo',   descricao: 'Funil do lead ao cliente com pontos de decisão e prazos de atendimento (SLA) por etapa.' },
-  { id: 'fl2', nome: 'Processo de Onboarding',   color: '--teal', updatedAt: '03/05/2026', status: 'ativo',   descricao: 'Jornada do novo cliente da assinatura ao go-live.' },
-  { id: 'fl3', nome: 'Fluxo de Churn Recovery',  color: '--teal', updatedAt: '20/04/2026', status: 'revisar', descricao: 'Árvore de decisão para acionamento em caso de sinal de churn.' },
-];
-
-const CONTRATOS = [
-  { id: 'c1', nome: 'Contrato Padrão B2B',              color: '--green', versao: 'v2.1', updatedAt: '10/05/2026', status: 'ativo',   partes: 'Empresa ↔ Clientes PJ',   descricao: 'Contrato padrão para prestação de serviços a pessoas jurídicas com cláusulas de SLA e confidencialidade.' },
-  { id: 'c2', nome: 'NDA — Acordo de Confidencialidade', color: '--green', versao: 'v1.0', updatedAt: '01/03/2026', status: 'ativo',   partes: 'Empresa ↔ Parceiros',     descricao: 'Acordo de não divulgação para parceiros comerciais e fornecedores estratégicos.' },
-  { id: 'c3', nome: 'Contrato de Parceria Comercial',   color: '--green', versao: 'v1.2', updatedAt: '18/04/2026', status: 'revisar', partes: 'Empresa ↔ Revendedores',  descricao: 'Contrato de parceria para revendedores com comissionamento, metas e exclusividades.' },
-];
-
 const MASKED = '••••••••';
 
 /* ─── Custom folder constants ────────────────────────────────────────────── */
@@ -363,70 +322,6 @@ function highlightText(text, term) {
   );
 }
 
-/* ─── Rich document content ──────────────────────────────────────────────────── */
-const DOC_CONTENT = {
-  /* SOP: Prospecção Outbound Semanal */
-  s6: {
-    type: 'sop',
-    steps: [
-      { n: 1, title: 'Definição do foco da semana', responsavel: 'Gestor Comercial', prazo: 'Segunda — 9h', body: 'Reunião de 15 min com o vendedor para definir o segmento-alvo (CNAE, porte, região). Priorizar segmentos com maior taxa histórica de conversão. Registrar decisão no canal #comercial do Slack.' },
-      { n: 2, title: 'Pesquisa de empresas por CNAE', responsavel: 'João Vendedor', prazo: 'Segunda — até 12h', body: 'Acessar o módulo Prospecção Ativa e buscar pelo CNAE definido. Filtrar por UF, porte (ME/EPP prioritários) e capital social mínimo de R$ 100k. Meta: montar lista de 30–50 empresas qualificadas.' },
-      { n: 3, title: 'Qualificação inicial da lista', responsavel: 'João Vendedor', prazo: 'Segunda — tarde', body: 'Visitar o site de cada empresa para confirmar: empresa ativa, produto/serviço relevante, aparente capacidade de pagamento. Descartar as que não se encaixam no ICP. Reduzir lista para 15–25 empresas.' },
-      { n: 4, title: 'Enriquecimento de dados via Hunter.io', responsavel: 'João Vendedor', prazo: 'Terça — 9h–12h', body: 'Para cada domínio da lista, executar busca no Hunter.io (aba Prospecção Ativa → Enriquecer). Capturar: e-mail do decisor, cargo, score de confiança. Priorizar e-mails com score > 70.' },
-      { n: 5, title: 'Verificação de contatos via Apollo.io', responsavel: 'João Vendedor', prazo: 'Terça — tarde', body: 'Complementar com Apollo.io para empresas sem e-mail encontrado no Hunter. Capturar LinkedIn e telefone quando disponível. Registrar contato principal no CRM com tag "outbound-[semana]".' },
-      { n: 6, title: 'Personalização das mensagens', responsavel: 'João Vendedor', prazo: 'Quarta — 9h–11h', body: 'Abrir o template "E-mail de Prospecção Fria" e personalizar para cada segmento. Substituir [empresa], [setor], [dor específica]. Criar variações A/B para testar linha de assunto. Nunca usar o template genérico sem personalização.' },
-      { n: 7, title: 'Disparo da cadência de e-mails', responsavel: 'João Vendedor', prazo: 'Quarta — 11h–13h', body: 'Enviar e-mail 1 para toda a lista via Gmail. Agendar e-mail 2 (follow-up) para D+3 e e-mail 3 para D+7 na ferramenta de sequências. Registrar data de envio no CRM.' },
-      { n: 8, title: 'Outreach via LinkedIn e WhatsApp', responsavel: 'João Vendedor', prazo: 'Quinta', body: 'Para os 10 leads com maior score: enviar conexão + mensagem personalizada no LinkedIn (máx 300 caracteres, sem pitch imediato). Para leads com telefone verificado: WhatsApp com apresentação breve e CTA de 15 min.' },
-      { n: 9, title: 'Registro, relatório e handoff', responsavel: 'João Vendedor', prazo: 'Sexta — até 17h', body: 'Atualizar status de todos os leads no CRM (respondeu, agendou, ignorou, descartou). Mover leads com interesse para coluna "Qualificação". Enviar relatório semanal de prospecção no #comercial: empresas contatadas, taxa de resposta, reuniões agendadas.' },
-    ],
-    rawText: `1. Definição do foco da semana — Segunda 9h\nDefinir segmento-alvo com o gestor.\n\n2. Pesquisa de empresas por CNAE — Segunda até 12h\nBuscar 30-50 empresas no módulo Prospecção Ativa.\n\n3. Qualificação inicial da lista — Segunda tarde\nReduzir para 15-25 empresas alinhadas ao ICP.\n\n4. Enriquecimento via Hunter.io — Terça manhã\nCapturar e-mails com score > 70.\n\n5. Verificação via Apollo.io — Terça tarde\nComplementar com LinkedIn e telefone.\n\n6. Personalização das mensagens — Quarta manhã\nAdaptar template "E-mail de Prospecção Fria".\n\n7. Disparo da cadência — Quarta 11h-13h\nEnviar e agendar sequência completa.\n\n8. Outreach LinkedIn e WhatsApp — Quinta\nAbordar os 10 leads de maior score.\n\n9. Registro e relatório — Sexta até 17h\nAtualizar CRM e enviar relatório semanal.`,
-  },
-
-  /* SOP: Onboarding de Novos Clientes */
-  s2: {
-    type: 'sop',
-    steps: [
-      { n: 1,  title: 'Confirmação de contrato e boas-vindas',     responsavel: 'CS',            prazo: 'D+0',       body: 'Ao receber cópia assinada do contrato: enviar e-mail de boas-vindas com nome do CS responsável, cronograma do onboarding e próximos passos. Adicionar cliente ao Notion e criar card no CRM na coluna "Onboarding".' },
-      { n: 2,  title: 'Envio do questionário de onboarding',        responsavel: 'CS',            prazo: 'D+1',       body: 'Enviar Google Form com perguntas sobre: número de usuários, processos atuais, sistemas integrados, principal dor a resolver. Prazo de resposta: 48h. Follow-up automático em 24h se não respondido.' },
-      { n: 3,  title: 'Kickoff call de alinhamento',                responsavel: 'CS + Cliente',  prazo: 'D+3',       body: 'Reunião de 60 min via Google Meet. Agenda: apresentação das equipes, validação dos objetivos, definição de KPIs de sucesso, cronograma detalhado, dúvidas gerais. Gravar e enviar link da gravação em até 2h.' },
-      { n: 4,  title: 'Configuração técnica da plataforma',         responsavel: 'CS',            prazo: 'D+4–5',     body: 'Configurar conta do cliente: personalização de domínio, upload de logo, configuração de pipeline conforme processo do cliente, importação de base de leads (se houver). Validar integrações (e-mail, WhatsApp, CRM anterior).' },
-      { n: 5,  title: 'Criação de usuários e permissões',           responsavel: 'CS',            prazo: 'D+5',       body: 'Criar login para todos os usuários listados no formulário. Configurar perfis de acesso (Admin, Gestor, Vendedor). Enviar convites por e-mail com senha temporária e link para tutorial de primeiro acesso.' },
-      { n: 6,  title: 'Treinamento básico da equipe',               responsavel: 'CS',            prazo: 'D+7',       body: 'Sessão de 90 min: navegação na plataforma, cadastro de leads, uso do pipeline, registro de atividades, geração de relatórios básicos. Compartilhar gravação e material de apoio (PDF + vídeos).' },
-      { n: 7,  title: 'Treinamento avançado e customizações',       responsavel: 'CS',            prazo: 'D+10',      body: 'Sessão de 60 min com foco no gestor: automações de fluxo, templates de mensagem, configuração de alertas, dashboards personalizados. Configurar as automações solicitadas durante o kickoff.' },
-      { n: 8,  title: 'Check-in de 2 semanas',                      responsavel: 'CS',            prazo: 'D+14',      body: 'Reunião de 30 min: verificar adoção da plataforma (% de usuários ativos, leads cadastrados, atividades registradas). Identificar bloqueios e resolver dúvidas. Registrar NPS informal.' },
-      { n: 9,  title: 'Definição de KPIs e metas de sucesso',       responsavel: 'CS + Cliente',  prazo: 'D+14',      body: 'Formalizar junto ao cliente: quais métricas definem sucesso do projeto? (Ex: aumento de X% na taxa de conversão, redução de Y% no CAC). Documentar no Notion e revisar trimestralmente.' },
-      { n: 10, title: 'Check-in de 3 semanas',                      responsavel: 'CS',            prazo: 'D+21',      body: 'Verificar evolução dos KPIs. Apresentar primeiros insights do uso. Coletar feedback sobre a ferramenta e suporte. Ajustar configurações se necessário.' },
-      { n: 11, title: 'Handoff para suporte regular',               responsavel: 'CS + Suporte',  prazo: 'D+25',      body: 'Briefing interno: repassar histórico do cliente, customizações realizadas, pontos de atenção, nível de satisfação. Apresentar o cliente ao time de suporte por e-mail. CS continua como ponto de escalação.' },
-      { n: 12, title: 'Revisão de 30 dias e plano de expansão',    responsavel: 'CS + Gestor',   prazo: 'D+30',      body: 'Reunião de 45 min: apresentar dashboard de resultados do primeiro mês, avaliar atingimento dos KPIs, identificar oportunidades de upsell (mais usuários, módulos adicionais). Encaminhar para renovação/expansão se NPS ≥ 8.' },
-    ],
-    rawText: `1. Confirmação e boas-vindas (D+0)\n2. Questionário de onboarding (D+1)\n3. Kickoff call 60min (D+3)\n4. Configuração técnica (D+4-5)\n5. Usuários e permissões (D+5)\n6. Treinamento básico 90min (D+7)\n7. Treinamento avançado 60min (D+10)\n8. Check-in 2 semanas (D+14)\n9. Definição de KPIs (D+14)\n10. Check-in 3 semanas (D+21)\n11. Handoff para suporte (D+25)\n12. Revisão 30 dias + expansão (D+30)`,
-  },
-
-  /* Template: Proposta Comercial */
-  t1: {
-    type: 'template',
-    sections: [
-      { title: '1. Apresentação', body: 'Olá, [nome do contato],\n\nObrigado pela oportunidade de apresentar nossa solução para [empresa do cliente]. Somos a [sua empresa], especialistas em [nicho], e ajudamos empresas como a sua a [principal resultado entregue].\n\nEsta proposta foi elaborada com base na nossa conversa de [data] e reflete as necessidades específicas que você compartilhou.' },
-      { title: '2. Diagnóstico da situação atual', body: 'Com base no que discutimos, identificamos os seguintes desafios em [empresa do cliente]:\n\n• [Dor 1 específica do cliente]\n• [Dor 2 — use as palavras exatas que o cliente usou]\n• [Dor 3 — impacto financeiro ou operacional]\n\nEstes pontos impactam diretamente [resultado de negócio afetado].' },
-      { title: '3. Nossa solução', body: 'Para resolver estes desafios, propomos a implementação de [nome do produto/serviço], que irá:\n\n✓ [Benefício 1 — conectado à dor 1]\n✓ [Benefício 2 — conectado à dor 2]\n✓ [Benefício 3 — resultado mensurável]\n\nEm [prazo realista], você poderá [resultado esperado concreto, ex: reduzir o CAC em 20% e aumentar a taxa de conversão para 30%].' },
-      { title: '4. Escopo e entregáveis', body: 'O que está incluído nesta proposta:\n\n□ Configuração e personalização da plataforma\n□ Importação da base de dados atual\n□ Treinamento da equipe (até [N] usuários)\n□ [N] horas de consultoria de implementação\n□ Suporte prioritário por [período]\n□ Relatórios mensais de performance\n\nO que NÃO está incluído: [listar exclusões para evitar mal-entendidos].' },
-      { title: '5. Investimento', body: 'Plano recomendado: [nome do plano]\n\nMensalidade: R$ [valor]/mês\nSetup (único): R$ [valor]\n\nFormas de pagamento:\n• Mensal: R$ [valor]\n• Anual (15% desconto): R$ [valor]/mês — economia de R$ [total]\n\n⚡ Condição especial válida até [data]: [benefício adicional — ex: 2 meses grátis, treinamento gratuito].' },
-      { title: '6. Cronograma de implementação', body: 'Semana 1: Kickoff + configuração técnica\nSemana 2: Treinamento da equipe\nSemana 3: Go-live + acompanhamento intensivo\nSemana 4–8: Suporte e ajustes finos\nMês 3: Revisão de resultados e expansão\n\nData prevista de início: [data] — sujeita à confirmação desta proposta até [prazo].' },
-      { title: '7. Cases de sucesso', body: 'Empresas similares que já transformaram seus resultados:\n\n📈 [Empresa similar 1]\n"[Depoimento breve e específico]"\nResultado: [métrica concreta, ex: +47% na taxa de conversão em 3 meses]\n\n📈 [Empresa similar 2]\nResultado: [CAC reduziu de R$ X para R$ Y]\n\nVeja mais cases em: [link para página de cases]' },
-      { title: '8. Garantias e SLA', body: 'Nossa garantia:\n✓ Uptime de 99,9% (SLA contratual)\n✓ Suporte em até [N]h úteis\n✓ Garantia de satisfação de 30 dias\n✓ Dados exportáveis a qualquer momento\n✓ Sem fidelidade obrigatória (planos mensais)' },
-      { title: '9. Próximos passos', body: 'Para dar início à parceria:\n\n1️⃣ Confirme o aceite desta proposta até [data]\n2️⃣ Assine o contrato (enviaremos por DocuSign)\n3️⃣ Realize o pagamento do setup\n4️⃣ Agendamos o kickoff\n\nDúvidas? Me ligue ou escreva:\n📱 [telefone]\n✉️ [email]\n\nFico à disposição para ajustar qualquer ponto desta proposta.' },
-    ],
-    rawText: `1. Apresentação\n2. Diagnóstico\n3. Nossa solução\n4. Escopo e entregáveis\n5. Investimento\n6. Cronograma\n7. Cases de sucesso\n8. Garantias e SLA\n9. Próximos passos`,
-  },
-};
-
-const FAKE_VERSIONS = [
-  { v: 'v3.2', date: '12/05/2026', author: 'Douglas Admin',     change: 'Adicionada seção de garantias e SLA' },
-  { v: 'v3.1', date: '03/05/2026', author: 'Gestor Comercial',  change: 'Atualização dos cases de sucesso' },
-  { v: 'v3.0', date: '15/04/2026', author: 'Douglas Admin',     change: 'Reestruturação completa do template' },
-  { v: 'v2.5', date: '10/03/2026', author: 'João Vendedor',     change: 'Ajuste na tabela de preços' },
-];
-
 const AI_CHIPS = {
   sop:        ['Melhorar este processo', 'Identificar gaps', 'Simplificar os passos', 'Criar checklist'],
   template:   ['Tornar mais persuasivo', 'Revisar tom de voz', 'Adicionar seção', 'Versão mais curta'],
@@ -464,6 +359,23 @@ function MetaItem({ icon: Icon, label, color }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
       <Icon size={10} style={{ color: color ? `var(${color})` : 'var(--text3)', flexShrink: 0 }} />
       <span style={{ fontSize: 11, color: color ? `var(${color})` : 'var(--text3)' }}>{label}</span>
+    </div>
+  );
+}
+
+/* ─── Empty folder state ─────────────────────────────────────────────────────── */
+function EmptyFolderState({ icon: Icon, message, actionLabel, onAction }) {
+  return (
+    <div style={{ padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
+      {Icon && <Icon size={26} style={{ color: 'var(--text3)' }} />}
+      <p style={{ fontSize: 13, color: 'var(--text3)' }}>{message}</p>
+      {actionLabel && onAction && (
+        <PermissionGate module="diretorio" action="edit">
+          <button onClick={onAction} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            <Plus size={13} /> {actionLabel}
+          </button>
+        </PermissionGate>
+      )}
     </div>
   );
 }
@@ -632,45 +544,6 @@ function InlineAIPanel({ doc, docType }) {
 }
 
 /* ─── Document body renderers ────────────────────────────────────────────────── */
-function StepCard({ step, color }) {
-  return (
-    <div style={{ display: 'flex', gap: 14 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-        <div style={{ width: 28, height: 28, borderRadius: '50%', background: `color-mix(in srgb, var(${color}) 15%, transparent)`, border: `2px solid var(${color})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: `var(${color})`, flexShrink: 0 }}>
-          {step.n}
-        </div>
-        <div style={{ flex: 1, width: 1, background: 'var(--border)', margin: '4px 0' }} />
-      </div>
-      <div style={{ flex: 1, paddingBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{step.title}</p>
-          {step.prazo && (
-            <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'var(--bg4)', color: 'var(--text3)', border: '1px solid var(--border)', flexShrink: 0 }}>
-              {step.prazo}
-            </span>
-          )}
-        </div>
-        {step.responsavel && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-            <User size={10} style={{ color: 'var(--text3)' }} />
-            <span style={{ fontSize: 11, color: 'var(--text3)' }}>{step.responsavel}</span>
-          </div>
-        )}
-        <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.65 }}>{step.body}</p>
-      </div>
-    </div>
-  );
-}
-
-function TemplateSectionBlock({ section }) {
-  return (
-    <div style={{ borderLeft: '3px solid var(--accent)', paddingLeft: 16 }}>
-      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent2)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{section.title}</p>
-      <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{section.body}</p>
-    </div>
-  );
-}
-
 function DocBody({ doc, docType }) {
   if (docType === 'guia_doc') {
     return (
@@ -690,52 +563,24 @@ function DocBody({ doc, docType }) {
     );
   }
 
-  const content = DOC_CONTENT[doc.id];
-
-  if (!content) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>{doc.descricao}</p>
-        <div style={{ padding: '14px 16px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)' }}>
-          <p style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.6 }}>
-            Conteúdo detalhado não disponível. Use o <strong style={{ color: 'var(--accent2)' }}>Assistente IA</strong> ao lado para gerar ou completar este documento com base na descrição acima.
-          </p>
-        </div>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>{doc.descricao}</p>
+      <div style={{ padding: '14px 16px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)' }}>
+        <p style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.6 }}>
+          Conteúdo detalhado não disponível. Use o <strong style={{ color: 'var(--accent2)' }}>Assistente IA</strong> ao lado para gerar ou completar este documento com base na descrição acima.
+        </p>
       </div>
-    );
-  }
-
-  if (content.type === 'sop' && content.steps) {
-    const color = doc.color ?? '--accent2';
-    return (
-      <div>
-        <p style={{ fontSize: 13, color: 'var(--text3)', lineHeight: 1.6, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>{doc.descricao}</p>
-        {content.steps.map((step) => <StepCard key={step.n} step={step} color={color} />)}
-      </div>
-    );
-  }
-
-  if (content.type === 'template' && content.sections) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(91,110,245,0.06)', border: '1px solid rgba(91,110,245,0.15)' }}>
-          <p style={{ fontSize: 11, color: 'var(--accent2)' }}>💡 Substitua os textos entre <strong>[colchetes]</strong> pelos dados reais do seu cliente antes de enviar.</p>
-        </div>
-        {content.sections.map((s, i) => <TemplateSectionBlock key={i} section={s} />)}
-      </div>
-    );
-  }
-
-  return <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{content.rawText ?? doc.descricao}</p>;
+    </div>
+  );
 }
 
 /* ─── Document Modal ─────────────────────────────────────────────────────────── */
 function DocModal({ doc, docType, folderColor, onClose }) {
-  const color   = doc.color ?? (docType === 'guia_doc' ? '--accent' : folderColor) ?? '--accent2';
-  const content = docType === 'guia_doc' ? null : DOC_CONTENT[doc.id];
+  const color = doc.color ?? (docType === 'guia_doc' ? '--accent' : folderColor) ?? '--accent2';
 
   const [editing,     setEditing]     = useState(false);
-  const [editText,    setEditText]    = useState(content?.rawText ?? doc.descricao ?? '');
+  const [editText,    setEditText]    = useState(doc.descricao ?? '');
   const [showHistory, setShowHistory] = useState(false);
 
   // Lock body scroll
@@ -815,16 +660,11 @@ function DocModal({ doc, docType, folderColor, onClose }) {
                     <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>Histórico de versões</span>
                     <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}><X size={13} /></button>
                   </div>
-                  {FAKE_VERSIONS.map((v, i) => (
-                    <div key={i} style={{ padding: '10px 14px', borderBottom: i < FAKE_VERSIONS.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: `var(${color})` }}>{v.v}</span>
-                        <span style={{ fontSize: 10, color: 'var(--text3)' }}>{v.date}</span>
-                      </div>
-                      <p style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{v.change}</p>
-                      <p style={{ fontSize: 10, color: 'var(--text3)' }}>{v.author}</p>
-                    </div>
-                  ))}
+                  <div style={{ padding: '14px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic', margin: 0 }}>
+                      Histórico de versões ainda não disponível para este documento.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -909,9 +749,16 @@ function loadGuiaDocs(folder) {
 }
 
 /* ─── Folder content components ──────────────────────────────────────────────── */
-function ProcessosContent({ sops, query, onOpen }) {
+function ProcessosContent({ sops, query, onOpen, onCreateNew }) {
   const items = sops.filter((s) => !query || s.nome.toLowerCase().includes(query) || s.tags.some((t) => t.toLowerCase().includes(query)));
   const guiaDocs = loadGuiaDocs('processos').filter(d => !query || d.title.toLowerCase().includes(query));
+
+  if (guiaDocs.length === 0 && items.length === 0) {
+    return query
+      ? <EmptyFolderState message="Nenhum processo encontrado para essa busca" />
+      : <EmptyFolderState icon={FileText} message="Nenhum processo documentado ainda" actionLabel="Novo processo" onAction={onCreateNew} />;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {guiaDocs.map(doc => (
@@ -937,8 +784,8 @@ function ProcessosContent({ sops, query, onOpen }) {
             <StatusBadge status={sop.status} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            <MetaItem icon={User}  label={sop.responsavel} />
-            <MetaItem icon={Hash}  label={`${sop.passos} passos`} />
+            {sop.responsavel && <MetaItem icon={User}  label={sop.responsavel} />}
+            {sop.passos != null && <MetaItem icon={Hash}  label={`${sop.passos} passos`} />}
             <MetaItem icon={Clock} label={`Atualizado ${sop.updatedAt}`} />
             <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
               {sop.tags.map((t) => <TagChip key={t} label={t} />)}
@@ -1032,6 +879,11 @@ function SenhasContent({ senhas, loadingSenhas, query, isAdmin, showAdd, setShow
         </div>
       )}
       <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+        {items.length === 0 ? (
+          query
+            ? <EmptyFolderState message="Nenhum acesso encontrado para essa busca" />
+            : <EmptyFolderState icon={Lock} message="Nenhum acesso cadastrado" actionLabel={isAdmin ? 'Adicionar' : null} onAction={() => setShowAdd(true)} />
+        ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--bg4)', borderBottom: '1px solid var(--border)' }}>
@@ -1072,6 +924,7 @@ function SenhasContent({ senhas, loadingSenhas, query, isAdmin, showAdd, setShow
             ))}
           </tbody>
         </table>
+        )}
       </div>
       {editEntry && isAdmin && (
         <EntryForm
@@ -1091,9 +944,16 @@ function SenhasContent({ senhas, loadingSenhas, query, isAdmin, showAdd, setShow
   );
 }
 
-function TemplatesContent({ templates, query, onOpen }) {
+function TemplatesContent({ templates, query, onOpen, onCreateNew }) {
   const items = templates.filter((t) => !query || t.nome.toLowerCase().includes(query) || t.tags.some((tag) => tag.toLowerCase().includes(query)));
   const guiaDocs = loadGuiaDocs('templates').filter((d) => !query || d.title.toLowerCase().includes(query));
+
+  if (guiaDocs.length === 0 && items.length === 0) {
+    return query
+      ? <EmptyFolderState message="Nenhum template encontrado para essa busca" />
+      : <EmptyFolderState icon={LayoutTemplate} message="Nenhum template criado ainda" actionLabel="Novo template" onAction={onCreateNew} />;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {guiaDocs.map((doc) => (<GuideDocCard key={doc.id} doc={doc} onOpen={onOpen} />))}
@@ -1116,9 +976,9 @@ function TemplatesContent({ templates, query, onOpen }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{tpl.tags.map((t) => <TagChip key={t} label={t} />)}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'var(--text3)' }}>
-              <span style={{ color: `var(${tpl.color})`, fontWeight: 500 }}>{tpl.versao}</span>
-              <span>· {tpl.formato}</span>
-              <span>· {tpl.uso} usos</span>
+              {tpl.versao && <span style={{ color: `var(${tpl.color})`, fontWeight: 500 }}>{tpl.versao}</span>}
+              {tpl.formato && <span>· {tpl.formato}</span>}
+              {tpl.uso != null && <span>· {tpl.uso} usos</span>}
             </div>
           </div>
         </div>
@@ -1128,8 +988,21 @@ function TemplatesContent({ templates, query, onOpen }) {
   );
 }
 
-function GenericContent({ items, query, docType, onOpen }) {
+const GENERIC_TYPE_CFG = {
+  fluxograma: { Icon: GitBranch,     empty: 'Nenhum fluxograma criado ainda',  action: 'Novo fluxograma' },
+  contrato:   { Icon: FileSignature, empty: 'Nenhum contrato cadastrado ainda', action: 'Novo contrato'   },
+};
+
+function GenericContent({ items, query, docType, onOpen, onCreateNew }) {
   const filtered = items.filter((i) => !query || i.nome.toLowerCase().includes(query));
+  const cfg = GENERIC_TYPE_CFG[docType] ?? { Icon: FileText, empty: 'Nada por aqui ainda', action: 'Novo item' };
+
+  if (filtered.length === 0) {
+    return query
+      ? <EmptyFolderState message="Nada encontrado para essa busca" />
+      : <EmptyFolderState icon={cfg.Icon} message={cfg.empty} actionLabel={cfg.action} onAction={onCreateNew} />;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {filtered.map((item) => (
@@ -1692,6 +1565,123 @@ function FolderModal({ parentId, onSave, onClose }) {
   );
 }
 
+/* ─── NovoDocumentoModal ─────────────────────────────────────────────────── */
+const DOC_TYPE_LABEL = { sop: 'processo', template: 'template', fluxograma: 'fluxograma', contrato: 'contrato' };
+const DOC_TYPE_COLOR = { sop: '--accent2', template: '--purple', fluxograma: '--teal', contrato: '--green' };
+
+const modalFieldStyle = { width: '100%', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' };
+
+function NovoDocumentoModal({ tipo, onSave, onClose }) {
+  const [nome,        setNome]        = useState('');
+  const [descricao,   setDescricao]   = useState('');
+  const [responsavel, setResponsavel] = useState('');
+  const [versao,      setVersao]      = useState('');
+  const [formato,     setFormato]     = useState('');
+  const [partes,      setPartes]      = useState('');
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    const fn = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', fn);
+    return () => window.removeEventListener('keydown', fn);
+  }, [onClose]);
+
+  function handleSubmit() {
+    const n = nome.trim();
+    if (!n) return;
+    onSave({
+      nome: n,
+      descricao: descricao.trim(),
+      color: DOC_TYPE_COLOR[tipo] ?? '--accent2',
+      responsavel: tipo === 'sop'      ? (responsavel.trim() || null) : null,
+      versao:      tipo === 'template' ? (versao.trim() || null)      : null,
+      formato:     tipo === 'template' ? (formato.trim() || null)     : null,
+      partes:      tipo === 'contrato' ? (partes.trim() || null)      : null,
+      status: tipo === 'template' ? 'atual' : 'ativo',
+    });
+  }
+
+  const label = DOC_TYPE_LABEL[tipo] ?? 'documento';
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 500 }} />
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 420, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, zIndex: 501, padding: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>Novo {label}</p>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex', padding: 4, borderRadius: 6 }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Nome</p>
+        <input
+          ref={inputRef}
+          value={nome}
+          onChange={e => setNome(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
+          placeholder={`Nome do ${label}…`}
+          style={{ ...modalFieldStyle, marginBottom: 12 }}
+          onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+          onBlur={e => e.target.style.borderColor = 'var(--border)'}
+        />
+
+        <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Descrição</p>
+        <textarea
+          value={descricao}
+          onChange={e => setDescricao(e.target.value)}
+          rows={3}
+          placeholder="Do que se trata…"
+          style={{ ...modalFieldStyle, marginBottom: 12, resize: 'vertical' }}
+        />
+
+        {tipo === 'sop' && (
+          <>
+            <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Responsável</p>
+            <input value={responsavel} onChange={e => setResponsavel(e.target.value)} placeholder="Ex: Gestor Comercial"
+              style={{ ...modalFieldStyle, marginBottom: 12 }} />
+          </>
+        )}
+
+        {tipo === 'template' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+            <div>
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Versão</p>
+              <input value={versao} onChange={e => setVersao(e.target.value)} placeholder="v1.0" style={modalFieldStyle} />
+            </div>
+            <div>
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Formato</p>
+              <input value={formato} onChange={e => setFormato(e.target.value)} placeholder="Google Docs" style={modalFieldStyle} />
+            </div>
+          </div>
+        )}
+
+        {tipo === 'contrato' && (
+          <>
+            <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Partes envolvidas</p>
+            <input value={partes} onChange={e => setPartes(e.target.value)} placeholder="Ex: Empresa ↔ Clientes PJ"
+              style={{ ...modalFieldStyle, marginBottom: 12 }} />
+          </>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 14px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!nome.trim()}
+            style={{ background: nome.trim() ? 'var(--accent)' : 'var(--bg4)', color: nome.trim() ? '#fff' : 'var(--text3)', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 500, cursor: nome.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-body)', transition: 'background 0.13s' }}
+          >
+            Criar {label}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ─── CustomFolderItem ───────────────────────────────────────────────────── */
 function CustomFolderItem({ folder, depth, activeFolder, onSelect, onAddSubfolder, onRename, onDelete, dragHandleProps, isDragging }) {
   const isActive    = activeFolder === folder.id;
@@ -1907,6 +1897,7 @@ export default function DiretorioInterno() {
   const [query,        setQuery]        = useState('');
   const [showSenhaAdd, setShowSenhaAdd] = useState(false);
   const [docModal,     setDocModal]     = useState(null); // { doc, docType }
+  const [novoDocModal, setNovoDocModal] = useState(null); // null | 'sop' | 'template' | 'fluxograma' | 'contrato'
 
   // Supabase-backed state
   const [customFolders,    setCustomFolders]    = useState([]);
@@ -1946,20 +1937,7 @@ export default function DiretorioInterno() {
       }
       setCustomFolders(buildFolderTree(pastaRows.map(pastaFromRow)));
 
-      // Seed documents if empty
-      let docRows = docsRes.data ?? [];
-      if (docRows.length === 0) {
-        const seedDocs = [
-          ...SOPS.map(d => docToRow(d, 'sop', null)),
-          ...TEMPLATES.map(d => docToRow(d, 'template', null)),
-          ...FLUXOGRAMAS.map(d => docToRow(d, 'fluxograma', null)),
-          ...CONTRATOS.map(d => docToRow(d, 'contrato', null)),
-        ];
-        const { data: inserted } = await supabase.from('diretorio_documentos').insert(seedDocs).select();
-        if (cancelled) return;
-        docRows = inserted ?? [];
-      }
-
+      const docRows = docsRes.data ?? [];
       const mapped = docRows.map(docFromRow);
       setSops(mapped.filter(d => d.tipo === 'sop'));
       setTemplates(mapped.filter(d => d.tipo === 'template'));
@@ -1979,13 +1957,7 @@ export default function DiretorioInterno() {
     async function loadSenhas() {
       const { data } = await supabase.from('diretorio_senhas').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true });
       if (cancelled) return;
-      let rows = data ?? [];
-      if (rows.length === 0) {
-        const seed = SENHAS.map(s => ({ plataforma: s.plataforma, icone: s.icone, usuario: s.usuario, senha: s.senha, categoria: s.categoria }));
-        const { data: inserted } = await supabase.from('diretorio_senhas').insert(seed).select();
-        if (cancelled) return;
-        rows = inserted ?? [];
-      }
+      const rows = data ?? [];
       if (!cancelled) {
         setSenhas(rows.map(senhaFromRow));
         setLoadingSenhas(false);
@@ -2040,8 +2012,31 @@ export default function DiretorioInterno() {
 
   const recentFiles = [];
 
+  // 3 documentos com atualização mais recente, entre todos os tipos (real, não índices fixos)
+  const recentDocs = [
+    ...sops.map(d => ({ ...d, _docType: 'sop' })),
+    ...templates.map(d => ({ ...d, _docType: 'template' })),
+    ...fluxogramas.map(d => ({ ...d, _docType: 'fluxograma' })),
+    ...contratos.map(d => ({ ...d, _docType: 'contrato' })),
+  ]
+    .sort((a, b) => new Date(parseBRDate(b.updatedAt)) - new Date(parseBRDate(a.updatedAt)))
+    .slice(0, 3);
+
   function openDoc(doc, docType) { setDocModal({ doc, docType }); }
   function closeDoc()            { setDocModal(null); }
+
+  async function handleCreateDoc(formData) {
+    const tipo = novoDocModal;
+    const row = docToRow(formData, tipo, null);
+    const { data, error } = await supabase.from('diretorio_documentos').insert(row).select().single();
+    if (error || !data) { setNovoDocModal(null); return; }
+    const doc = docFromRow(data);
+    if (tipo === 'sop')        setSops(prev => [doc, ...prev]);
+    if (tipo === 'template')   setTemplates(prev => [doc, ...prev]);
+    if (tipo === 'fluxograma') setFluxogramas(prev => [doc, ...prev]);
+    if (tipo === 'contrato')   setContratos(prev => [doc, ...prev]);
+    setNovoDocModal(null);
+  }
 
   function handleCriarIA() {
     openAI(
@@ -2217,8 +2212,11 @@ export default function DiretorioInterno() {
         {/* Recents */}
         <div style={{ padding: '10px 12px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
           <p style={{ fontSize: 10, fontWeight: 500, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Recentes</p>
-          {[sops[1], sops[5], templates[0]].filter(Boolean).map((item) => (
-            <div key={item.id} onClick={() => openDoc(item, item.passos ? 'sop' : 'template')}
+          {recentDocs.length === 0 && (
+            <p style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Nenhum documento ainda</p>
+          )}
+          {recentDocs.map((item) => (
+            <div key={item.id} onClick={() => openDoc(item, item._docType)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
               onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.7'; }}
               onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
@@ -2281,11 +2279,11 @@ export default function DiretorioInterno() {
               <CustomFolderContent folder={activeCustomFolder} />
             ) : (
               <>
-                {activeFolder === 'processos'   && <ProcessosContent sops={sops} query={query} onOpen={openDoc} />}
+                {activeFolder === 'processos'   && <ProcessosContent sops={sops} query={query} onOpen={openDoc} onCreateNew={() => setNovoDocModal('sop')} />}
                 {activeFolder === 'senhas'      && <SenhasContent senhas={senhas} loadingSenhas={loadingSenhas} query={query} isAdmin={isAdmin} showAdd={showSenhaAdd} setShowAdd={setShowSenhaAdd} onSave={saveSenha} onDelete={deleteSenha} />}
-                {activeFolder === 'templates'   && <TemplatesContent templates={templates} query={query} onOpen={openDoc} />}
-                {activeFolder === 'fluxogramas' && <GenericContent items={fluxogramas} query={query} docType="fluxograma" onOpen={openDoc} />}
-                {activeFolder === 'contratos'   && <GenericContent items={contratos}   query={query} docType="contrato"   onOpen={openDoc} />}
+                {activeFolder === 'templates'   && <TemplatesContent templates={templates} query={query} onOpen={openDoc} onCreateNew={() => setNovoDocModal('template')} />}
+                {activeFolder === 'fluxogramas' && <GenericContent items={fluxogramas} query={query} docType="fluxograma" onOpen={openDoc} onCreateNew={() => setNovoDocModal('fluxograma')} />}
+                {activeFolder === 'contratos'   && <GenericContent items={contratos}   query={query} docType="contrato"   onOpen={openDoc} onCreateNew={() => setNovoDocModal('contrato')} />}
               </>
             )}
 
@@ -2311,6 +2309,15 @@ export default function DiretorioInterno() {
           docType={docModal.docType}
           folderColor={FOLDERS.find((f) => f.id === activeFolder)?.color ?? '--accent2'}
           onClose={closeDoc}
+        />
+      )}
+
+      {/* New document modal */}
+      {novoDocModal && (
+        <NovoDocumentoModal
+          tipo={novoDocModal}
+          onSave={handleCreateDoc}
+          onClose={() => setNovoDocModal(null)}
         />
       )}
 
