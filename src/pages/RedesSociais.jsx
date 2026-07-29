@@ -5,46 +5,26 @@ import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
 import {
   Camera, Briefcase, Play, AtSign, TrendingUp, TrendingDown,
   Users, Heart, MessageCircle, Eye, Share2, Plus, Bot,
-  X, BarChart2, Zap, Calendar, Globe, Music, Link2,
+  X, BarChart2, Zap, Calendar, Globe, Music, Link2, Trash2,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
 import PermissionGate from '../components/Auth/PermissionGate.jsx';
 
 /* ─── Data ───────────────────────────────────────────────────────────────────── */
-const REDES = [
-  {
-    id: 'instagram', label: 'Instagram', Icon: Camera, color: '--purple', bg: 'rgba(176,110,245,0.12)',
-    seguidores: 1240, crescimento: +4.2, engajamento: 4.2, alcance: 8400,
-    postsPerWeek: 3, stories: 5, impressoes: 21000,
-    meta: { seguidores: 2000, engajamento: 5.0 },
-    topFormats: ['Carrossel', 'Reels', 'Stories'],
-    bestTime: 'Ter/Qui 18h–20h',
-  },
-  {
-    id: 'linkedin', label: 'LinkedIn', Icon: Briefcase, color: '--teal', bg: 'rgba(56,201,224,0.12)',
-    seguidores: 890, crescimento: +2.1, engajamento: 2.8, alcance: 3200,
-    postsPerWeek: 2, stories: 0, impressoes: 9400,
-    meta: { seguidores: 1500, engajamento: 3.5 },
-    topFormats: ['Artigo', 'Post texto', 'Documento PDF'],
-    bestTime: 'Seg/Qua 8h–10h',
-  },
-  {
-    id: 'youtube', label: 'YouTube', Icon: Play, color: '--red', bg: 'rgba(240,92,92,0.12)',
-    seguidores: 340, crescimento: +1.1, engajamento: 6.8, alcance: 1900,
-    postsPerWeek: 0.5, stories: 0, impressoes: 4200,
-    meta: { seguidores: 1000, engajamento: 7.0 },
-    topFormats: ['Tutorial', 'Case de sucesso', 'Shorts'],
-    bestTime: 'Sex 15h–17h',
-  },
-  {
-    id: 'twitter', label: 'X / Twitter', Icon: AtSign, color: '--text2', bg: 'rgba(148,152,176,0.12)',
-    seguidores: 520, crescimento: -0.3, engajamento: 1.4, alcance: 2800,
-    postsPerWeek: 5, stories: 0, impressoes: 12000,
-    meta: { seguidores: 800, engajamento: 2.0 },
-    topFormats: ['Thread', 'Tweet curto', 'Enquete'],
-    bestTime: 'Qua/Sex 12h–14h',
-  },
+// Catálogo de plataformas conhecidas — só ícone/cor/rótulo (sem métricas fixas).
+// Métricas reais vêm das contas que o usuário cadastrar (redes_contas / redes_metricas).
+const PLATAFORMAS = [
+  { id: 'instagram', label: 'Instagram', Icon: Camera,    color: '--purple', bg: 'rgba(176,110,245,0.12)' },
+  { id: 'facebook',  label: 'Facebook',  Icon: Globe,     color: '--accent', bg: 'rgba(91,110,245,0.12)'  },
+  { id: 'linkedin',  label: 'LinkedIn',  Icon: Briefcase, color: '--teal',   bg: 'rgba(56,201,224,0.12)'  },
+  { id: 'youtube',   label: 'YouTube',   Icon: Play,      color: '--red',    bg: 'rgba(240,92,92,0.12)'   },
+  { id: 'tiktok',    label: 'TikTok',    Icon: Music,     color: '--green',  bg: 'rgba(45,212,160,0.12)'  },
+  { id: 'twitter',   label: 'X / Twitter', Icon: AtSign,  color: '--text2',  bg: 'rgba(148,152,176,0.12)' },
 ];
+
+function platformCfg(id) {
+  return PLATAFORMAS.find((p) => p.id === id) || PLATAFORMAS[0];
+}
 
 const POST_STATUS = {
   publicado: { label: 'Publicado',  bg: 'rgba(45,212,160,0.15)',  color: 'var(--green)' },
@@ -53,37 +33,7 @@ const POST_STATUS = {
   ideia:     { label: 'Ideia',      bg: 'rgba(240,168,50,0.15)',  color: 'var(--amber)' },
 };
 
-const CALENDAR_POSTS = [
-  { id: 'p1',  day: 1,  rede: 'instagram', titulo: 'Dica: Como montar um funil de vendas',        status: 'publicado', formato: 'Carrossel'   },
-  { id: 'p2',  day: 2,  rede: 'linkedin',  titulo: 'Case: Como a empresa X triplicou leads',      status: 'publicado', formato: 'Artigo'      },
-  { id: 'p3',  day: 5,  rede: 'instagram', titulo: '3 erros comuns no comercial B2B',              status: 'publicado', formato: 'Reels'       },
-  { id: 'p4',  day: 7,  rede: 'twitter',   titulo: 'Thread: Prospecção ativa em 10 passos',       status: 'publicado', formato: 'Thread'      },
-  { id: 'p5',  day: 8,  rede: 'instagram', titulo: 'Por dentro do nosso processo de onboarding',  status: 'publicado', formato: 'Stories'     },
-  { id: 'p6',  day: 9,  rede: 'linkedin',  titulo: 'Os indicadores que toda PME deve monitorar',  status: 'publicado', formato: 'Documento'   },
-  { id: 'p7',  day: 12, rede: 'instagram', titulo: 'Mini-guia: CRM para pequenas empresas',       status: 'publicado', formato: 'Carrossel'   },
-  { id: 'p8',  day: 14, rede: 'youtube',   titulo: 'Tutorial: Como usar dados para vender mais',  status: 'publicado', formato: 'Vídeo'       },
-  { id: 'p9',  day: 15, rede: 'twitter',   titulo: 'Benchmark: taxas de conversão B2B por setor', status: 'publicado', formato: 'Tweet'       },
-  { id: 'p10', day: 16, rede: 'instagram', titulo: 'Reels: O que diferencia top vendedores',      status: 'publicado', formato: 'Reels'       },
-  { id: 'p11', day: 19, rede: 'linkedin',  titulo: 'Como estruturar seu pitch em 5 slides',       status: 'publicado', formato: 'Artigo'      },
-  { id: 'p12', day: 21, rede: 'instagram', titulo: 'Dica rápida: Responda leads em até 5 min',    status: 'publicado', formato: 'Stories'     },
-  { id: 'p13', day: 22, rede: 'twitter',   titulo: 'Fato: 80% das vendas acontecem no follow-up', status: 'publicado', formato: 'Tweet'       },
-  { id: 'p14', day: 23, rede: 'instagram', titulo: 'Carrossel: Checklist de prospecção semanal',  status: 'agendado',  formato: 'Carrossel'   },
-  { id: 'p15', day: 26, rede: 'linkedin',  titulo: 'Como construir autoridade no seu nicho',      status: 'agendado',  formato: 'Artigo'      },
-  { id: 'p16', day: 27, rede: 'instagram', titulo: 'Reels: Ferramentas que usamos no dia a dia',  status: 'rascunho',  formato: 'Reels'       },
-  { id: 'p17', day: 28, rede: 'youtube',   titulo: 'Case: Da prospecção ao fechamento em 30 dias', status: 'rascunho',  formato: 'Vídeo'      },
-  { id: 'p18', day: 29, rede: 'twitter',   titulo: 'Thread sobre métricas de vaidade vs. reais',  status: 'ideia',     formato: 'Thread'      },
-  { id: 'p19', day: 30, rede: 'instagram', titulo: 'Post de fechamento de mês: resultados',       status: 'ideia',     formato: 'Carrossel'   },
-];
-
 const FORMATOS = ['Feed', 'Stories', 'Reels', 'Carrossel', 'Vídeo', 'Artigo', 'Thread', 'Documento', 'Tweet', 'Shorts'];
-
-const REDES_OAUTH = [
-  { id: 'instagram', label: 'Instagram', api: 'Meta Business API',      Icon: Camera,    color: '--purple', bg: 'rgba(176,110,245,0.12)' },
-  { id: 'facebook',  label: 'Facebook',  api: 'Meta Business API',      Icon: Globe,     color: '--accent', bg: 'rgba(91,110,245,0.12)'  },
-  { id: 'linkedin',  label: 'LinkedIn',  api: 'LinkedIn Marketing API', Icon: Briefcase, color: '--teal',   bg: 'rgba(56,201,224,0.12)'  },
-  { id: 'youtube',   label: 'YouTube',   api: 'YouTube Data API',       Icon: Play,      color: '--red',    bg: 'rgba(240,92,92,0.12)'   },
-  { id: 'tiktok',    label: 'TikTok',    api: 'TikTok Business API',    Icon: Music,     color: '--green',  bg: 'rgba(45,212,160,0.12)'  },
-];
 
 /* ─── Helpers & mappers ──────────────────────────────────────────────────────── */
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -99,6 +49,15 @@ function dateToISO(year, month, day) {
 
 function monthLabel(year, month) {
   return `${MONTH_NAMES[month]} ${year}`;
+}
+
+function pctChange(curr, prev) {
+  if (curr == null || prev == null || prev === 0) return null;
+  return ((curr - prev) / prev) * 100;
+}
+
+function fmtNum(v) {
+  return v == null || v === '' ? '—' : Number(v).toLocaleString('pt-BR');
 }
 
 function postFromRow(r) {
@@ -135,6 +94,52 @@ function postToRow(p) {
   };
 }
 
+function contaFromRow(r) {
+  return {
+    id: r.id,
+    plataforma: r.plataforma,
+    nome: r.nome ?? '',
+    handle: r.handle ?? '',
+    metaSeguidores: r.meta_seguidores ?? null,
+  };
+}
+
+function contaToRow(c) {
+  return {
+    plataforma: c.plataforma,
+    nome: c.nome ?? '',
+    handle: c.handle ?? '',
+    meta_seguidores: c.metaSeguidores === '' || c.metaSeguidores == null ? null : Number(c.metaSeguidores),
+  };
+}
+
+function metricaFromRow(r) {
+  return {
+    id: r.id,
+    contaId: r.conta_id,
+    dataReferencia: r.data_referencia,
+    seguidores: r.seguidores,
+    alcance: r.alcance,
+    impressoes: r.impressoes,
+    engajamento: r.engajamento,
+    postsPublicados: r.posts_publicados,
+    criadoEm: r.criado_em,
+  };
+}
+
+function metricaToRow(m, contaId) {
+  const n = (v) => (v === '' || v == null ? null : Number(v));
+  return {
+    conta_id: contaId,
+    data_referencia: m.dataReferencia || todayISO(),
+    seguidores: n(m.seguidores),
+    alcance: n(m.alcance),
+    impressoes: n(m.impressoes),
+    engajamento: n(m.engajamento),
+    posts_publicados: n(m.postsPublicados),
+  };
+}
+
 /* ─── Components ─────────────────────────────────────────────────────────────── */
 function MiniBar({ value, max, color }) {
   const pct = Math.min(100, Math.round((value / max) * 100));
@@ -145,64 +150,92 @@ function MiniBar({ value, max, color }) {
   );
 }
 
-function RedeCard({ rede, active, onClick }) {
-  const isUp = rede.crescimento >= 0;
-  const segPct = Math.round((rede.seguidores / rede.meta.seguidores) * 100);
-  const engOk  = rede.engajamento >= rede.meta.engajamento;
+function RedeCard({ conta, latest, previous, active, onClick }) {
+  const cfg = platformCfg(conta.plataforma);
+  const crescimento = pctChange(latest?.seguidores, previous?.seguidores);
+  const isUp = crescimento == null ? null : crescimento >= 0;
+  const seguidores = latest?.seguidores ?? null;
+  const meta = conta.metaSeguidores;
+  const segPct = seguidores != null && meta ? Math.round((seguidores / meta) * 100) : null;
+  const engajamento = latest?.engajamento ?? null;
+
   return (
     <div onClick={onClick}
-      style={{ background: active ? 'var(--bg3)' : 'var(--bg2)', border: `1px solid ${active ? `var(${rede.color})` : 'var(--border)'}`, borderRadius: 14, padding: '18px 20px', cursor: 'pointer', transition: 'all .15s' }}
+      style={{ background: active ? 'var(--bg3)' : 'var(--bg2)', border: `1px solid ${active ? `var(${cfg.color})` : 'var(--border)'}`, borderRadius: 14, padding: '18px 20px', cursor: 'pointer', transition: 'all .15s' }}
       onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = 'var(--border2)'; }}
       onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = 'var(--border)'; }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 10, background: rede.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <rede.Icon size={18} style={{ color: `var(${rede.color})` }} />
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <cfg.Icon size={18} style={{ color: `var(${cfg.color})` }} />
         </div>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{rede.label}</div>
-          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{rede.postsPerWeek}× por semana</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{conta.nome || cfg.label}</div>
+          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{conta.handle || cfg.label}</div>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: isUp ? 'var(--green)' : 'var(--red)' }}>
-          {isUp ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-          {isUp ? '+' : ''}{rede.crescimento}%
-        </div>
+        {isUp !== null && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: isUp ? 'var(--green)' : 'var(--red)', flexShrink: 0 }}>
+            {isUp ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+            {isUp ? '+' : ''}{crescimento.toFixed(1)}%
+          </div>
+        )}
       </div>
 
       {/* Seguidores */}
       <div style={{ marginBottom: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>
           <span>Seguidores</span>
-          <span style={{ color: 'var(--text2)' }}>{rede.seguidores.toLocaleString('pt-BR')} / {rede.meta.seguidores.toLocaleString('pt-BR')}</span>
+          <span style={{ color: 'var(--text2)' }}>{fmtNum(seguidores)}{meta ? ` / ${fmtNum(meta)}` : ''}</span>
         </div>
-        <MiniBar value={rede.seguidores} max={rede.meta.seguidores} color={segPct >= 70 ? '--green' : '--amber'} />
+        {meta ? (
+          <MiniBar value={seguidores ?? 0} max={meta} color={segPct >= 70 ? '--green' : '--amber'} />
+        ) : (
+          <div style={{ fontSize: 10, color: 'var(--text3)' }}>Sem meta definida</div>
+        )}
       </div>
 
       {/* Engajamento */}
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
         <span style={{ color: 'var(--text3)' }}>Engajamento</span>
-        <span style={{ color: engOk ? 'var(--green)' : 'var(--amber)', fontWeight: 500 }}>
-          {rede.engajamento}% {engOk ? '✓' : `(meta ${rede.meta.engajamento}%)`}
+        <span style={{ color: 'var(--text2)', fontWeight: 500 }}>
+          {engajamento == null ? '—' : `${engajamento}%`}
         </span>
       </div>
     </div>
   );
 }
 
-function RedeDetail({ rede }) {
-  const redeCfg = REDES.find((r) => r.id === rede.id);
+function RedeDetail({ conta, latest, history, onLogMetrics, onDelete }) {
+  const cfg = platformCfg(conta.plataforma);
   const metrics = [
-    { label: 'Alcance',      value: rede.alcance.toLocaleString('pt-BR'),    icon: Eye,            color: '--accent2' },
-    { label: 'Impressões',   value: rede.impressoes.toLocaleString('pt-BR'),  icon: BarChart2,      color: '--purple'  },
-    { label: 'Engajamento',  value: `${rede.engajamento}%`,                   icon: Heart,          color: '--red'     },
-    { label: 'Seguidores',   value: rede.seguidores.toLocaleString('pt-BR'),  icon: Users,          color: '--teal'    },
+    { label: 'Alcance',      value: fmtNum(latest?.alcance),     icon: Eye,       color: '--accent2' },
+    { label: 'Impressões',   value: fmtNum(latest?.impressoes),  icon: BarChart2, color: '--purple'  },
+    { label: 'Engajamento',  value: latest?.engajamento == null ? '—' : `${latest.engajamento}%`, icon: Heart, color: '--red' },
+    { label: 'Seguidores',   value: fmtNum(latest?.seguidores),  icon: Users,     color: '--teal'    },
   ];
+  const meta = conta.metaSeguidores;
+  const segPct = latest?.seguidores != null && meta ? Math.round((latest.seguidores / meta) * 100) : null;
+
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 9, background: rede.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <rede.Icon size={17} style={{ color: `var(${rede.color})` }} />
+        <div style={{ width: 36, height: 36, borderRadius: 9, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <cfg.Icon size={17} style={{ color: `var(${cfg.color})` }} />
         </div>
-        <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{rede.label} — Detalhes</div>
+        <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{conta.nome || cfg.label} — Detalhes</div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <PermissionGate module="redes" action="edit">
+            <button onClick={onLogMetrics}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+              <Plus size={12} /> Lançar métricas do período
+            </button>
+          </PermissionGate>
+          <PermissionGate module="redes" action="delete">
+            <button onClick={onDelete} title="Remover rede"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+              <Trash2 size={13} />
+            </button>
+          </PermissionGate>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 18 }}>
@@ -215,48 +248,77 @@ function RedeDetail({ rede }) {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-        <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: '12px 14px' }}>
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>FORMATOS QUE MAIS ENGAJAM</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {rede.topFormats.map((f, i) => (
-              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)' }}>
-                <span style={{ width: 16, height: 16, borderRadius: '50%', background: `color-mix(in srgb, var(${rede.color}) 20%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: `var(${rede.color})`, flexShrink: 0 }}>{i + 1}</span>
-                {f}
+      <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>META DE SEGUIDORES</div>
+        {meta ? (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>
+              <span>{fmtNum(latest?.seguidores)} / {fmtNum(meta)}</span>
+              {segPct != null && <span>{segPct}%</span>}
+            </div>
+            <MiniBar value={latest?.seguidores ?? 0} max={meta} color={segPct >= 70 ? '--green' : '--amber'} />
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Nenhuma meta definida ao cadastrar esta rede.</div>
+        )}
+      </div>
+
+      <div>
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>HISTÓRICO DE LANÇAMENTOS</div>
+        {history.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--text3)', padding: '10px 0' }}>Nenhum lançamento ainda. Use "Lançar métricas do período" para começar o histórico.</div>
+        ) : (
+          <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '90px repeat(5,1fr)', gap: 6, fontSize: 10, color: 'var(--text3)', padding: '0 10px' }}>
+              <span>Data</span><span>Seguidores</span><span>Alcance</span><span>Impressões</span><span>Engaj.</span><span>Posts</span>
+            </div>
+            {history.map((h) => (
+              <div key={h.id} style={{ display: 'grid', gridTemplateColumns: '90px repeat(5,1fr)', gap: 6, fontSize: 12, color: 'var(--text2)', background: 'var(--bg3)', borderRadius: 6, padding: '7px 10px' }}>
+                <span>{h.dataReferencia ? h.dataReferencia.split('-').reverse().join('/') : '—'}</span>
+                <span>{fmtNum(h.seguidores)}</span>
+                <span>{fmtNum(h.alcance)}</span>
+                <span>{fmtNum(h.impressoes)}</span>
+                <span>{h.engajamento == null ? '—' : `${h.engajamento}%`}</span>
+                <span>{fmtNum(h.postsPublicados)}</span>
               </div>
             ))}
           </div>
-        </div>
-        <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: '12px 14px' }}>
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>MELHOR HORÁRIO</div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', lineHeight: 1.5 }}>{rede.bestTime}</div>
-        </div>
-        <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: '12px 14px' }}>
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>META DO MÊS</div>
-          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>
-            <div>{rede.meta.seguidores.toLocaleString('pt-BR')} seguidores</div>
-            <div>{rede.meta.engajamento}% engajamento</div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
+function EmptyRedesState({ onAdd }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--bg2)', border: '1px dashed var(--border2)', borderRadius: 14, marginBottom: 24 }}>
+      <Share2 size={26} style={{ color: 'var(--text3)', marginBottom: 12 }} />
+      <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 4 }}>Nenhuma rede cadastrada ainda</div>
+      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>Adicione as redes sociais da empresa para acompanhar métricas e metas.</div>
+      <PermissionGate module="redes" action="edit">
+        <button onClick={onAdd}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+          <Plus size={13} /> Adicionar rede
+        </button>
+      </PermissionGate>
+    </div>
+  );
+}
+
 /* ─── Calendar ───────────────────────────────────────────────────────────────── */
-function CalendarCell({ day, isoDate, posts, onPostClick, isToday, curMonthLabel }) {
+function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel }) {
   const { openAI } = useUI();
   return (
     <div style={{ minHeight: 90, background: isToday ? 'color-mix(in srgb, var(--accent) 8%, var(--bg2))' : 'var(--bg2)', border: `1px solid ${isToday ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ fontSize: 11, fontWeight: isToday ? 600 : 400, color: isToday ? 'var(--accent)' : 'var(--text3)', marginBottom: 2 }}>{day}</div>
       {posts.map((p) => {
-        const redeId = p.redes && p.redes[0];
-        const rede = REDES.find((r) => r.id === redeId);
-        const st   = POST_STATUS[p.status] || POST_STATUS.ideia;
+        const conta = contas.find((c) => c.id === (p.redes && p.redes[0]));
+        const cfg = conta ? platformCfg(conta.plataforma) : null;
+        const st  = POST_STATUS[p.status] || POST_STATUS.ideia;
         return (
           <div key={p.id} title={p.titulo} onClick={() => onPostClick(p)}
             style={{ padding: '3px 6px', borderRadius: 6, background: st.bg, fontSize: 10, color: st.color, lineHeight: 1.3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', cursor: 'pointer' }}>
-            {rede && <rede.Icon size={9} style={{ verticalAlign: 'middle', marginRight: 3 }} />}
+            {cfg && <cfg.Icon size={9} style={{ verticalAlign: 'middle', marginRight: 3 }} />}
             {p.titulo}
           </div>
         );
@@ -273,7 +335,7 @@ function CalendarCell({ day, isoDate, posts, onPostClick, isToday, curMonthLabel
   );
 }
 
-function CalendarGrid({ posts, filterRede, onPostClick, viewDate }) {
+function CalendarGrid({ posts, contas, filterRede, onPostClick, viewDate }) {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -312,7 +374,7 @@ function CalendarGrid({ posts, filterRede, onPostClick, viewDate }) {
         {cells.map((cell) =>
           cell.empty
             ? <div key={cell.key} />
-            : <CalendarCell key={cell.day} day={cell.day} isoDate={cell.isoDate} posts={cell.posts} isToday={cell.isToday} curMonthLabel={curMonthLabel} onPostClick={onPostClick} />
+            : <CalendarCell key={cell.day} day={cell.day} posts={cell.posts} contas={contas} isToday={cell.isToday} curMonthLabel={curMonthLabel} onPostClick={onPostClick} />
         )}
       </div>
     </div>
@@ -334,16 +396,16 @@ function Legend() {
 }
 
 /* ─── Post Modal ─────────────────────────────────────────────────────────────── */
-function PostModal({ post, onSave, onDelete, onDuplicate, onClose, openAI }) {
+function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openAI }) {
   const fileRef = useRef(null);
   const isEdit = !!post?.id;
   const [form, setForm] = useState(() => ({
-    titulo: '', conteudo: '', redes: ['instagram'],
+    titulo: '', conteudo: '',
     data: todayISO(),
     horario: '12:00', formato: 'Feed', status: 'ideia',
     imagemUrl: null, metricas: { alcance: '', curtidas: '', comentarios: '' },
     ...post,
-    redes: post?.redes?.length ? post.redes : ['instagram'],
+    redes: post?.redes?.length ? post.redes : (contas[0] ? [contas[0].id] : []),
   }));
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -358,7 +420,10 @@ function PostModal({ post, onSave, onDelete, onDuplicate, onClose, openAI }) {
   }
 
   function handleAI() {
-    const labels = form.redes.map(id => REDES.find(r => r.id === id)?.label || id).join(', ');
+    const labels = form.redes.map(id => {
+      const c = contas.find(c => c.id === id);
+      return c ? (c.nome || platformCfg(c.plataforma).label) : id;
+    }).join(', ');
     openAI(`Crie um post para ${labels}. Formato: ${form.formato}. Data: ${form.data}. ${form.titulo ? `Tema: ${form.titulo}.` : ''} Gere: título chamativo, legenda completa com CTA e 5 hashtags para empresa B2B de serviços para PMEs.`);
     onClose();
   }
@@ -380,21 +445,26 @@ function PostModal({ post, onSave, onDelete, onDuplicate, onClose, openAI }) {
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>LEGENDA</label>
-            <textarea style={{ ...inp, minHeight: 72, resize: 'vertical' }} value={form.legenda} onChange={e => set('legenda', e.target.value)} placeholder="Legenda completa com hashtags..." />
+            <textarea style={{ ...inp, minHeight: 72, resize: 'vertical' }} value={form.conteudo} onChange={e => set('conteudo', e.target.value)} placeholder="Legenda completa com hashtags..." />
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>REDES</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {REDES.map(r => {
-                const sel = form.redes.includes(r.id);
-                return (
-                  <button key={r.id} onClick={() => set('redes', sel ? form.redes.filter(x => x !== r.id) : [...form.redes, r.id])}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, fontSize: 12, border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .12s', background: sel ? `color-mix(in srgb, var(${r.color}) 18%, transparent)` : 'transparent', borderColor: sel ? `var(${r.color})` : 'var(--border)', color: sel ? `var(${r.color})` : 'var(--text3)' }}>
-                    <r.Icon size={11} /> {r.label}
-                  </button>
-                );
-              })}
-            </div>
+            {contas.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Cadastre uma rede na aba Métricas para marcar aqui.</div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {contas.map(c => {
+                  const cfg = platformCfg(c.plataforma);
+                  const sel = form.redes.includes(c.id);
+                  return (
+                    <button key={c.id} onClick={() => set('redes', sel ? form.redes.filter(x => x !== c.id) : [...form.redes, c.id])}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, fontSize: 12, border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .12s', background: sel ? `color-mix(in srgb, var(${cfg.color}) 18%, transparent)` : 'transparent', borderColor: sel ? `var(${cfg.color})` : 'var(--border)', color: sel ? `var(${cfg.color})` : 'var(--text3)' }}>
+                      <cfg.Icon size={11} /> {c.nome || cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
@@ -478,7 +548,7 @@ function PostModal({ post, onSave, onDelete, onDuplicate, onClose, openAI }) {
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
 const DOW_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-function WeekView({ posts, filterRede, onPostClick }) {
+function WeekView({ posts, contas, filterRede, onPostClick }) {
   const today = new Date();
   const dow = today.getDay();
   const mondayOffset = dow === 0 ? -6 : 1 - dow;
@@ -513,13 +583,13 @@ function WeekView({ posts, filterRede, onPostClick }) {
               return (
                 <div key={iso} style={{ minHeight: 34, background: isToday ? 'color-mix(in srgb, var(--accent) 4%, var(--bg2))' : 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 5, padding: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {cell.map(p => {
-                    const redeId = p.redes && p.redes[0];
-                    const rede = REDES.find(r => r.id === redeId);
+                    const conta = contas.find(c => c.id === (p.redes && p.redes[0]));
+                    const cfg = conta ? platformCfg(conta.plataforma) : null;
                     const st = POST_STATUS[p.status] || POST_STATUS.ideia;
                     return (
                       <div key={p.id} onClick={() => onPostClick(p)} title={p.titulo}
                         style={{ padding: '2px 4px', borderRadius: 4, background: st.bg, fontSize: 9, color: st.color, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', cursor: 'pointer' }}>
-                        {rede && <rede.Icon size={8} style={{ verticalAlign: 'middle', marginRight: 2 }} />}
+                        {cfg && <cfg.Icon size={8} style={{ verticalAlign: 'middle', marginRight: 2 }} />}
                         {p.titulo}
                       </div>
                     );
@@ -535,7 +605,7 @@ function WeekView({ posts, filterRede, onPostClick }) {
 }
 
 /* ─── List View ──────────────────────────────────────────────────────────────── */
-function ListView({ posts, filterRede, onPostClick }) {
+function ListView({ posts, contas, filterRede, onPostClick }) {
   const filtered = [...posts]
     .filter(p => filterRede === 'todas' || (p.redes || []).includes(filterRede))
     .sort((a, b) => {
@@ -551,7 +621,7 @@ function ListView({ posts, filterRede, onPostClick }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {filtered.map(p => {
-        const redes = (p.redes || []).map(id => REDES.find(r => r.id === id)).filter(Boolean);
+        const redes = (p.redes || []).map(id => contas.find(c => c.id === id)).filter(Boolean);
         const st = POST_STATUS[p.status] || POST_STATUS.ideia;
         const dayNum = p.data ? parseInt(p.data.split('-')[2]) : '--';
         return (
@@ -567,11 +637,14 @@ function ListView({ posts, filterRede, onPostClick }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{p.titulo || '(sem título)'}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {redes.map(r => (
-                  <span key={r.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: `var(${r.color})` }}>
-                    <r.Icon size={10} /> {r.label}
-                  </span>
-                ))}
+                {redes.map(c => {
+                  const cfg = platformCfg(c.plataforma);
+                  return (
+                    <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: `var(${cfg.color})` }}>
+                      <cfg.Icon size={10} /> {c.nome || cfg.label}
+                    </span>
+                  );
+                })}
                 {p.formato && <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {p.formato}</span>}
               </div>
             </div>
@@ -584,88 +657,107 @@ function ListView({ posts, filterRede, onPostClick }) {
   );
 }
 
-/* ─── OAuth Modal ────────────────────────────────────────────────────────────── */
-function OAuthModal({ rede, step, onClose }) {
-  if (!rede) return null;
+/* ─── Conta Modal (Adicionar rede) ───────────────────────────────────────────── */
+function ContaModal({ onSave, onClose }) {
+  const [form, setForm] = useState({ nome: '', handle: '', plataforma: PLATAFORMAS[0].id, metaSeguidores: '' });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const inp = { background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%', boxSizing: 'border-box', outline: 'none' };
+  const canSave = form.nome.trim().length > 0;
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <style>{`@keyframes spin-oauth { to { transform: rotate(360deg); } }`}</style>
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, padding: '32px', width: 380, maxWidth: '90vw', textAlign: 'center', position: 'relative' }}>
-        <div style={{ width: 56, height: 56, borderRadius: 14, background: rede.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-          <rede.Icon size={26} style={{ color: `var(${rede.color})` }} />
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 420, maxWidth: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Adicionar rede</div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}><X size={16} /></button>
         </div>
-
-        {step === 'loading' && (
-          <>
-            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Autenticando {rede.label}</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 24 }}>Redirecionando para autenticação...</div>
-            <div style={{ width: 32, height: 32, border: '3px solid var(--bg4)', borderTop: `3px solid var(${rede.color})`, borderRadius: '50%', margin: '0 auto 20px', animation: 'spin-oauth 0.8s linear infinite' }} />
-            <div style={{ fontSize: 11, color: 'var(--text3)' }}>Conectando via {rede.api}</div>
-          </>
-        )}
-
-        {step === 'success' && (
-          <>
-            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Conectado com sucesso!</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 18 }}>
-              {rede.label} foi conectado via {rede.api}.
-            </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 20, background: 'rgba(45,212,160,0.12)', marginBottom: 24 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
-              <span style={{ fontSize: 12, color: 'var(--green)' }}>Conexão estabelecida</span>
-            </div>
-            <br />
-            <button onClick={onClose}
-              style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 28px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-              Concluir
-            </button>
-          </>
-        )}
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>PLATAFORMA</label>
+            <select style={{ ...inp, cursor: 'pointer' }} value={form.plataforma} onChange={e => set('plataforma', e.target.value)}>
+              {PLATAFORMAS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>NOME</label>
+            <input style={inp} value={form.nome} onChange={e => set('nome', e.target.value)} placeholder="Ex.: Comercial PME Oficial" />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>@HANDLE</label>
+            <input style={inp} value={form.handle} onChange={e => set('handle', e.target.value)} placeholder="@usuario" />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>META DE SEGUIDORES (opcional)</label>
+            <input type="number" style={inp} value={form.metaSeguidores} onChange={e => set('metaSeguidores', e.target.value)} placeholder="Ex.: 2000" />
+          </div>
+        </div>
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>Cancelar</button>
+          <button disabled={!canSave} onClick={() => onSave(form)}
+            style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.5, fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+            Salvar
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ─── Conexão Card ───────────────────────────────────────────────────────────── */
-function ConexaoCard({ rede, connection, onConnect, onDisconnect }) {
-  const isConnected = !!connection;
+/* ─── Metrica Modal (Lançar métricas do período) ─────────────────────────────── */
+function MetricaModal({ conta, onSave, onClose }) {
+  const cfg = platformCfg(conta.plataforma);
+  const [form, setForm] = useState({ dataReferencia: todayISO(), seguidores: '', alcance: '', impressoes: '', engajamento: '', postsPublicados: '' });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const inp = { background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%', boxSizing: 'border-box', outline: 'none' };
+
   return (
-    <div style={{ background: 'var(--bg2)', border: `1px solid ${isConnected ? 'rgba(45,212,160,0.3)' : 'var(--border)'}`, borderRadius: 14, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16, transition: 'border-color .15s' }}>
-      <div style={{ width: 44, height: 44, borderRadius: 12, background: rede.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative' }}>
-        <rede.Icon size={20} style={{ color: `var(${rede.color})` }} />
-        {isConnected && (
-          <span style={{ position: 'absolute', bottom: -3, right: -3, width: 12, height: 12, borderRadius: '50%', background: 'var(--green)', border: '2px solid var(--bg2)' }} />
-        )}
-      </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{rede.label}</span>
-          {isConnected && (
-            <span style={{ padding: '2px 9px', borderRadius: 20, fontSize: 11, background: 'rgba(45,212,160,0.15)', color: 'var(--green)' }}>Conectado</span>
-          )}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text3)' }}>{rede.api}</div>
-        {isConnected && (
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-            Conectado em {connection.connectedAt} · Última atualização: {connection.lastSync}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 460, maxWidth: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <cfg.Icon size={15} style={{ color: `var(${cfg.color})` }} />
+            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Lançar métricas — {conta.nome || cfg.label}</div>
           </div>
-        )}
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}><X size={16} /></button>
+        </div>
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>DATA DE REFERÊNCIA</label>
+            <input type="date" style={inp} value={form.dataReferencia} onChange={e => set('dataReferencia', e.target.value)} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>SEGUIDORES</label>
+              <input type="number" style={inp} value={form.seguidores} onChange={e => set('seguidores', e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>POSTS PUBLICADOS</label>
+              <input type="number" style={inp} value={form.postsPublicados} onChange={e => set('postsPublicados', e.target.value)} placeholder="0" />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>ALCANCE</label>
+              <input type="number" style={inp} value={form.alcance} onChange={e => set('alcance', e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>IMPRESSÕES</label>
+              <input type="number" style={inp} value={form.impressoes} onChange={e => set('impressoes', e.target.value)} placeholder="0" />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>ENGAJAMENTO (%)</label>
+            <input type="number" step="0.1" style={inp} value={form.engajamento} onChange={e => set('engajamento', e.target.value)} placeholder="Ex.: 4.2" />
+          </div>
+        </div>
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>Cancelar</button>
+          <button onClick={() => onSave(form)}
+            style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+            Salvar lançamento
+          </button>
+        </div>
       </div>
-
-      {isConnected ? (
-        <button onClick={() => onDisconnect(rede.id)}
-          style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid rgba(240,92,92,0.4)', color: 'var(--red)', transition: 'background .15s', flexShrink: 0 }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(240,92,92,0.1)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-          Desconectar
-        </button>
-      ) : (
-        <button onClick={() => onConnect(rede.id)}
-          style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff', flexShrink: 0 }}>
-          Conectar
-        </button>
-      )}
     </div>
   );
 }
@@ -674,16 +766,15 @@ function ConexaoCard({ rede, connection, onConnect, onDisconnect }) {
 export default function RedesSociais() {
   const { openAI } = useUI();
   const { empresaId } = useAuth();
-  const [activeRede,    setActiveRede]    = useState('instagram');
+  const [activeContaId, setActiveContaId] = useState(null);
   const [activeTab,     setActiveTab]     = useState('metricas');
   const [filterCalRede, setFilterCalRede] = useState('todas');
 
-  const [connections, setConnections] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('redes_oauth_connections') || '{}'); }
-    catch { return {}; }
-  });
-  const [oauthModal, setOauthModal] = useState(null);
-  const [oauthStep,  setOauthStep]  = useState('idle');
+  const [contas,        setContas]        = useState([]);
+  const [metricas,      setMetricas]      = useState([]);
+  const [loadingContas, setLoadingContas] = useState(true);
+  const [contaModal,    setContaModal]    = useState(false);
+  const [metricaModalFor, setMetricaModalFor] = useState(null);
 
   const [calPosts,     setCalPosts]     = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
@@ -701,30 +792,27 @@ export default function RedesSociais() {
         .eq('empresa_id', empresaId)
         .order('data', { ascending: true });
       if (cancelled) return;
-      let rows = data ?? [];
-      if (rows.length === 0) {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = now.getMonth();
-        const seedRows = CALENDAR_POSTS.map(p => ({
-          data: dateToISO(y, m, p.day),
-          redes: [p.rede],
-          titulo: p.titulo,
-          status: p.status,
-          formato: p.formato,
-          conteudo: '',
-          imagem_url: null,
-          hora: '12:00',
-          metricas: { alcance: '', curtidas: '', comentarios: '' },
-        }));
-        const { data: ins } = await supabase.from('redes_posts').insert(seedRows).select();
-        if (cancelled) return;
-        rows = ins ?? [];
-      }
-      if (!cancelled) {
-        setCalPosts(rows.map(postFromRow));
-        setLoadingPosts(false);
-      }
+      setCalPosts((data ?? []).map(postFromRow));
+      setLoadingPosts(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    async function load() {
+      const [{ data: contasData }, { data: metricasData }] = await Promise.all([
+        supabase.from('redes_contas').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: true }),
+        supabase.from('redes_metricas').select('*').eq('empresa_id', empresaId).order('data_referencia', { ascending: false }),
+      ]);
+      if (cancelled) return;
+      const cs = (contasData ?? []).map(contaFromRow);
+      setContas(cs);
+      setMetricas((metricasData ?? []).map(metricaFromRow));
+      setActiveContaId((prev) => prev ?? (cs[0]?.id ?? null));
+      setLoadingContas(false);
     }
     load();
     return () => { cancelled = true; };
@@ -762,33 +850,34 @@ export default function RedesSociais() {
   function prevMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
   function nextMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); }
 
-  function handleConnect(redeId) {
-    setOauthModal(redeId);
-    setOauthStep('loading');
-    setTimeout(() => setOauthStep('success'), 2000);
-  }
-
-  function handleOAuthClose() {
-    if (oauthStep === 'success') {
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('pt-BR');
-      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      const updated = { ...connections, [oauthModal]: { connectedAt: `${dateStr} ${timeStr}`, lastSync: `${dateStr} ${timeStr}` } };
-      setConnections(updated);
-      localStorage.setItem('redes_oauth_connections', JSON.stringify(updated));
+  async function handleContaSave(form) {
+    const row = contaToRow(form);
+    const { data } = await supabase.from('redes_contas').insert(row).select().single();
+    if (data) {
+      const nova = contaFromRow(data);
+      setContas(prev => [...prev, nova]);
+      setActiveContaId(nova.id);
     }
-    setOauthModal(null);
-    setOauthStep('idle');
+    setContaModal(false);
   }
 
-  function handleDisconnect(redeId) {
-    const updated = { ...connections };
-    delete updated[redeId];
-    setConnections(updated);
-    localStorage.setItem('redes_oauth_connections', JSON.stringify(updated));
+  async function handleContaDelete(contaId) {
+    await supabase.from('redes_contas').delete().eq('id', contaId);
+    setContas(prev => {
+      const next = prev.filter(c => c.id !== contaId);
+      setActiveContaId((cur) => (cur === contaId ? (next[0]?.id ?? null) : cur));
+      return next;
+    });
+    setMetricas(prev => prev.filter(m => m.contaId !== contaId));
   }
 
-  const rede = REDES.find((r) => r.id === activeRede);
+  async function handleMetricaSave(form) {
+    const contaId = metricaModalFor.id;
+    const row = metricaToRow(form, contaId);
+    const { data } = await supabase.from('redes_metricas').insert(row).select().single();
+    if (data) setMetricas(prev => [metricaFromRow(data), ...prev]);
+    setMetricaModalFor(null);
+  }
 
   const TABS = [
     { id: 'metricas',   label: 'Métricas',            icon: BarChart2  },
@@ -796,20 +885,37 @@ export default function RedesSociais() {
     { id: 'conexoes',   label: 'Conexões',             icon: Link2      },
   ];
 
-  const totalSeguidores = REDES.reduce((s, r) => s + r.seguidores, 0);
-  const avgEngajamento  = (REDES.reduce((s, r) => s + r.engajamento, 0) / REDES.length).toFixed(1);
-  const postsThisMonth  = calPosts.filter(p => p.status === 'publicado').length;
-  const curMonthLabel   = monthLabel(viewDate.getFullYear(), viewDate.getMonth());
+  const metricasByConta = {};
+  contas.forEach((c) => {
+    metricasByConta[c.id] = metricas
+      .filter((m) => m.contaId === c.id)
+      .sort((a, b) => (b.dataReferencia || '').localeCompare(a.dataReferencia || '') || (b.criadoEm || '').localeCompare(a.criadoEm || ''));
+  });
+  const latestByConta = {};
+  const previousByConta = {};
+  contas.forEach((c) => {
+    latestByConta[c.id]   = metricasByConta[c.id]?.[0] ?? null;
+    previousByConta[c.id] = metricasByConta[c.id]?.[1] ?? null;
+  });
+
+  const seguidoresVals   = contas.map((c) => latestByConta[c.id]?.seguidores).filter((v) => v != null);
+  const totalSeguidores  = seguidoresVals.reduce((s, v) => s + v, 0);
+  const engajamentoVals  = contas.map((c) => latestByConta[c.id]?.engajamento).filter((v) => v != null);
+  const avgEngajamento   = engajamentoVals.length ? (engajamentoVals.reduce((s, v) => s + v, 0) / engajamentoVals.length).toFixed(1) : null;
+  const postsThisMonth   = calPosts.filter(p => p.status === 'publicado').length;
+  const curMonthLabel    = monthLabel(viewDate.getFullYear(), viewDate.getMonth());
+
+  const activeConta = contas.find((c) => c.id === activeContaId) || null;
 
   return (
     <div style={{ padding: '24px', fontFamily: 'var(--font-body)', color: 'var(--text)' }}>
       {/* Summary row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }}>
         {[
-          { label: 'Seguidores totais',  value: totalSeguidores.toLocaleString('pt-BR'), icon: Users,      color: '--accent'  },
-          { label: 'Engajamento médio',  value: `${avgEngajamento}%`,                    icon: Heart,      color: '--purple'  },
-          { label: 'Posts publicados',   value: postsThisMonth,                           icon: BarChart2,  color: '--green'   },
-          { label: 'Redes ativas',       value: REDES.length,                             icon: Share2,     color: '--teal'    },
+          { label: 'Seguidores totais',  value: totalSeguidores.toLocaleString('pt-BR'),          icon: Users,      color: '--accent'  },
+          { label: 'Engajamento médio',  value: avgEngajamento == null ? '—' : `${avgEngajamento}%`, icon: Heart,    color: '--purple'  },
+          { label: 'Posts publicados',   value: postsThisMonth,                                    icon: BarChart2,  color: '--green'   },
+          { label: 'Redes ativas',       value: contas.length,                                     icon: Share2,     color: '--teal'    },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: `color-mix(in srgb, var(${color}) 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -848,41 +954,63 @@ export default function RedesSociais() {
       {/* Métricas tab */}
       {activeTab === 'metricas' && (
         <div>
-          {/* Rede selector cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
-            {REDES.map((r) => (
-              <RedeCard key={r.id} rede={r} active={activeRede === r.id} onClick={() => setActiveRede(r.id)} />
-            ))}
-          </div>
-          {/* Detail */}
-          <RedeDetail rede={rede} />
+          {loadingContas ? <SkeletonLoader rows={4} /> : contas.length === 0 ? (
+            <EmptyRedesState onAdd={() => setContaModal(true)} />
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+                <PermissionGate module="redes" action="edit">
+                  <button onClick={() => setContaModal(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: 'var(--text)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    <Plus size={12} /> Adicionar rede
+                  </button>
+                </PermissionGate>
+              </div>
 
-          {/* AI insight */}
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Análise e Recomendações de IA</div>
-              <button
-                onClick={() => openAI(
-                  `Analise as métricas de ${rede.label}: ${rede.seguidores} seguidores (meta: ${rede.meta.seguidores}), engajamento ${rede.engajamento}% (meta: ${rede.meta.engajamento}%), alcance ${rede.alcance}, crescimento ${rede.crescimento}%. ` +
-                  `Formatos que mais engajam: ${rede.topFormats.join(', ')}. ` +
-                  `Dê 3 recomendações práticas e acionáveis para melhorar os resultados nessa rede.`
-                )}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                <Bot size={12} /> Analisar com IA
-              </button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-              {[
-                { tip: `Priorize ${rede.topFormats[0]} — é o formato com maior engajamento no ${rede.label}.`, color: '--green'   },
-                { tip: `Melhore horário de publicação para ${rede.bestTime} para maximizar alcance orgânico.`, color: '--accent2' },
-                { tip: `Engajamento ${rede.engajamento}% ${rede.engajamento >= rede.meta.engajamento ? 'acima da meta — mantenha a consistência.' : `abaixo da meta de ${rede.meta.engajamento}% — responda comentários nas primeiras horas.`}`, color: rede.engajamento >= rede.meta.engajamento ? '--green' : '--amber' },
-              ].map((item, i) => (
-                <div key={i} style={{ background: 'var(--bg3)', borderRadius: 10, padding: 14, borderLeft: `3px solid var(${item.color})` }}>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>{item.tip}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(contas.length, 4)},1fr)`, gap: 14, marginBottom: 24 }}>
+                {contas.map((c) => (
+                  <RedeCard key={c.id} conta={c} latest={latestByConta[c.id]} previous={previousByConta[c.id]} active={activeContaId === c.id} onClick={() => setActiveContaId(c.id)} />
+                ))}
+              </div>
+
+              {activeConta && (
+                <>
+                  <RedeDetail
+                    conta={activeConta}
+                    latest={latestByConta[activeConta.id]}
+                    previous={previousByConta[activeConta.id]}
+                    history={metricasByConta[activeConta.id] ?? []}
+                    onLogMetrics={() => setMetricaModalFor(activeConta)}
+                    onDelete={() => handleContaDelete(activeConta.id)}
+                  />
+
+                  {/* AI insight */}
+                  {latestByConta[activeConta.id] ? (
+                    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Análise e Recomendações de IA</div>
+                        <button
+                          onClick={() => {
+                            const l = latestByConta[activeConta.id];
+                            const cfg = platformCfg(activeConta.plataforma);
+                            openAI(
+                              `Analise as métricas de ${activeConta.nome || cfg.label} (${cfg.label}): ${fmtNum(l.seguidores)} seguidores${activeConta.metaSeguidores ? ` (meta: ${fmtNum(activeConta.metaSeguidores)})` : ''}, engajamento ${l.engajamento == null ? 'não informado' : `${l.engajamento}%`}, alcance ${fmtNum(l.alcance)}. Dê 3 recomendações práticas e acionáveis para melhorar os resultados nessa rede.`
+                            );
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                          <Bot size={12} /> Analisar com IA
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ background: 'var(--bg2)', border: '1px dashed var(--border2)', borderRadius: 14, padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>
+                      Lance as primeiras métricas desta rede para receber análise da IA.
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -912,45 +1040,55 @@ export default function RedesSociais() {
             </div>
           </div>
 
-          {/* Calendar header row 2: view switcher + rede filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-            {/* View switcher */}
-            <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, padding: 3, gap: 2, flexShrink: 0 }}>
-              {[['mensal', 'Mensal'], ['semanal', 'Semanal'], ['lista', 'Lista']].map(([v, lbl]) => (
-                <button key={v} onClick={() => setCalView(v)}
-                  style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all .12s', background: calView === v ? 'var(--bg2)' : 'transparent', color: calView === v ? 'var(--text)' : 'var(--text3)', boxShadow: calView === v ? '0 1px 3px rgba(0,0,0,0.2)' : 'none' }}>
-                  {lbl}
+          {loadingPosts ? <SkeletonLoader rows={6} /> : calPosts.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--bg2)', border: '1px dashed var(--border2)', borderRadius: 14 }}>
+              <Calendar size={26} style={{ color: 'var(--text3)', marginBottom: 12 }} />
+              <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 4 }}>Nenhum post agendado</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>Comece o calendário editorial criando o primeiro post.</div>
+              <PermissionGate module="redes" action="edit">
+                <button onClick={() => setPostModal({ mode: 'create', post: null })}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  <Plus size={13} /> Novo post
                 </button>
-              ))}
+              </PermissionGate>
             </div>
-            {/* Rede filter */}
-            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-              {[{ id: 'todas', label: 'Todas' }, ...REDES.map(r => ({ id: r.id, label: r.label, Icon: r.Icon, color: r.color }))].map(opt => (
-                <button key={opt.id} onClick={() => setFilterCalRede(opt.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, fontSize: 11, border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s', background: filterCalRede === opt.id ? 'var(--accent)' : 'transparent', borderColor: filterCalRede === opt.id ? 'var(--accent)' : 'var(--border)', color: filterCalRede === opt.id ? '#fff' : 'var(--text3)' }}>
-                  {opt.Icon && <opt.Icon size={10} />}
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {loadingPosts ? <SkeletonLoader rows={6} /> : (
+          ) : (
             <>
+              {/* Calendar header row 2: view switcher + rede filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, padding: 3, gap: 2, flexShrink: 0 }}>
+                  {[['mensal', 'Mensal'], ['semanal', 'Semanal'], ['lista', 'Lista']].map(([v, lbl]) => (
+                    <button key={v} onClick={() => setCalView(v)}
+                      style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all .12s', background: calView === v ? 'var(--bg2)' : 'transparent', color: calView === v ? 'var(--text)' : 'var(--text3)', boxShadow: calView === v ? '0 1px 3px rgba(0,0,0,0.2)' : 'none' }}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {[{ id: 'todas', label: 'Todas', Icon: null, color: null }, ...contas.map(c => { const cfg = platformCfg(c.plataforma); return { id: c.id, label: c.nome || cfg.label, Icon: cfg.Icon, color: cfg.color }; })].map(opt => (
+                    <button key={opt.id} onClick={() => setFilterCalRede(opt.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, fontSize: 11, border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s', background: filterCalRede === opt.id ? 'var(--accent)' : 'transparent', borderColor: filterCalRede === opt.id ? 'var(--accent)' : 'var(--border)', color: filterCalRede === opt.id ? '#fff' : 'var(--text3)' }}>
+                      {opt.Icon && <opt.Icon size={10} />}
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {calView === 'mensal' && (
                 <>
                   <Legend />
-                  <CalendarGrid posts={calPosts} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} />
+                  <CalendarGrid posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} />
                 </>
               )}
               {calView === 'semanal' && (
                 <>
                   <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>Semana atual</div>
-                  <WeekView posts={calPosts} filterRede={filterCalRede} onPostClick={handlePostClick} />
+                  <WeekView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} />
                 </>
               )}
               {calView === 'lista' && (
-                <ListView posts={calPosts} filterRede={filterCalRede} onPostClick={handlePostClick} />
+                <ListView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} />
               )}
             </>
           )}
@@ -961,28 +1099,32 @@ export default function RedesSociais() {
       {activeTab === 'conexoes' && (
         <div>
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', marginBottom: 6 }}>Conexões OAuth</div>
+            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', marginBottom: 6 }}>Conexões</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>
-              Conecte suas redes sociais para sincronizar métricas automaticamente.
+              Situação da integração automática com as redes sociais.
             </div>
           </div>
 
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 20 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: Object.keys(connections).length > 0 ? 'var(--green)' : 'var(--amber)', display: 'inline-block' }} />
-            <span style={{ fontSize: 13, color: 'var(--text2)' }}>
-              {Object.keys(connections).length} de {REDES_OAUTH.length} redes conectadas
-            </span>
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 20 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(240,168,50,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Zap size={18} style={{ color: 'var(--amber)' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 6 }}>
+                A integração automática com as APIs das redes sociais ainda não está disponível.
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>
+                Por enquanto, cadastre suas redes e lance as métricas manualmente na aba <strong>Métricas</strong>.
+                Assim que a conexão automática (Instagram, Facebook, LinkedIn, YouTube e TikTok) estiver disponível, ela aparecerá aqui.
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {REDES_OAUTH.map((r) => (
-              <ConexaoCard
-                key={r.id}
-                rede={r}
-                connection={connections[r.id] || null}
-                onConnect={handleConnect}
-                onDisconnect={handleDisconnect}
-              />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {PLATAFORMAS.map((p) => (
+              <span key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, fontSize: 12, background: p.bg, color: `var(${p.color})` }}>
+                <p.Icon size={12} /> {p.label}
+              </span>
             ))}
           </div>
         </div>
@@ -992,6 +1134,7 @@ export default function RedesSociais() {
       {postModal && (
         <PostModal
           post={postModal.post}
+          contas={contas}
           onSave={handlePostSave}
           onDelete={handlePostDelete}
           onDuplicate={handlePostDuplicate}
@@ -1000,13 +1143,14 @@ export default function RedesSociais() {
         />
       )}
 
-      {/* OAuth Modal */}
-      {oauthModal && (
-        <OAuthModal
-          rede={REDES_OAUTH.find((r) => r.id === oauthModal)}
-          step={oauthStep}
-          onClose={handleOAuthClose}
-        />
+      {/* Conta Modal */}
+      {contaModal && (
+        <ContaModal onSave={handleContaSave} onClose={() => setContaModal(false)} />
+      )}
+
+      {/* Metrica Modal */}
+      {metricaModalFor && (
+        <MetricaModal conta={metricaModalFor} onSave={handleMetricaSave} onClose={() => setMetricaModalFor(null)} />
       )}
     </div>
   );
