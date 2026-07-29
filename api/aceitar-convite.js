@@ -55,12 +55,20 @@ export default async function handler(req, res) {
   // empresa_id e papel vêm EXCLUSIVAMENTE do convite salvo no banco.
   const { empresa_id, papel } = convite;
 
-  // 2. Criar usuário no Auth
+  // 2. Criar usuário no Auth.
+  // O gatilho on_auth_user_created (handle_new_user) roda logo após este
+  // insert em auth.users e já grava a linha em public.perfis. Ele só usa a
+  // empresa e o papel do convite se raw_user_meta_data->>'empresa_id' vier
+  // preenchido — do contrário, entende que é um cadastro de dono novo e cria
+  // uma empresa própria. Por isso é essencial passar empresa_id e papel do
+  // convite aqui: sem isso o gatilho cria uma empresa órfã e marca papel
+  // 'admin', e o upsert abaixo (mantido como salvaguarda) fica sendo a
+  // única correção — mas a empresa órfã já teria sido criada.
   const { data: authData, error: authErr } = await admin.auth.admin.createUser({
     email,
     password: senha,
     email_confirm: true,
-    user_metadata: { nome },
+    user_metadata: { nome, empresa_id, papel },
   });
 
   if (authErr) {
@@ -74,19 +82,34 @@ export default async function handler(req, res) {
 
   const novoUserId = authData.user.id;
 
-  // 3. Criar perfil
+  // 3. Confirmar o perfil com os dados do convite.
+  // O gatilho já deve ter criado a linha certa (passo 2, com empresa_id/papel
+  // em user_metadata). Este upsert (onConflict: id) é apenas uma salvaguarda
+  // idempotente — reafirma os valores do convite em vez de um INSERT, que
+  // colidiria (23505) caso o gatilho já tenha gravado a linha.
   const { error: perfilErr } = await admin
     .from('perfis')
-    .insert({ id: novoUserId, empresa_id, nome, email, papel });
+    .upsert({ id: novoUserId, empresa_id, nome, email, papel }, { onConflict: 'id' });
 
   if (perfilErr) {
-    console.error('[aceitar-convite] criar perfil:', perfilErr);
-    // Reverter: deletar o usuário criado para não deixar lixo
+    console.error('[aceitar-convite] gravar perfil:', {
+      code: perfilErr.code,
+      message: perfilErr.message,
+      details: perfilErr.details,
+      userId: novoUserId,
+      empresaId: empresa_id,
+    });
+    // Reverter: deletar o usuário criado para não deixar lixo (o gatilho não
+    // roda em DELETE, então isso também remove a linha de perfis se houver
+    // FK com ON DELETE CASCADE de perfis.id -> auth.users.id).
     const { error: deleteErr } = await admin.auth.admin.deleteUser(novoUserId);
     if (deleteErr) {
       console.error('[aceitar-convite] rollback deleteUser falhou:', deleteErr);
     }
-    return res.status(500).json({ error: 'Não foi possível criar o perfil. Tente novamente.' });
+    const mensagem = perfilErr.code === '23503'
+      ? 'A empresa deste convite não existe mais. Peça um novo convite.'
+      : 'Conta criada, mas não foi possível configurar seu perfil. Tente novamente ou contate o suporte.';
+    return res.status(500).json({ error: mensagem });
   }
 
   // 4. Marcar o convite como usado
