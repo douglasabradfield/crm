@@ -79,54 +79,38 @@ function getStatus(lastUpdated) {
 }
 
 /* ─── Initial data ───────────────────────────────────────────────────────── */
-const INITIAL_SWOT = {
-  forcas: [
-    { id: 'f1', text: 'Produto com alta taxa de retenção (91%)' },
-    { id: 'f2', text: 'Equipe comercial experiente e motivada' },
-    { id: 'f3', text: 'Marca forte na região — boca a boca representa 38% dos leads' },
-    { id: 'f4', text: 'Ticket médio (R$ 4.200) acima da média do mercado' },
-  ],
-  fraquezas: [
-    { id: 'w1', text: 'CAC de R$ 420 acima da referência do setor (R$ 380)' },
-    { id: 'w2', text: 'Processo de follow-up inconsistente — 3 leads perdidos este mês' },
-    { id: 'w3', text: 'Sem playbook de vendas documentado' },
-  ],
-  oportunidades: [
-    { id: 'o1', text: 'Expansão para segmento de médias empresas (Grupo Construfast)' },
-    { id: 'o2', text: 'Integração com WhatsApp Business pode reduzir ciclo de venda em 30%' },
-    { id: 'o3', text: 'Demanda crescente por automação comercial em PMEs pós-pandemia' },
-  ],
-  ameacas: [
-    { id: 'a1', text: 'Concorrente lançou plano mais barato — risco de churn em clientes menores' },
-    { id: 'a2', text: 'Alta rotatividade em cargos de decisão nos prospects (C-level)' },
-  ],
+const BLANK_SWOT = {
+  forcas: [],
+  fraquezas: [],
+  oportunidades: [],
+  ameacas: [],
 };
 
-const INITIAL_4PS = {
+const BLANK_4PS = {
   produto: {
-    nome: 'Plataforma Comercial PME',
-    descricao: 'Software de gestão comercial para PMEs com CRM, KPIs e assistente IA integrado.',
-    diferenciais: 'Combina educação + ferramenta em uma só plataforma. Guia em 8 capítulos + CRM + IA contextual.',
-    publicoAlvo: 'MEI e ME brasileiras com equipe de até 5 pessoas no comercial.',
-    pontosDeAtencao: 'Onboarding pode ser percebido como complexo para usuários sem experiência com CRM.',
+    nome: '',
+    descricao: '',
+    diferenciais: '',
+    publicoAlvo: '',
+    pontosDeAtencao: '',
   },
   preco: {
-    modelo: 'Assinatura mensal (SaaS). Três planos: Start R$29, Pro R$89, Equipe R$179.',
-    faixaPreco: 'R$29 a R$179/mês conforme plano.',
-    politicaDesconto: 'Desconto de 20% no plano anual. Sem desconto por volume no MVP.',
-    comparativoMercado: 'Abaixo da média de CRMs nacionais (Pipedrive, RD Station) que partem de R$120/mês.',
+    modelo: '',
+    faixaPreco: '',
+    politicaDesconto: '',
+    comparativoMercado: '',
   },
   praca: {
-    canaisVenda: 'Venda 100% digital — landing page + self-service.',
-    regioes: 'Brasil inteiro. Foco inicial em SP, MG e RJ.',
-    modeloDistribuicao: 'PLG (Product-Led Growth). Trial gratuito → conversão por resultado.',
-    presencaDigital: 'Site + Instagram + LinkedIn + Google Ads (planejado).',
+    canaisVenda: '',
+    regioes: '',
+    modeloDistribuicao: '',
+    presencaDigital: '',
   },
   promocao: {
-    canaisMarketing: 'Instagram orgânico, LinkedIn, SEO, parcerias com contabilidades.',
-    campanhas: 'Lançamento: campanha "Estruture seu comercial em 30 dias".',
-    estrategiaConteudo: 'Conteúdo educacional sobre vendas B2B para PMEs. 3 posts/semana.',
-    investimentoMensal: 'R$1.500/mês em tráfego pago (fase de validação).',
+    canaisMarketing: '',
+    campanhas: '',
+    estrategiaConteudo: '',
+    investimentoMensal: '',
   },
   pessoas: {
     quemAtende: '',
@@ -141,66 +125,6 @@ const INITIAL_4PS = {
     gargalos: '',
   },
 };
-
-const INITIAL_PERSONAS = [
-  {
-    id: 'p1',
-    nome: 'Carlos, o Gestor Pragmático',
-    cargo: 'Diretor Comercial · 42 anos',
-    avatar: 'CP',
-    color: '--accent2',
-    descricao: 'Profissional experiente que busca resultados rápidos e mensuráveis. Tem autonomia para decisão mas precisa justificar o ROI para o board.',
-    dores: [
-      'Equipe sem processo estruturado de follow-up',
-      'Dificuldade em prever receita com precisão',
-      'Ciclo de venda longo sem visibilidade de gargalos',
-    ],
-    decisaoCompra: 'Busca demonstração de ROI claro, cases de sucesso no mesmo setor e prova de que a ferramenta se integra ao processo atual da equipe.',
-    objecoes: ['Já uso uma planilha que funciona', 'Não tenho tempo para treinar a equipe'],
-    canais: 'LinkedIn, indicação de colegas, eventos de negócios',
-  },
-  {
-    id: 'p2',
-    nome: 'Ana, a Fundadora Sobrecarregada',
-    cargo: 'CEO & Fundadora · 35 anos',
-    avatar: 'AS',
-    color: '--purple',
-    descricao: 'Empreendedora que acumula papel de vendedora, gestora e estrategista. Quer escalar sem contratar mais pessoas imediatamente.',
-    dores: [
-      'Não tem tempo para prospectar ativamente',
-      'Perde negócios por falta de follow-up no momento certo',
-      'Sem visão clara de quais clientes geram mais resultado',
-    ],
-    decisaoCompra: 'Precisa de solução rápida de configurar, intuitiva e que mostre resultado em até 30 dias. Preço importa muito.',
-    objecoes: ['Ferramentas demais para aprender', 'Vou usar só quando a empresa crescer'],
-    canais: 'Instagram, grupos de WhatsApp, YouTube',
-  },
-  {
-    id: 'p3',
-    nome: 'João, o Vendedor Sênior',
-    cargo: 'Executivo de Contas · 28 anos',
-    avatar: 'JS',
-    color: '--teal',
-    descricao: 'Profissional ambicioso com carteira consolidada. Resistente a ferramentas que considera burocracia, mas aberto a tecnologia que de fato ajuda.',
-    dores: [
-      'Perde tempo preenchendo relatórios manualmente',
-      'Quer mais leads quentes e menos prospecção fria',
-      'Dificuldade em acessar histórico do cliente rapidamente',
-    ],
-    decisaoCompra: 'Só adota se perceber que vai ganhar tempo e fechar mais. Precisa de UX simples e acesso rápido às informações chave.',
-    objecoes: ['É mais uma ferramenta para preencher', 'Meu gestor não vai cobrar isso de mim'],
-    canais: 'Indicação de colegas, YouTube, grupos de vendas',
-  },
-];
-
-const DIMENSIONS = [
-  { id: 'processo',    label: 'Processo de vendas',   score: 7, max: 10 },
-  { id: 'ferramentas', label: 'Ferramentas & CRM',    score: 6, max: 10 },
-  { id: 'equipe',      label: 'Equipe & capacitação', score: 8, max: 10 },
-  { id: 'metricas',    label: 'Métricas & análise',   score: 5, max: 10 },
-  { id: 'marketing',   label: 'Alinhamento marketing',score: 6, max: 10 },
-  { id: 'retencao',    label: 'Retenção & sucesso',   score: 7, max: 10 },
-];
 
 const SWOT_CONFIG = {
   forcas:        { label: 'Forças',        color: 'var(--green)',  bg: 'rgba(45,212,160,0.06)',  border: 'rgba(45,212,160,0.2)',  key: 'S' },
@@ -326,38 +250,12 @@ const FAIXA_PRECO_CFG = [
   { value: 'premium',   label: 'Premium',   color: 'var(--purple)', bg: 'rgba(176,110,245,0.12)' },
 ];
 
-const INITIAL_COMPETITORS = [
-  {
-    id: 'comp1', nome: 'RD Station CRM', site: 'rdstation.com', faixaPreco: 'medio',
-    canais: ['LinkedIn', 'SEO/Blog', 'Google Ads', 'E-mail'],
-    forcas: ['Marca nacional consolidada', 'Integração com RD Marketing', 'Ampla base de clientes'],
-    fraquezas: ['Curva de aprendizado elevada', 'Preço escala rapidamente', 'Interface complexa para PMEs'],
-    diferenciais: 'Guia educacional integrado + IA contextual em português — o usuário aprende enquanto usa a ferramenta.',
-  },
-  {
-    id: 'comp2', nome: 'Pipedrive', site: 'pipedrive.com', faixaPreco: 'medio',
-    canais: ['Google Ads', 'SEO/Blog', 'LinkedIn', 'Eventos'],
-    forcas: ['UX simples e visual', 'Pipeline kanban intuitivo', 'Ecossistema de integrações'],
-    fraquezas: ['Sem conteúdo educacional', 'Relatórios básicos no plano inicial', 'Suporte em inglês'],
-    diferenciais: 'CRM + educação + IA em uma só plataforma, 100% focada em PMEs brasileiras com preço acessível.',
-  },
-];
-
 const BLANK_COMPETITOR = {
   nome: '', site: '', faixaPreco: 'medio',
   canais: [], forcas: [''], fraquezas: [''], diferenciais: '',
 };
 
 let _competitorId = 500;
-
-/* ─── Funil de Vendas — dados iniciais ──────────────────────────────────── */
-const INITIAL_FUNNEL = [
-  { id: 'fu1', nome: 'Leads gerados',    volume: 200, conversao: 40 },
-  { id: 'fu2', nome: 'Contato feito',    volume: 80,  conversao: 50 },
-  { id: 'fu3', nome: 'Proposta enviada', volume: 40,  conversao: 60 },
-  { id: 'fu4', nome: 'Negociação',       volume: 24,  conversao: 50 },
-  { id: 'fu5', nome: 'Fechamento',       volume: 12,  conversao: 100 },
-];
 
 let _funelId = 400;
 
@@ -616,7 +514,7 @@ function ScoreGauge({ score, max = 100, size = 120 }) {
 }
 
 /* ─── CompilationPanel ───────────────────────────────────────────────────── */
-function CompilationPanel({ analyses, score, scoreLabel, scoreColor, onReport }) {
+function CompilationPanel({ analyses, score, scoreLabel, scoreColor, hasScore, onReport, onAnswerMaturidade }) {
   const alerts = analyses.filter(a => getStatus(a.lastUpdated) === 'alert');
 
   return (
@@ -700,19 +598,50 @@ function CompilationPanel({ analyses, score, scoreLabel, scoreColor, onReport })
           border: '1px solid var(--border)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
         }}>
-          <ScoreGauge score={score} size={88} />
-          <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>Maturidade</p>
-            <span style={{
-              fontSize: 10, padding: '2px 7px', borderRadius: 20, marginTop: 4,
-              display: 'inline-block',
-              color: scoreColor,
-              background: `color-mix(in srgb, ${scoreColor} 12%, transparent)`,
-              border: `1px solid color-mix(in srgb, ${scoreColor} 30%, transparent)`,
-            }}>
-              {scoreLabel}
-            </span>
-          </div>
+          {hasScore ? (
+            <>
+              <ScoreGauge score={score} size={88} />
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>Maturidade</p>
+                <span style={{
+                  fontSize: 10, padding: '2px 7px', borderRadius: 20, marginTop: 4,
+                  display: 'inline-block',
+                  color: scoreColor,
+                  background: `color-mix(in srgb, ${scoreColor} 12%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${scoreColor} 30%, transparent)`,
+                }}>
+                  {scoreLabel}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{
+                width: 88, height: 88, borderRadius: '50%',
+                border: '2px dashed var(--border2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <BarChart2 size={22} style={{ color: 'var(--text3)' }} />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>Maturidade</p>
+                <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, lineHeight: 1.4 }}>
+                  Questionário não respondido ainda
+                </p>
+                <button
+                  onClick={onAnswerMaturidade}
+                  style={{
+                    marginTop: 6, fontSize: 10, color: 'var(--accent2)',
+                    background: 'none', border: '1px solid var(--border2)',
+                    borderRadius: 20, padding: '3px 9px', cursor: 'pointer',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  Responder agora
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -1081,7 +1010,7 @@ function SwotQuadrant({ quadKey, items, onSave, onDelete, onAdd, readOnly = fals
         )}
         {items.length === 0 && (
           <p style={{ fontSize: 12, color: 'var(--text3)', padding: '4px 7px', fontStyle: 'italic' }}>
-            Nenhum item
+            {readOnly ? 'Nenhum item' : 'Clique em + para adicionar itens à sua SWOT'}
           </p>
         )}
       </div>
@@ -2273,7 +2202,7 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
             ))}
             {personas.length === 0 && (
               <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic', gridColumn: '1 / -1', padding: '20px 0' }}>
-                Nenhuma persona mapeada. Clique em "Nova persona" para começar.
+                Nenhuma persona criada ainda. Clique em "+ Nova persona" para começar.
               </p>
             )}
             {saveErr && (
@@ -2296,48 +2225,6 @@ function PersonasSection({ personas, setPersonas, lastUpdated, setLastUpdated, o
   );
 }
 
-/* ─── MaturitySection ────────────────────────────────────────────────────── */
-function MaturitySection({ score, scoreLabel, scoreColor }) {
-  return (
-    <div style={{
-      background: 'var(--bg2)', border: '1px solid var(--border)',
-      borderRadius: 14, padding: 20,
-      display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 32, alignItems: 'center',
-    }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-        <ScoreGauge score={score} size={140} />
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>Maturidade Comercial</p>
-          <span style={{
-            fontSize: 12, fontWeight: 500, padding: '3px 10px', borderRadius: 20, marginTop: 4,
-            display: 'inline-block', color: scoreColor,
-            background: `color-mix(in srgb, ${scoreColor} 12%, transparent)`,
-            border: `1px solid color-mix(in srgb, ${scoreColor} 30%, transparent)`,
-          }}>
-            {scoreLabel}
-          </span>
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {DIMENSIONS.map(d => {
-          const pct = (d.score / d.max) * 100;
-          const color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
-          return (
-            <div key={d.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                <span style={{ fontSize: 12, color: 'var(--text2)' }}>{d.label}</span>
-                <span style={{ fontSize: 11, fontWeight: 500, color }}>{d.score}/{d.max}</span>
-              </div>
-              <div style={{ height: 6, background: 'var(--bg4)', borderRadius: 99, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 99, transition: 'width 0.4s ease' }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 /* ─── ConcorrenteModal ───────────────────────────────────────────────────── */
 function ConcorrenteModal({ initial, onSave, onClose }) {
@@ -2806,14 +2693,13 @@ function ConcorrenteVersionModal({ version, onClose, onRestore }) {
 }
 
 /* ─── ConcorrentesSection ────────────────────────────────────────────────── */
-function ConcorrentesSection({ openAI }) {
+function ConcorrentesSection({ openAI, swot }) {
   const { empresaId } = useAuth();
   const [competitors, setCompetitors] = useState([]);
   const [loadingConc, setLoadingConc] = useState(true);
   const [saveErr, setSaveErr] = useState(null);
   const [viewId, setViewId] = useState(null);
   const [compareId, setCompareId] = useState(null);
-  const [swot] = useLocalStorage('diag_swot', INITIAL_SWOT);
   const [modal, setModal] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const { versions: concVersions, saveVersion: saveConcVersion } = useVersionHistory('diag_competitors_versions');
@@ -2825,7 +2711,7 @@ function ConcorrentesSection({ openAI }) {
       .eq('empresa_id', empresaId).order('criado_em', { ascending: true })
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (!error) setCompetitors(data?.length ? data.map(concorrenteFromRow) : INITIAL_COMPETITORS);
+        if (!error) setCompetitors(data?.length ? data.map(concorrenteFromRow) : []);
         setLoadingConc(false);
       });
     return () => { cancelled = true; };
@@ -3280,7 +3166,7 @@ function FunilVersionModal({ version, onClose, onRestore }) {
 /* ─── FunilVendasSection ─────────────────────────────────────────────────── */
 function FunilVendasSection({ openAI }) {
   const { empresaId } = useAuth();
-  const [stages, setStages] = useState(INITIAL_FUNNEL);
+  const [stages, setStages] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [drafts, setDrafts] = useState({});
   const [viewId, setViewId] = useState(null);
@@ -3502,6 +3388,11 @@ function FunilVendasSection({ openAI }) {
       ) : (<>
 
       {/* Funnel visualization */}
+      {stages.length === 0 ? (
+        <p style={{ fontSize: 13, color: 'var(--text3)', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>
+          Nenhuma etapa criada. Clique em "+ Adicionar etapa" para começar.
+        </p>
+      ) : (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
         {stages.map((s, i) => {
           const pct = Math.round((s.volume / maxVolume) * 100);
@@ -3570,6 +3461,7 @@ function FunilVendasSection({ openAI }) {
           );
         })}
       </div>
+      )}
 
       {/* Builder — DnD list */}
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -3735,7 +3627,7 @@ function FunilVendasSection({ openAI }) {
 }
 
 /* ─── ScoreMaturidadeSection ─────────────────────────────────────────────── */
-function ScoreMaturidadeSection() {
+function ScoreMaturidadeSection({ onScoreChange }) {
   const { empresaId } = useAuth();
   const [scoreHistory, setScoreHistory] = useState([]);
   const [loadingMat, setLoadingMat] = useState(true);
@@ -3809,6 +3701,15 @@ function ScoreMaturidadeSection() {
   const getScoreLabel = s => s >= 70 ? 'Maduro' : s >= 45 ? 'Em desenvolvimento' : 'Inicial';
   const getScoreColor = s => s >= 70 ? 'var(--green)' : s >= 45 ? 'var(--amber)' : 'var(--red)';
 
+  // Report the real (or absent) score up to the page-level summary panel
+  useEffect(() => {
+    if (loadingMat) return;
+    onScoreChange?.(lastEntry
+      ? { score: lastEntry.score, label: getScoreLabel(lastEntry.score), color: getScoreColor(lastEntry.score) }
+      : null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoreHistory, loadingMat]);
+
   const radarData = lastEntry
     ? MATURITY_QUESTIONS.map(d => ({ dim: d.label, score: lastEntry.dims[d.dim] }))
     : [];
@@ -3830,7 +3731,7 @@ function ScoreMaturidadeSection() {
   /* ── Quiz phase ── */
   if (phase === 'quiz') {
     return (
-      <div style={{
+      <div id="score-maturidade-section" style={{
         background: 'var(--bg2)', border: '1px solid var(--border)',
         borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 16,
       }}>
@@ -3948,7 +3849,7 @@ function ScoreMaturidadeSection() {
 
   /* ── Result phase ── */
   return (
-    <div style={{
+    <div id="score-maturidade-section" style={{
       background: 'var(--bg2)', border: '1px solid var(--border)',
       borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 20,
     }}>
@@ -4730,7 +4631,7 @@ export default function Diagnostico() {
   const { empresaId } = useAuth();
 
   // ── SWOT (Supabase) ──────────────────────────────────────────────────────
-  const [swot, setSwot] = useState(INITIAL_SWOT);
+  const [swot, setSwot] = useState(BLANK_SWOT);
   const [swotUpdated, setSwotUpdated] = useState(null);
   const [swotVersions, setSwotVersions] = useLocalStorage('diag_swot_versions', []);
   // Refs for debounced SWOT auto-save
@@ -4738,7 +4639,7 @@ export default function Diagnostico() {
   const swotSaveTimer = useRef(null);
 
   // ── 4Ps (Supabase) ──────────────────────────────────────────────────────
-  const [fourPs, setFourPs] = useState(INITIAL_4PS);
+  const [fourPs, setFourPs] = useState(BLANK_4PS);
   const [fourPsUpdated, setFourPsUpdated] = useState(null);
   const [fourPsVersions, setFourPsVersions] = useLocalStorage('diag_4ps_versions', []);
   const fourPsSkipSave = useRef(true);
@@ -4755,6 +4656,9 @@ export default function Diagnostico() {
   const [icpVersions, setIcpVersions] = useLocalStorage('diag_icp_versions', []);
   const icpSkipSave  = useRef(true);
   const icpSaveTimer = useRef(null);
+
+  // ── Score de Maturidade — reportado pelo ScoreMaturidadeSection (Supabase) ──
+  const [maturity, setMaturity] = useState(null); // null = questionário não respondido
 
   // ── Fetch SWOT + Personas on mount ───────────────────────────────────────
   useEffect(() => {
@@ -4794,12 +4698,12 @@ export default function Diagnostico() {
         const r = psRes.data;
         fourPsSkipSave.current = true;
         setFourPs({
-          produto:   r.produto   ?? INITIAL_4PS.produto,
-          preco:     r.preco     ?? INITIAL_4PS.preco,
-          praca:     r.praca     ?? INITIAL_4PS.praca,
-          promocao:  r.promocao  ?? INITIAL_4PS.promocao,
-          pessoas:   r.pessoas   ?? INITIAL_4PS.pessoas,
-          processos: r.processos ?? INITIAL_4PS.processos,
+          produto:   r.produto   ?? BLANK_4PS.produto,
+          preco:     r.preco     ?? BLANK_4PS.preco,
+          praca:     r.praca     ?? BLANK_4PS.praca,
+          promocao:  r.promocao  ?? BLANK_4PS.promocao,
+          pessoas:   r.pessoas   ?? BLANK_4PS.pessoas,
+          processos: r.processos ?? BLANK_4PS.processos,
         });
         setFourPsUpdated(r.atualizado_em ?? null);
       }
@@ -4887,9 +4791,14 @@ export default function Diagnostico() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_icpStr]);
 
-  const totalScore = Math.round(DIMENSIONS.reduce((s, d) => s + d.score, 0) / DIMENSIONS.length * 10);
-  const scoreLabel = totalScore >= 70 ? 'Maduro' : totalScore >= 45 ? 'Em desenvolvimento' : 'Inicial';
-  const scoreColor = totalScore >= 70 ? 'var(--green)' : totalScore >= 45 ? 'var(--amber)' : 'var(--red)';
+  const hasScore   = maturity !== null;
+  const totalScore = maturity?.score ?? 0;
+  const scoreLabel = maturity?.label ?? 'Não avaliado';
+  const scoreColor = maturity?.color ?? 'var(--text3)';
+
+  function goToMaturidade() {
+    document.getElementById('score-maturidade-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   const analyses = [
     {
@@ -4952,7 +4861,9 @@ export default function Diagnostico() {
         score={totalScore}
         scoreLabel={scoreLabel}
         scoreColor={scoreColor}
+        hasScore={hasScore}
         onReport={handleReport}
+        onAnswerMaturidade={goToMaturidade}
       />
 
       <PersonasSection
@@ -4987,7 +4898,7 @@ export default function Diagnostico() {
 
       <FunilVendasSection openAI={openAI} />
 
-      <ConcorrentesSection openAI={openAI} />
+      <ConcorrentesSection openAI={openAI} swot={swot} />
 
       <FourPsSection
         fourPs={fourPs}
@@ -4999,9 +4910,7 @@ export default function Diagnostico() {
         openAI={openAI}
       />
 
-      <MaturitySection score={totalScore} scoreLabel={scoreLabel} scoreColor={scoreColor} />
-
-      <ScoreMaturidadeSection />
+      <ScoreMaturidadeSection onScoreChange={setMaturity} />
     </div>
   );
 }
