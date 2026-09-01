@@ -10,6 +10,7 @@ import Topbar           from './components/Layout/Topbar';
 import AIPanel          from './components/Layout/AIPanel';
 import LoginPage        from './components/Auth/LoginPage';
 import ProtectedRoute   from './components/Auth/ProtectedRoute';
+import SemPermissoesEmpresa from './components/Auth/SemPermissoesEmpresa';
 
 import Dashboard        from './pages/Dashboard';
 import GuiaEstrategico  from './pages/GuiaEstrategico';
@@ -159,7 +160,7 @@ export default function App() {
 }
 
 function AppRoutes() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, semPapelNaEmpresa, isSuperadmin } = useAuth();
   const location = useLocation();
 
   // Rota pública de convite — não depende de autenticação, não bloquear no loading.
@@ -186,6 +187,13 @@ function AppRoutes() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Empresa ativa sem papel resolvido: tela de recuperação em vez de um app sem
+  // rotas. Superadmin continua podendo chegar a Configurações → Empresas para
+  // trocar de volta (hasPermission já libera todo módulo para superadmin).
+  if (semPapelNaEmpresa && !(isSuperadmin && location.pathname.startsWith('/configuracoes'))) {
+    return <SemPermissoesEmpresa />;
   }
 
   return <Layout />;

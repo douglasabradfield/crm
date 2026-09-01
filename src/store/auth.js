@@ -5,6 +5,25 @@ import { DEFAULT_PERMISSIONS } from '../data/permissions.js';
 const LS_USER_OVERRIDES = 'crm_user_overrides';
 const LS_ROLE_OVERRIDES = 'crm_role_overrides';
 
+// Multi-empresa: pistas locais gravadas ao trocar de empresa. Servem de rede de
+// segurança quando, logo após a troca + reload, a linha de public.perfis fica
+// invisível por RLS na empresa nova (empresa_ativa_id passou a divergir de
+// empresa_id) — sem elas o buildUser não resolveria o papel e o usuário ficaria
+// sem nenhuma rota. LS_EMPRESA_HINT = empresa recém-escolhida; LS_EMPRESA_ANTERIOR
+// = empresa de onde a pessoa saiu (botão "voltar" da tela de recuperação).
+const LS_EMPRESA_HINT     = 'crm_empresa_ativa_hint';
+const LS_EMPRESA_ANTERIOR = 'crm_empresa_anterior';
+
+function lsGet(key) {
+  try { return localStorage.getItem(key) || null; } catch { return null; }
+}
+function lsSet(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* storage indisponível */ }
+}
+function lsDel(key) {
+  try { localStorage.removeItem(key); } catch { /* storage indisponível */ }
+}
+
 const AuthContext = createContext(null);
 
 /* ─── Profile fetch ──────────────────────────────────────────────────────────── */
@@ -37,42 +56,65 @@ async function fetchVinculos(userId) {
 
 async function buildUser(supabaseUser) {
   if (!supabaseUser) return null;
-  const email  = supabaseUser.email ?? '';
-  const perfil = await fetchPerfil(supabaseUser.id);
+  const email = supabaseUser.email ?? '';
+
+  // perfis e perfis_empresas são independentes: perfis_empresas tem policy de
+  // SELECT robusta (perfil_id = auth.uid()) e continua legível em qualquer
+  // empresa; perfis pode ficar invisível logo após uma troca. Buscamos os dois
+  // em paralelo e nunca deixamos a falha de um zerar as permissões se o outro
+  // tem a resposta.
+  const [perfil, vinculos] = await Promise.all([
+    fetchPerfil(supabaseUser.id),
+    fetchVinculos(supabaseUser.id),
+  ]);
 
   if (!perfil) {
-    console.warn('Perfil não encontrado para o usuário', supabaseUser.id);
-    const fallbackName = email.split('@')[0] || 'Usuário';
-    return {
-      id:           supabaseUser.id,
-      email,
-      name:         fallbackName,
-      role:         null,
-      empresa_id:   null,
-      empresas:     [],
-      isSuperadmin: false,
-      avatar:       fallbackName.slice(0, 2).toUpperCase(),
-    };
+    console.warn('Perfil não lido (RLS ou inexistente) para o usuário', supabaseUser.id);
   }
 
-  const vinculos = await fetchVinculos(supabaseUser.id);
+  // Dica local da última troca — só vale se ainda existe vínculo com ela.
+  const hint       = lsGet(LS_EMPRESA_HINT);
+  const hintValido = hint && vinculos.some((v) => v.empresaId === hint);
 
-  // Empresa ativa = perfis.empresa_ativa_id (com fallback para empresa_id, igual
-  // ao coalesce de empresa_do_usuario() no banco).
-  const empresaAtivaId = perfil.empresa_ativa_id ?? perfil.empresa_id ?? null;
-  const vinculoAtivo   = vinculos.find((v) => v.empresaId === empresaAtivaId);
+  // Assim que perfis volta a ser legível, a fonte de verdade é ela e a dica
+  // local perde a validade.
+  if (perfil?.empresa_ativa_id) lsDel(LS_EMPRESA_HINT);
+
+  // Empresa ativa: perfis.empresa_ativa_id é a fonte de verdade (com fallback
+  // para empresa_id, igual ao coalesce de empresa_do_usuario() no banco). Se o
+  // perfil não pôde ser lido, caímos na dica local gravada na troca.
+  let empresaAtivaId =
+    perfil?.empresa_ativa_id ??
+    perfil?.empresa_id ??
+    (hintValido ? hint : null);
+
+  // Nem perfil nem dica: só dá para inferir a empresa ativa com segurança se
+  // houver um único vínculo. Com vários, adivinhar poderia jogar a pessoa na
+  // empresa errada — melhor a tela de recuperação.
+  if (empresaAtivaId == null && vinculos.length === 1) {
+    empresaAtivaId = vinculos[0].empresaId;
+  }
+
+  const vinculoAtivo = vinculos.find((v) => v.empresaId === empresaAtivaId);
 
   // Papel: do vínculo da empresa ATIVA. Fallback para perfil.papel só para não
   // deixar o usuário sem permissões caso o vínculo ainda não exista.
-  const role = vinculoAtivo?.papel ?? perfil.papel ?? null;
+  const role = vinculoAtivo?.papel ?? perfil?.papel ?? null;
 
   // Superadmin é papel GLOBAL, não por empresa. Enquanto o superadmin está numa
   // empresa-cliente (onde o vínculo é 'admin'), role vira 'admin' — por isso a
   // flag olha perfis.papel e todos os vínculos, não só o da empresa ativa.
   const isSuperadmin =
-    perfil.papel === 'superadmin' || vinculos.some((v) => v.papel === 'superadmin');
+    perfil?.papel === 'superadmin' || vinculos.some((v) => v.papel === 'superadmin');
 
-  const name = perfil.nome || email.split('@')[0] || 'Usuário';
+  // Recuperação (em vez de app sem rotas) quando: (a) não deu para determinar a
+  // empresa ativa mas há vínculos, ou (b) há empresa ativa mas o papel nela não
+  // pôde ser resolvido.
+  const semPapelNaEmpresa =
+    (empresaAtivaId == null && vinculos.length > 0) ||
+    (empresaAtivaId != null && role == null);
+
+  const name = perfil?.nome || email.split('@')[0] || 'Usuário';
   return {
     id:           supabaseUser.id,
     email,
@@ -81,6 +123,7 @@ async function buildUser(supabaseUser) {
     empresa_id:   empresaAtivaId,
     empresas:     vinculos,
     isSuperadmin,
+    semPapelNaEmpresa,
     avatar:       name.slice(0, 2).toUpperCase(),
   };
 }
@@ -131,11 +174,16 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const isAuthenticated = user !== null;
-  const empresaId       = user?.empresa_id ?? null;
-  const empresas        = user?.empresas ?? [];
-  const isSuperadmin    = user?.isSuperadmin ?? false;
-  const empresaAtiva    = empresas.find((e) => e.empresaId === empresaId) ?? null;
+  const isAuthenticated    = user !== null;
+  const empresaId          = user?.empresa_id ?? null;
+  const empresas           = user?.empresas ?? [];
+  const isSuperadmin       = user?.isSuperadmin ?? false;
+  const empresaAtiva       = empresas.find((e) => e.empresaId === empresaId) ?? null;
+  const semPapelNaEmpresa  = user?.semPapelNaEmpresa ?? false;
+  // Empresa de onde a pessoa saiu na última troca — alvo do botão "voltar" da
+  // tela de recuperação. Vem do localStorage, então funciona mesmo sem sidebar.
+  const empresaAnteriorId  = lsGet(LS_EMPRESA_ANTERIOR);
+  const empresaAnterior    = empresas.find((e) => e.empresaId === empresaAnteriorId) ?? null;
 
   /* ── Auth actions ── */
   const login = useCallback(async (email, password) => {
@@ -169,13 +217,38 @@ export function AuthProvider({ children }) {
       console.error('Falha ao trocar de empresa', error);
       return { ok: false, error };
     }
+    // Registra a troca ANTES do reload que o chamador dispara: o buildUser
+    // pós-reload usa a dica para resolver o papel mesmo se perfis ficar
+    // invisível por RLS na empresa nova, e a "anterior" alimenta o botão voltar.
+    lsSet(LS_EMPRESA_HINT, novaEmpresaId);
+    if (empresaId) lsSet(LS_EMPRESA_ANTERIOR, empresaId);
     return { ok: true };
   }, [empresaId]);
+
+  // Volta para a empresa de onde a pessoa saiu na última troca. Não depende de
+  // nenhum componente que possa não renderizar (sidebar, seletor) — só do
+  // localStorage e da RPC validada. Recarrega a aplicação ao dar certo.
+  const voltarEmpresaAnterior = useCallback(async () => {
+    const anterior = lsGet(LS_EMPRESA_ANTERIOR);
+    if (!anterior) return { ok: false, semDestino: true };
+    const { error } = await supabase.rpc('trocar_empresa_ativa', { p_empresa_id: anterior });
+    if (error) {
+      console.error('Falha ao voltar para a empresa anterior', error);
+      return { ok: false, error };
+    }
+    lsSet(LS_EMPRESA_HINT, anterior);
+    lsDel(LS_EMPRESA_ANTERIOR);
+    window.location.assign('/');
+    return { ok: true };
+  }, []);
 
   /* ── Permission checks ── */
   const hasPermission = useCallback((module, action) => {
     if (!user) return false;
-    if (user.role === 'superadmin') return true;
+    // Superadmin é papel GLOBAL: nunca fica sem acesso, nem quando o papel na
+    // empresa ativa não pôde ser resolvido (role === null). Isso garante o
+    // caminho de volta por Configurações → Empresas.
+    if (user.role === 'superadmin' || user.isSuperadmin) return true;
     // 1. User-level override
     const uOverride = userOverrides[user.id]?.[module]?.[action];
     if (uOverride !== undefined) return uOverride;
@@ -260,7 +333,10 @@ export function AuthProvider({ children }) {
     empresas,
     empresaAtiva,
     isSuperadmin,
+    semPapelNaEmpresa,
+    empresaAnterior,
     trocarEmpresa,
+    voltarEmpresaAnterior,
     refreshUser,
     login,
     logout,
