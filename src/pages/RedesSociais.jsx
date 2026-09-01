@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { addDays, addMonths, addWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAuth } from '../store/auth.js';
 import { supabase } from '../services/supabase.js';
@@ -93,6 +94,21 @@ function midiasFromPost(post) {
 
 /* ─── Helpers & mappers ──────────────────────────────────────────────────────── */
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MONTH_SHORT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+// Rótulo do intervalo da semana: "31 ago – 6 set 2026". Só repete mês/ano
+// quando o intervalo atravessa a virada (de mês ou de ano).
+function weekRangeLabel(start, end) {
+  const sd = start.getDate();
+  const ed = end.getDate();
+  const sm = MONTH_SHORT[start.getMonth()];
+  const em = MONTH_SHORT[end.getMonth()];
+  const sy = start.getFullYear();
+  const ey = end.getFullYear();
+  if (sy !== ey) return `${sd} ${sm} ${sy} – ${ed} ${em} ${ey}`;
+  if (start.getMonth() !== end.getMonth()) return `${sd} ${sm} – ${ed} ${em} ${ey}`;
+  return `${sd} – ${ed} ${em} ${ey}`;
+}
 
 function todayISO() {
   const d = new Date();
@@ -1127,17 +1143,12 @@ function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onC
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
 const DOW_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-function WeekView({ posts, contas, filterRede, onPostClick }) {
-  const today = new Date();
-  const dow = today.getDay();
-  const mondayOffset = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + mondayOffset);
+function WeekView({ posts, contas, filterRede, onPostClick, viewDate }) {
+  const monday = startOfWeek(viewDate, { weekStartsOn: 1 });
   const todayStr = todayISO();
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+    const d = addDays(monday, i);
     const iso = dateToISO(d.getFullYear(), d.getMonth(), d.getDate());
     return { iso, label: `${DOW_SHORT[d.getDay()]} ${d.getDate()}`, isToday: iso === todayStr };
   });
@@ -1380,7 +1391,9 @@ export default function RedesSociais() {
   const [calPosts,     setCalPosts]     = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [midiaUrls,    setMidiaUrls]    = useState({});
-  const [viewDate,     setViewDate]     = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  // Data de referência do calendário. Guardada como um dia real (não o 1º do
+  // mês) para que trocar Mensal → Semanal preserve a semana em foco.
+  const [viewDate,     setViewDate]     = useState(() => new Date());
   const [calView,      setCalView]      = useState('mensal');
   const [postModal,    setPostModal]    = useState(null);
 
@@ -1478,8 +1491,10 @@ export default function RedesSociais() {
 
   function handlePostClick(post) { setPostModal({ mode: 'edit', post }); }
 
-  function prevMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
-  function nextMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); }
+  // As setas respeitam a visão ativa: 1 mês no Mensal, 1 semana no Semanal.
+  function shiftView(dir) {
+    setViewDate(d => (calView === 'semanal' ? addWeeks(d, dir) : addMonths(d, dir)));
+  }
 
   async function handleContaSave(form) {
     const row = contaToRow(form);
@@ -1535,6 +1550,8 @@ export default function RedesSociais() {
   const avgEngajamento   = engajamentoVals.length ? (engajamentoVals.reduce((s, v) => s + v, 0) / engajamentoVals.length).toFixed(1) : null;
   const postsThisMonth   = calPosts.filter(p => p.status === 'publicado').length;
   const curMonthLabel    = monthLabel(viewDate.getFullYear(), viewDate.getMonth());
+  const weekLabel        = weekRangeLabel(startOfWeek(viewDate, { weekStartsOn: 1 }), endOfWeek(viewDate, { weekStartsOn: 1 }));
+  const navLabel         = calView === 'semanal' ? weekLabel : curMonthLabel;
 
   const activeConta = contas.find((c) => c.id === activeContaId) || null;
 
@@ -1650,12 +1667,18 @@ export default function RedesSociais() {
       {/* Calendário tab */}
       {activeTab === 'calendario' && (
         <div>
-          {/* Calendar header row 1: month nav + new post + AI */}
+          {/* Calendar header row 1: navegação (mês/semana) + new post + AI */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button onClick={prevMonth} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>‹</button>
-              <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', minWidth: 140, textAlign: 'center' }}>{curMonthLabel}</div>
-              <button onClick={nextMonth} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>›</button>
+              {calView === 'lista' ? (
+                <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Todos os posts</div>
+              ) : (
+                <>
+                  <button onClick={() => shiftView(-1)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>‹</button>
+                  <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', minWidth: 180, textAlign: 'center' }}>{navLabel}</div>
+                  <button onClick={() => shiftView(1)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>›</button>
+                </>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <PermissionGate module="redes" action="edit">
@@ -1665,7 +1688,7 @@ export default function RedesSociais() {
                 </button>
               </PermissionGate>
               <PermissionGate module="redes" action="edit">
-                <button onClick={() => openAI(`Crie conteúdo para completar o calendário editorial de ${curMonthLabel}. Empresa B2B de serviços para PMEs. Sugira posts para os dias sem publicação agendada, misturando Instagram (carrossel, reels) e LinkedIn (artigo, post). Formato: dia, rede, tipo de conteúdo, título e 2 linhas de contexto.`)}
+                <button onClick={() => openAI(`Crie conteúdo para completar o calendário editorial de ${navLabel}. Empresa B2B de serviços para PMEs. Sugira posts para os dias sem publicação agendada, misturando Instagram (carrossel, reels) e LinkedIn (artigo, post). Formato: dia, rede, tipo de conteúdo, título e 2 linhas de contexto.`)}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                   <Bot size={12} /> Completar com IA
                 </button>
@@ -1716,8 +1739,8 @@ export default function RedesSociais() {
               )}
               {calView === 'semanal' && (
                 <>
-                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>Semana atual</div>
-                  <WeekView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} />
+                  <Legend />
+                  <WeekView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} />
                 </>
               )}
               {calView === 'lista' && (
