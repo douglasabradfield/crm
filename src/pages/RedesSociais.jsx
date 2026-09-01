@@ -127,6 +127,37 @@ function calcEngajamento(interacoes, alcance) {
   return Math.round((i / a) * 10000) / 100;
 }
 
+// '' / null → null; resto → Number. Para colunas numéricas nuláveis do banco
+// (nunca mandar '' para coluna integer/numeric).
+const numOrNull = (v) => (v === '' || v == null ? null : Number(v));
+
+// Tempo assistido: a entrada aceita segundos soltos ("125") ou "mm:ss"
+// ("2:05"); guardamos sempre segundos (inteiro). '' quando vazio/ inválido.
+function parseDuracao(v) {
+  if (v === '' || v == null) return '';
+  const s = String(v).trim();
+  if (s === '') return '';
+  if (s.includes(':')) {
+    const [m, sec = '0'] = s.split(':');
+    const mi = parseInt(m, 10);
+    const se = parseInt(sec, 10);
+    if (!Number.isFinite(mi) || !Number.isFinite(se)) return '';
+    return mi * 60 + se;
+  }
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : '';
+}
+
+// Segundos → "m:ss". "—" quando não houver dado (nunca "0:00" para vazio).
+function fmtDuracao(v) {
+  if (v === '' || v == null) return '—';
+  const total = Number(v);
+  if (!Number.isFinite(total)) return '—';
+  const m = Math.floor(Math.abs(total) / 60);
+  const s = Math.abs(total) % 60;
+  return `${total < 0 ? '-' : ''}${m}:${String(s).padStart(2, '0')}`;
+}
+
 function postFromRow(r) {
   const met = r.metricas ?? {};
   return {
@@ -139,12 +170,24 @@ function postFromRow(r) {
     conteudo: r.conteudo ?? '',
     imagemUrl: r.imagem_url ?? null,
     midias: Array.isArray(r.midias) ? r.midias : [],
-    metricas: { alcance: met.alcance ?? '', curtidas: met.curtidas ?? '', comentarios: met.comentarios ?? '' },
+    metricas: {
+      alcance: met.alcance ?? '',
+      curtidas: met.curtidas ?? '',
+      comentarios: met.comentarios ?? '',
+      // Métricas ampliadas: colunas próprias de redes_posts (nuláveis).
+      visualizacoes: r.visualizacoes ?? '',
+      visualizadores: r.visualizadores ?? '',
+      visitasPerfil: r.visitas_perfil ?? '',
+      seguidoresGanhos: r.seguidores_ganhos ?? '',
+      pctNaoSeguidores: r.pct_nao_seguidores ?? '',
+      tempoMedioAssistido: r.tempo_medio_assistido ?? '',
+    },
     horario: r.hora ?? met.horario ?? '12:00',
   };
 }
 
 function postToRow(p) {
+  const m = p.metricas ?? {};
   return {
     data: p.data,
     redes: p.redes ?? [],
@@ -156,10 +199,17 @@ function postToRow(p) {
     midias: Array.isArray(p.midias) ? p.midias : [],
     hora: p.horario ?? '12:00',
     metricas: {
-      alcance: p.metricas?.alcance ?? '',
-      curtidas: p.metricas?.curtidas ?? '',
-      comentarios: p.metricas?.comentarios ?? '',
+      alcance: m.alcance ?? '',
+      curtidas: m.curtidas ?? '',
+      comentarios: m.comentarios ?? '',
     },
+    // Métricas ampliadas → colunas próprias, nuláveis.
+    visualizacoes: numOrNull(m.visualizacoes),
+    visualizadores: numOrNull(m.visualizadores),
+    visitas_perfil: numOrNull(m.visitasPerfil),
+    seguidores_ganhos: numOrNull(m.seguidoresGanhos),
+    pct_nao_seguidores: numOrNull(m.pctNaoSeguidores),
+    tempo_medio_assistido: numOrNull(m.tempoMedioAssistido),
   };
 }
 
@@ -731,6 +781,118 @@ function PostMediaField({ formato, midias, setMidias, canEdit, empresaId, regist
   );
 }
 
+/* ─── Métricas por post ──────────────────────────────────────────────────────── */
+// São muitos campos — agrupados por leitura: alcance/visualizações,
+// interações e conversão. Todos opcionais. O campo "tempo médio assistido"
+// só entra quando o formato é de vídeo (Reels/Vídeo/Shorts).
+const METRIC_GROUPS = [
+  {
+    titulo: 'Alcance e visualizações',
+    campos: [
+      { k: 'alcance',          lbl: 'Alcance',         Icon: Eye },
+      { k: 'visualizacoes',    lbl: 'Visualizações',   Icon: BarChart2 },
+      { k: 'visualizadores',   lbl: 'Visualizadores',  Icon: Users },
+      { k: 'pctNaoSeguidores', lbl: '% não seguidores', Icon: Globe, tipo: 'pct' },
+    ],
+  },
+  {
+    titulo: 'Interações',
+    campos: [
+      { k: 'curtidas',    lbl: 'Curtidas',    Icon: Heart },
+      { k: 'comentarios', lbl: 'Comentários', Icon: MessageCircle },
+    ],
+  },
+  {
+    titulo: 'Conversão',
+    campos: [
+      { k: 'visitasPerfil',    lbl: 'Visitas ao perfil', Icon: AtSign },
+      { k: 'seguidoresGanhos', lbl: 'Seguidores',        Icon: TrendingUp },
+    ],
+  },
+];
+
+const metricValueStyle = { fontSize: 14, fontWeight: 500, color: 'var(--text)', fontFamily: 'var(--font-display)' };
+const metricCardStyle  = { background: 'var(--bg3)', borderRadius: 8, padding: 10 };
+const metricLabelStyle = { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text3)', marginBottom: 6 };
+
+// "Tempo médio assistido": aceita "mm:ss" ou segundos ao digitar, normaliza no
+// blur, exibe sempre como m:ss. Só leitura quando o usuário não pode editar.
+function DuracaoField({ value, onChange, canEdit, inp }) {
+  const canonical = value === '' || value == null ? '' : fmtDuracao(value);
+  // Espelho local só enquanto o usuário digita; ao mudar o valor de fora
+  // (ex.: normalização no blur → segundos), reencaixa no formato m:ss.
+  const [text, setText] = useState(canonical);
+  const [seen, setSeen] = useState(canonical);
+  if (seen !== canonical) { setSeen(canonical); setText(canonical); }
+  if (!canEdit) return <div style={metricValueStyle}>{fmtDuracao(value)}</div>;
+  return (
+    <input
+      type="text"
+      style={{ ...inp, padding: '5px 8px' }}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => onChange(parseDuracao(text))}
+      placeholder="mm:ss"
+    />
+  );
+}
+
+function PostMetricas({ formato, metricas, setMet, canEdit, inp }) {
+  const isVideo = formatoAceitaVideo(formato);
+
+  const renderCampo = ({ k, lbl, Icon, tipo }) => {
+    const raw = metricas[k] ?? '';
+    const display = tipo === 'pct'
+      ? (raw === '' ? '—' : `${raw}%`)
+      : fmtNum(raw);
+    return (
+      <div key={k} style={metricCardStyle}>
+        <div style={metricLabelStyle}><Icon size={11} /> {lbl}</div>
+        {canEdit ? (
+          <input
+            type="number"
+            min="0"
+            {...(tipo === 'pct' ? { max: '100', step: '0.1' } : {})}
+            style={{ ...inp, padding: '5px 8px' }}
+            value={raw}
+            onChange={(e) => setMet(k, e.target.value)}
+            placeholder={tipo === 'pct' ? '%' : '0'}
+          />
+        ) : (
+          <div style={metricValueStyle}>{display}</div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>MÉTRICAS</label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {METRIC_GROUPS.map((g) => (
+          <div key={g.titulo}>
+            <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{g.titulo}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
+              {g.campos.map(renderCampo)}
+              {g.titulo === 'Alcance e visualizações' && isVideo && (
+                <div style={metricCardStyle}>
+                  <div style={metricLabelStyle}><Play size={11} /> Tempo médio assistido</div>
+                  <DuracaoField
+                    value={metricas.tempoMedioAssistido}
+                    onChange={(v) => setMet('tempoMedioAssistido', v)}
+                    canEdit={canEdit}
+                    inp={inp}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Post Modal ─────────────────────────────────────────────────────────────── */
 function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onClose, openAI }) {
   const { hasPermission } = useAuth();
@@ -740,7 +902,12 @@ function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onC
     titulo: '', conteudo: '',
     data: todayISO(),
     horario: '12:00', formato: 'Feed', status: 'ideia',
-    imagemUrl: null, metricas: { alcance: '', curtidas: '', comentarios: '' },
+    imagemUrl: null,
+    metricas: {
+      alcance: '', curtidas: '', comentarios: '',
+      visualizacoes: '', visualizadores: '', visitasPerfil: '',
+      seguidoresGanhos: '', pctNaoSeguidores: '', tempoMedioAssistido: '',
+    },
     ...post,
     redes: post?.redes?.length ? post.redes : (contas[0] ? [contas[0].id] : []),
   }));
@@ -916,17 +1083,7 @@ function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onC
             isSessionUpload={isSessionUpload}
           />
           {form.status === 'publicado' && (
-            <div>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>MÉTRICAS</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-                {[['alcance', 'Alcance', Eye], ['curtidas', 'Curtidas', Heart], ['comentarios', 'Comentários', MessageCircle]].map(([k, lbl, Icon]) => (
-                  <div key={k} style={{ background: 'var(--bg3)', borderRadius: 8, padding: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}><Icon size={11} /> {lbl}</div>
-                    <input type="number" style={{ ...inp, padding: '5px 8px' }} value={form.metricas[k]} onChange={e => setMet(k, e.target.value)} placeholder="0" />
-                  </div>
-                ))}
-              </div>
-            </div>
+            <PostMetricas formato={form.formato} metricas={form.metricas} setMet={setMet} canEdit={canEdit} inp={inp} />
           )}
         </div>
 
