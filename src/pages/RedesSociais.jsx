@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { addDays, addMonths, addWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -10,6 +10,7 @@ import {
   Users, Heart, MessageCircle, Eye, Share2, Plus, Bot,
   X, BarChart2, Zap, Calendar, Globe, Music, Link2, Trash2,
   ImageIcon, Film, ChevronLeft, ChevronRight, GripVertical, Upload, AlertTriangle,
+  Award, Trophy,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
 import PermissionGate from '../components/Auth/PermissionGate.jsx';
@@ -909,6 +910,265 @@ function PostMetricas({ formato, metricas, setMet, canEdit, inp }) {
   );
 }
 
+/* ─── Desempenho (ranking de posts por performance) ──────────────────────────── */
+// Métricas pelas quais o ranking pode ordenar. `key` aponta direto para
+// post.metricas; "engajamento" é derivado; "tempo médio assistido" só entra
+// quando há post de vídeo no recorte.
+const DESEMPENHO_METRICAS = [
+  { id: 'engajamento',         label: 'Engajamento',           derivada: true },
+  { id: 'alcance',             label: 'Alcance',               key: 'alcance' },
+  { id: 'visualizacoes',       label: 'Visualizações',         key: 'visualizacoes' },
+  { id: 'curtidas',            label: 'Curtidas',              key: 'curtidas' },
+  { id: 'comentarios',         label: 'Comentários',           key: 'comentarios' },
+  { id: 'visitasPerfil',       label: 'Visitas ao perfil',     key: 'visitasPerfil' },
+  { id: 'seguidoresGanhos',    label: 'Seguidores ganhos',     key: 'seguidoresGanhos' },
+  { id: 'tempoMedioAssistido', label: 'Tempo médio assistido', key: 'tempoMedioAssistido', video: true },
+];
+
+const DESEMPENHO_PERIODOS = [
+  { id: 'mes',       label: 'Mês' },
+  { id: 'trimestre', label: 'Trimestre' },
+  { id: 'ano',       label: 'Ano' },
+  { id: 'tudo',      label: 'Todo o período' },
+];
+
+// Mesma lógica de recorte temporal do Painel/KPIs, para ficar consistente.
+function desempenhoInicioPeriodo(periodo) {
+  const now = new Date();
+  switch (periodo) {
+    case 'mes':       return new Date(now.getFullYear(), now.getMonth(), 1);
+    case 'trimestre': return new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    case 'ano':       return new Date(now.getFullYear(), 0, 1);
+    default:          return new Date(0);
+  }
+}
+
+// Interações do post = curtidas + comentários (o que existe por post). null
+// quando nenhum dos dois foi preenchido — não se fabrica engajamento do nada.
+function interacoesDoPost(m) {
+  const c = m?.curtidas, co = m?.comentarios;
+  if ((c === '' || c == null) && (co === '' || co == null)) return null;
+  return Number(c || 0) + Number(co || 0);
+}
+
+// Valor da métrica para um post. null = post não tem esse dado (vai para o fim
+// da lista, sob "Sem dados", nunca tratado como zero).
+function valorMetricaPost(post, metricaId) {
+  const m = post.metricas ?? {};
+  if (metricaId === 'engajamento') return calcEngajamento(interacoesDoPost(m), m.alcance);
+  const raw = m[metricaId];
+  return raw === '' || raw == null ? null : Number(raw);
+}
+
+function fmtValorMetrica(metricaId, v) {
+  if (v == null || !Number.isFinite(Number(v))) return '—';
+  if (metricaId === 'engajamento')         return `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
+  if (metricaId === 'tempoMedioAssistido') return fmtDuracao(Math.round(v));
+  return fmtNum(v);
+}
+
+function DesempenhoResumoCard({ label, value, sub, Icon }) {
+  return (
+    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+        {Icon && <Icon size={12} />} {label}
+      </div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-display)', lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{sub}</div>}
+    </div>
+  );
+}
+
+function DesempenhoRow({ post, metricaId, metricaLabel, valor, semDado, rank, contas, midiaUrls, onPostClick }) {
+  const redes = (post.redes || []).map((id) => contas.find((c) => c.id === id)).filter(Boolean);
+  const primeira   = (post.midias && post.midias[0]) || null;
+  const thumbUrl   = primeira ? midiaUrls[primeira.path] : post.imagemUrl;
+  const thumbVideo = primeira?.tipo === 'video';
+  const dataFmt    = post.data ? post.data.split('-').reverse().join('/') : '—';
+
+  // Demais métricas com valor preenchido, em menor evidência.
+  const outras = DESEMPENHO_METRICAS
+    .filter((m) => m.id !== metricaId)
+    .map((m) => ({ id: m.id, label: m.label, v: valorMetricaPost(post, m.id) }))
+    .filter((x) => x.v != null)
+    .slice(0, 4);
+
+  return (
+    <div onClick={() => onPostClick(post)}
+      style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', transition: 'border-color .15s' }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border2)')}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
+      {rank != null && (
+        <div style={{ width: 20, textAlign: 'center', flexShrink: 0, fontSize: 13, fontWeight: 600, color: rank <= 3 ? 'var(--accent2)' : 'var(--text3)', fontFamily: 'var(--font-display)' }}>{rank}</div>
+      )}
+      {thumbUrl ? (
+        thumbVideo
+          ? <div style={{ width: 44, height: 44, borderRadius: 8, flexShrink: 0, background: 'var(--bg4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}><Film size={15} /></div>
+          : <img src={thumbUrl} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+      ) : (
+        <div style={{ width: 44, height: 44, borderRadius: 8, flexShrink: 0, background: 'var(--bg4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}><ImageIcon size={15} /></div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div title={post.titulo} style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{post.titulo || '(sem título)'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {redes.map((c) => {
+            const cfg = platformCfg(c.plataforma);
+            return (
+              <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: `var(${cfg.color})` }}>
+                <cfg.Icon size={10} /> {c.nome || cfg.label}
+              </span>
+            );
+          })}
+          {post.formato && <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {post.formato}</span>}
+          <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {dataFmt}</span>
+        </div>
+        {outras.length > 0 && (
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 5 }}>
+            {outras.map((o) => (
+              <span key={o.id} style={{ fontSize: 10, color: 'var(--text3)' }}>
+                {o.label} <strong style={{ color: 'var(--text2)', fontWeight: 500 }}>{fmtValorMetrica(o.id, o.v)}</strong>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 64 }}>
+        <div style={{ fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', lineHeight: 1.1, color: semDado ? 'var(--text3)' : 'var(--text)' }}>
+          {semDado ? '—' : fmtValorMetrica(metricaId, valor)}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{metricaLabel}</div>
+      </div>
+    </div>
+  );
+}
+
+function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
+  const [metricaSel, setMetricaSel] = useState('engajamento');
+  const [periodo,    setPeriodo]    = useState('trimestre');
+  const [filterRede, setFilterRede] = useState('todas');
+
+  const inp = { background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer' };
+
+  // Recorte: só posts publicados, dentro do período e da rede filtrada.
+  const recorte = useMemo(() => {
+    const inicio = desempenhoInicioPeriodo(periodo).getTime();
+    return posts.filter((p) => {
+      if (p.status !== 'publicado') return false;
+      if (p.data) {
+        const t = new Date(p.data + 'T00:00:00').getTime();
+        if (Number.isFinite(t) && t < inicio) return false;
+      }
+      if (filterRede !== 'todas' && !(p.redes || []).includes(filterRede)) return false;
+      return true;
+    });
+  }, [posts, periodo, filterRede]);
+
+  const temVideo     = recorte.some((p) => VIDEO_FORMATOS.includes(p.formato));
+  const metricasDisp = DESEMPENHO_METRICAS.filter((m) => !m.video || temVideo);
+  const metricaId    = metricasDisp.some((m) => m.id === metricaSel) ? metricaSel : 'engajamento';
+  const metricaLabel = DESEMPENHO_METRICAS.find((m) => m.id === metricaId)?.label ?? '';
+
+  // Com dado → ordenado do melhor para o pior. Sem dado → fim da lista.
+  const { comDado, semDado } = useMemo(() => {
+    const cd = [], sd = [];
+    recorte.forEach((p) => {
+      const v = valorMetricaPost(p, metricaId);
+      if (v == null || !Number.isFinite(v)) sd.push(p);
+      else cd.push({ post: p, valor: v });
+    });
+    cd.sort((a, b) => b.valor - a.valor);
+    return { comDado: cd, semDado: sd };
+  }, [recorte, metricaId]);
+
+  const media  = comDado.length ? comDado.reduce((s, x) => s + x.valor, 0) / comDado.length : null;
+  const melhor = comDado[0] || null;
+
+  const redeOpts = [
+    { id: 'todas', label: 'Todas', Icon: null, color: null },
+    ...contas.map((c) => { const cfg = platformCfg(c.plataforma); return { id: c.id, label: c.nome || cfg.label, Icon: cfg.Icon, color: cfg.color }; }),
+  ];
+
+  return (
+    <div>
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }}>
+        <div>
+          <span style={{ fontSize: 11, color: 'var(--text3)', marginRight: 6 }}>Ordenar por</span>
+          <select value={metricaId} onChange={(e) => setMetricaSel(e.target.value)} style={inp}>
+            {metricasDisp.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, padding: 3, gap: 2 }}>
+          {DESEMPENHO_PERIODOS.map((p) => (
+            <button key={p.id} onClick={() => setPeriodo(p.id)}
+              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all .12s', background: periodo === p.id ? 'var(--bg2)' : 'transparent', color: periodo === p.id ? 'var(--text)' : 'var(--text3)', boxShadow: periodo === p.id ? '0 1px 3px rgba(0,0,0,0.2)' : 'none' }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          {redeOpts.map((opt) => (
+            <button key={opt.id} onClick={() => setFilterRede(opt.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, fontSize: 11, border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s', background: filterRede === opt.id ? 'var(--accent)' : 'transparent', borderColor: filterRede === opt.id ? 'var(--accent)' : 'var(--border)', color: filterRede === opt.id ? '#fff' : 'var(--text3)' }}>
+              {opt.Icon && <opt.Icon size={10} />}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Resumo */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 20 }}>
+        <DesempenhoResumoCard
+          Icon={Trophy}
+          label="Melhor post do período"
+          value={melhor ? fmtValorMetrica(metricaId, melhor.valor) : '—'}
+          sub={melhor ? (melhor.post.titulo || '(sem título)') : 'Nenhum post com esta métrica'}
+        />
+        <DesempenhoResumoCard
+          Icon={TrendingUp}
+          label={`Média — ${metricaLabel}`}
+          value={media == null ? '—' : fmtValorMetrica(metricaId, media)}
+          sub={comDado.length ? `sobre ${comDado.length} post${comDado.length > 1 ? 's' : ''} com dado` : null}
+        />
+        <DesempenhoResumoCard
+          Icon={BarChart2}
+          label="Posts considerados"
+          value={comDado.length}
+          sub={`de ${recorte.length} publicado${recorte.length !== 1 ? 's' : ''} no período`}
+        />
+      </div>
+
+      {/* Lista */}
+      {recorte.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg2)', border: '1px dashed var(--border2)', borderRadius: 14 }}>
+          <Award size={24} style={{ color: 'var(--text3)', marginBottom: 10 }} />
+          <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 4 }}>Nenhum post publicado neste recorte</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Publique posts e registre as métricas no calendário para ver o ranking.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {comDado.map((x, i) => (
+            <DesempenhoRow key={x.post.id} post={x.post} metricaId={metricaId} metricaLabel={metricaLabel}
+              valor={x.valor} rank={i + 1} contas={contas} midiaUrls={midiaUrls} onPostClick={onPostClick} />
+          ))}
+          {semDado.length > 0 && (
+            <>
+              <div style={{ fontSize: 11, color: 'var(--text3)', margin: '10px 2px 2px', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                Sem dados para esta métrica ({semDado.length})
+              </div>
+              {semDado.map((p) => (
+                <DesempenhoRow key={p.id} post={p} metricaId={metricaId} metricaLabel={metricaLabel}
+                  valor={null} semDado contas={contas} midiaUrls={midiaUrls} onPostClick={onPostClick} />
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Post Modal ─────────────────────────────────────────────────────────────── */
 function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onClose, openAI }) {
   const { hasPermission } = useAuth();
@@ -1528,6 +1788,7 @@ export default function RedesSociais() {
   const TABS = [
     { id: 'metricas',   label: 'Métricas',            icon: BarChart2  },
     { id: 'calendario', label: 'Calendário Editorial', icon: Calendar   },
+    { id: 'desempenho', label: 'Desempenho',           icon: TrendingUp },
     { id: 'conexoes',   label: 'Conexões',             icon: Link2      },
   ];
 
@@ -1749,6 +2010,13 @@ export default function RedesSociais() {
             </>
           )}
         </div>
+      )}
+
+      {/* Desempenho tab */}
+      {activeTab === 'desempenho' && (
+        loadingPosts
+          ? <SkeletonLoader rows={6} />
+          : <DesempenhoRanking posts={calPosts} contas={contas} midiaUrls={midiaUrls} onPostClick={handlePostClick} />
       )}
 
       {/* Conexões tab */}
