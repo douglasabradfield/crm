@@ -44,13 +44,14 @@ async function buildUser(supabaseUser) {
     console.warn('Perfil não encontrado para o usuário', supabaseUser.id);
     const fallbackName = email.split('@')[0] || 'Usuário';
     return {
-      id:         supabaseUser.id,
+      id:           supabaseUser.id,
       email,
-      name:       fallbackName,
-      role:       null,
-      empresa_id: null,
-      empresas:   [],
-      avatar:     fallbackName.slice(0, 2).toUpperCase(),
+      name:         fallbackName,
+      role:         null,
+      empresa_id:   null,
+      empresas:     [],
+      isSuperadmin: false,
+      avatar:       fallbackName.slice(0, 2).toUpperCase(),
     };
   }
 
@@ -65,15 +66,22 @@ async function buildUser(supabaseUser) {
   // deixar o usuário sem permissões caso o vínculo ainda não exista.
   const role = vinculoAtivo?.papel ?? perfil.papel ?? null;
 
+  // Superadmin é papel GLOBAL, não por empresa. Enquanto o superadmin está numa
+  // empresa-cliente (onde o vínculo é 'admin'), role vira 'admin' — por isso a
+  // flag olha perfis.papel e todos os vínculos, não só o da empresa ativa.
+  const isSuperadmin =
+    perfil.papel === 'superadmin' || vinculos.some((v) => v.papel === 'superadmin');
+
   const name = perfil.nome || email.split('@')[0] || 'Usuário';
   return {
-    id:         supabaseUser.id,
+    id:           supabaseUser.id,
     email,
     name,
     role,
-    empresa_id: empresaAtivaId,
-    empresas:   vinculos,
-    avatar:     name.slice(0, 2).toUpperCase(),
+    empresa_id:   empresaAtivaId,
+    empresas:     vinculos,
+    isSuperadmin,
+    avatar:       name.slice(0, 2).toUpperCase(),
   };
 }
 
@@ -126,6 +134,7 @@ export function AuthProvider({ children }) {
   const isAuthenticated = user !== null;
   const empresaId       = user?.empresa_id ?? null;
   const empresas        = user?.empresas ?? [];
+  const isSuperadmin    = user?.isSuperadmin ?? false;
   const empresaAtiva    = empresas.find((e) => e.empresaId === empresaId) ?? null;
 
   /* ── Auth actions ── */
@@ -136,6 +145,18 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
+  }, []);
+
+  // Recarrega o usuário (perfil + vínculos) a partir da sessão atual, SEM
+  // reload da página. Usar quando os vínculos mudam mas a empresa ativa não —
+  // ex.: superadmin acabou de criar uma empresa-cliente e o seletor do Topbar
+  // precisa passar a aparecer.
+  const refreshUser = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const u = await buildUser(session.user);
+      setUser(u);
+    }
   }, []);
 
   // Troca a empresa ativa. trocar_empresa_ativa é SECURITY DEFINER e valida o
@@ -238,7 +259,9 @@ export function AuthProvider({ children }) {
     empresaId,
     empresas,
     empresaAtiva,
+    isSuperadmin,
     trocarEmpresa,
+    refreshUser,
     login,
     logout,
     hasPermission,

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RotateCcw, ChevronRight, Check, X as XIcon, Building2, User, Bell, Lock, Eye, EyeOff, Sun, Moon, Monitor, CreditCard, Download, Zap, AlertTriangle, Bot, UserPlus, Link2, Copy, Trash2 } from 'lucide-react';
+import { RotateCcw, ChevronRight, Check, X as XIcon, Building2, User, Bell, Lock, Eye, EyeOff, Sun, Moon, Monitor, CreditCard, Download, Zap, AlertTriangle, Bot, UserPlus, Link2, Copy, Trash2, Plus, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../store/auth.js';
 import { supabase } from '../services/supabase.js';
@@ -2651,14 +2651,221 @@ function ApiTab() {
   );
 }
 
+/* ─── NovaEmpresaModal ───────────────────────────────────────────────────────── */
+function NovaEmpresaModal({ onClose }) {
+  const { trocarEmpresa, refreshUser } = useAuth();
+  const [nome,     setNome]     = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [erro,     setErro]     = useState('');
+  const [criada,   setCriada]   = useState(null);   // { id, nome, papel }
+  const [trocando, setTrocando] = useState(false);
+
+  async function handleCriar() {
+    const nomeLimpo = nome.trim();
+    if (nomeLimpo.length < 2) { setErro('Informe um nome com pelo menos 2 caracteres.'); return; }
+    setLoading(true);
+    setErro('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setErro('Sua sessão expirou. Faça login novamente.'); setLoading(false); return; }
+
+      const res  = await fetch('/api/criar-empresa', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ nome: nomeLimpo }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setErro(data.error || 'Não foi possível criar a empresa. Tente novamente.');
+        setLoading(false);
+        return;
+      }
+
+      // Recarrega os vínculos: o seletor de empresa no Topbar passa a aparecer.
+      await refreshUser();
+      setCriada(data.empresa);
+    } catch {
+      setErro('Não foi possível conectar. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleTrocar() {
+    if (!criada) return;
+    setTrocando(true);
+    setErro('');
+    const { ok } = await trocarEmpresa(criada.id);
+    if (!ok) {
+      setTrocando(false);
+      setErro('A empresa foi criada, mas não foi possível trocar para ela agora. Use o seletor no topo.');
+      return;
+    }
+    // Mesmo fluxo do EmpresaSwitcher: reload real para zerar todos os stores.
+    window.location.assign('/');
+  }
+
+  const inp = { width: '100%', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' };
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 420, maxWidth: '100%', padding: 28, maxHeight: '90vh', overflowY: 'auto' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <Building2 size={16} style={{ color: 'var(--accent2)' }} />
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>
+              {criada ? 'Empresa criada' : 'Nova empresa'}
+            </span>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+            <XIcon size={16} />
+          </button>
+        </div>
+
+        {!criada ? (
+          <>
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>NOME DA EMPRESA</label>
+              <input
+                autoFocus
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !loading) handleCriar(); }}
+                placeholder="Ex.: Cliente Acme Ltda."
+                style={inp}
+              />
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8, lineHeight: 1.5 }}>
+                Você entra nessa empresa como <strong style={{ color: 'var(--text2)' }}>administrador</strong>.
+                Sua empresa atual não muda — a troca é uma escolha sua depois de criar.
+              </p>
+            </div>
+
+            {erro && <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 14 }}>{erro}</p>}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                Cancelar
+              </button>
+              <button onClick={handleCriar} disabled={loading}
+                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: loading ? 'default' : 'pointer', fontFamily: 'var(--font-body)', background: loading ? 'var(--bg3)' : 'var(--accent)', border: 'none', color: loading ? 'var(--text3)' : '#fff' }}>
+                {loading ? 'Criando…' : 'Criar empresa'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 22 }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(45,212,160,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <Check size={22} style={{ color: 'var(--green)' }} />
+              </div>
+              <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 4 }}>
+                {criada.nome} está pronta.
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--text3)' }}>
+                Deseja trocar para ela agora?
+              </p>
+            </div>
+
+            {erro && <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 14, textAlign: 'center' }}>{erro}</p>}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <button onClick={onClose} disabled={trocando}
+                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, cursor: trocando ? 'default' : 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                Continuar aqui
+              </button>
+              <button onClick={handleTrocar} disabled={trocando}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: trocando ? 'default' : 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+                {trocando && <Loader2 size={13} style={{ animation: 'spin 0.9s linear infinite' }} />}
+                {trocando ? 'Trocando…' : 'Trocar agora'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ─── Empresas Tab (só superadmin) ───────────────────────────────────────────── */
+function EmpresasTab() {
+  const { empresas, empresaId } = useAuth();
+  const [showNova, setShowNova] = useState(false);
+
+  const lista = [...(empresas ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+  return (
+    <div>
+      {showNova && <NovaEmpresaModal onClose={() => setShowNova(false)} />}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div>
+          <p style={{ fontSize: 13, color: 'var(--text2)' }}>
+            {lista.length} empresa{lista.length !== 1 ? 's' : ''} vinculada{lista.length !== 1 ? 's' : ''} ao seu acesso
+          </p>
+          <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+            Crie uma empresa para cada cliente que você atende e lance as métricas dele ali.
+          </p>
+        </div>
+        <button onClick={() => setShowNova(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+          <Plus size={13} /> Nova empresa
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {lista.map((e) => {
+          const ativa = e.empresaId === empresaId;
+          return (
+            <div key={e.empresaId} style={{
+              background: 'var(--bg3)',
+              border: `1px solid ${ativa ? 'var(--accent)' : 'var(--border)'}`,
+              borderRadius: 10, padding: '12px 14px',
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Building2 size={15} style={{ color: ativa ? 'var(--accent2)' : 'var(--text3)' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {e.nome}
+                </p>
+                <p style={{ fontSize: 11, color: 'var(--text3)' }}>{ROLES[e.papel] ?? e.papel}</p>
+              </div>
+              {ativa && (
+                <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 9px', borderRadius: 20, background: 'rgba(91,110,245,0.12)', color: 'var(--accent2)', flexShrink: 0 }}>
+                  Empresa ativa
+                </span>
+              )}
+            </div>
+          );
+        })}
+        {lista.length === 0 && (
+          <p style={{ fontSize: 13, color: 'var(--text3)', padding: '16px 0' }}>Nenhuma empresa vinculada.</p>
+        )}
+      </div>
+
+      <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 16, lineHeight: 1.6 }}>
+        Para trocar de empresa, use o seletor no topo da tela. Ele aparece quando você
+        tem duas ou mais empresas vinculadas.
+      </p>
+    </div>
+  );
+}
+
 /* ─── Page ───────────────────────────────────────────────────────────────────── */
 export default function Configuracoes() {
+  const { isSuperadmin } = useAuth();
   const [tab, setTab] = useState('roles');
 
   const tabs = [
     { id: 'roles',   label: 'Permissões por Perfil' },
     { id: 'users',   label: 'Usuários'              },
     { id: 'empresa', label: 'Empresa'               },
+    ...(isSuperadmin ? [{ id: 'empresas', label: 'Empresas' }] : []),
     { id: 'conta',   label: 'Minha Conta'           },
     { id: 'plano',       label: 'Plano & Financeiro' },
     { id: 'ia',          label: 'Uso de IA'          },
@@ -2698,7 +2905,8 @@ export default function Configuracoes() {
       }}>
         {tab === 'roles'   && <RoleTab />}
         {tab === 'users'   && <UsersTab />}
-        {tab === 'empresa' && <EmpresaTab />}
+        {tab === 'empresa'  && <EmpresaTab />}
+        {tab === 'empresas' && isSuperadmin && <EmpresasTab />}
         {tab === 'conta'   && <MinhaContaTab />}
         {tab === 'plano'       && <PlanoTab />}
         {tab === 'ia'          && <UsoIATab />}
