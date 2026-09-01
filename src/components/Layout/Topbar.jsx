@@ -2,6 +2,7 @@ import { MessageSquare, Plus, Sun, Moon, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../store/index.js';
 import { useNotifications } from '../../hooks/useNotifications.js';
+import EmpresaSwitcher from './EmpresaSwitcher.jsx';
 
 export default function Topbar({ title, subtitle, onOpenAI }) {
   const { theme, toggleTheme } = useTheme();
@@ -37,6 +38,8 @@ export default function Topbar({ title, subtitle, onOpenAI }) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <EmpresaSwitcher />
+
         {count > 0 && (
           <div style={{ position: 'relative', display: 'flex' }}>
             <button

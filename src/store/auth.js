@@ -11,11 +11,28 @@ const AuthContext = createContext(null);
 async function fetchPerfil(userId) {
   const { data, error } = await supabase
     .from('perfis')
-    .select('empresa_id, nome, email, papel')
+    .select('empresa_id, empresa_ativa_id, nome, email, papel')
     .eq('id', userId)
     .single();
   if (error || !data) return null;
   return data;
+}
+
+// Empresas em que o perfil tem vínculo (multi-empresa). O papel agora é POR
+// empresa — vem de perfis_empresas, não mais de perfis.papel.
+async function fetchVinculos(userId) {
+  const { data, error } = await supabase
+    .from('perfis_empresas')
+    .select('empresa_id, papel, empresas(id, nome)')
+    .eq('perfil_id', userId);
+  if (error || !data) return [];
+  return data
+    .map((v) => ({
+      empresaId: v.empresa_id,
+      papel:     v.papel,
+      nome:      v.empresas?.nome || 'Empresa',
+    }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
 async function buildUser(supabaseUser) {
@@ -32,17 +49,30 @@ async function buildUser(supabaseUser) {
       name:       fallbackName,
       role:       null,
       empresa_id: null,
+      empresas:   [],
       avatar:     fallbackName.slice(0, 2).toUpperCase(),
     };
   }
+
+  const vinculos = await fetchVinculos(supabaseUser.id);
+
+  // Empresa ativa = perfis.empresa_ativa_id (com fallback para empresa_id, igual
+  // ao coalesce de empresa_do_usuario() no banco).
+  const empresaAtivaId = perfil.empresa_ativa_id ?? perfil.empresa_id ?? null;
+  const vinculoAtivo   = vinculos.find((v) => v.empresaId === empresaAtivaId);
+
+  // Papel: do vínculo da empresa ATIVA. Fallback para perfil.papel só para não
+  // deixar o usuário sem permissões caso o vínculo ainda não exista.
+  const role = vinculoAtivo?.papel ?? perfil.papel ?? null;
 
   const name = perfil.nome || email.split('@')[0] || 'Usuário';
   return {
     id:         supabaseUser.id,
     email,
     name,
-    role:       perfil.papel,
-    empresa_id: perfil.empresa_id,
+    role,
+    empresa_id: empresaAtivaId,
+    empresas:   vinculos,
     avatar:     name.slice(0, 2).toUpperCase(),
   };
 }
@@ -95,6 +125,8 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = user !== null;
   const empresaId       = user?.empresa_id ?? null;
+  const empresas        = user?.empresas ?? [];
+  const empresaAtiva    = empresas.find((e) => e.empresaId === empresaId) ?? null;
 
   /* ── Auth actions ── */
   const login = useCallback(async (email, password) => {
@@ -105,6 +137,19 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
+
+  // Troca a empresa ativa. trocar_empresa_ativa é SECURITY DEFINER e valida o
+  // vínculo no banco — é o ÚNICO caminho válido (UPDATE direto é bloqueado por
+  // trigger). Devolve { ok } — quem chama decide como recarregar a aplicação.
+  const trocarEmpresa = useCallback(async (novaEmpresaId) => {
+    if (!novaEmpresaId || novaEmpresaId === empresaId) return { ok: true };
+    const { error } = await supabase.rpc('trocar_empresa_ativa', { p_empresa_id: novaEmpresaId });
+    if (error) {
+      console.error('Falha ao trocar de empresa', error);
+      return { ok: false, error };
+    }
+    return { ok: true };
+  }, [empresaId]);
 
   /* ── Permission checks ── */
   const hasPermission = useCallback((module, action) => {
@@ -191,6 +236,9 @@ export function AuthProvider({ children }) {
     isAuthenticated,
     loading,
     empresaId,
+    empresas,
+    empresaAtiva,
+    trocarEmpresa,
     login,
     logout,
     hasPermission,
