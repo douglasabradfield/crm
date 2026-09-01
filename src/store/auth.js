@@ -5,12 +5,15 @@ import { DEFAULT_PERMISSIONS } from '../data/permissions.js';
 const LS_USER_OVERRIDES = 'crm_user_overrides';
 const LS_ROLE_OVERRIDES = 'crm_role_overrides';
 
-// Multi-empresa: pistas locais gravadas ao trocar de empresa. Servem de rede de
-// segurança quando, logo após a troca + reload, a linha de public.perfis fica
-// invisível por RLS na empresa nova (empresa_ativa_id passou a divergir de
-// empresa_id) — sem elas o buildUser não resolveria o papel e o usuário ficaria
-// sem nenhuma rota. LS_EMPRESA_HINT = empresa recém-escolhida; LS_EMPRESA_ANTERIOR
-// = empresa de onde a pessoa saiu (botão "voltar" da tela de recuperação).
+// Multi-empresa: pistas locais gravadas ao trocar de empresa.
+// A correção de raiz é no banco: a policy "perfis: select do proprio perfil"
+// (migration ...000006) garante que o usuário SEMPRE enxerga a própria linha de
+// public.perfis, em qualquer empresa ativa — logo perfis.empresa_ativa_id volta
+// a ser a fonte de verdade da empresa ativa.
+// LS_EMPRESA_HINT sobra apenas como rede de segurança: se por algum motivo o
+// perfil não puder ser lido, ainda dá para resolver a empresa da última troca.
+// LS_EMPRESA_ANTERIOR = empresa de onde a pessoa saiu (botão "voltar" da tela de
+// recuperação SemPermissoesEmpresa).
 const LS_EMPRESA_HINT     = 'crm_empresa_ativa_hint';
 const LS_EMPRESA_ANTERIOR = 'crm_empresa_anterior';
 
@@ -72,28 +75,26 @@ async function buildUser(supabaseUser) {
     console.warn('Perfil não lido (RLS ou inexistente) para o usuário', supabaseUser.id);
   }
 
-  // Dica local da última troca — só vale se ainda existe vínculo com ela.
-  const hint       = lsGet(LS_EMPRESA_HINT);
-  const hintValido = hint && vinculos.some((v) => v.empresaId === hint);
-
-  // Assim que perfis volta a ser legível, a fonte de verdade é ela e a dica
-  // local perde a validade.
-  if (perfil?.empresa_ativa_id) lsDel(LS_EMPRESA_HINT);
-
   // Empresa ativa: perfis.empresa_ativa_id é a fonte de verdade (com fallback
-  // para empresa_id, igual ao coalesce de empresa_do_usuario() no banco). Se o
-  // perfil não pôde ser lido, caímos na dica local gravada na troca.
-  let empresaAtivaId =
-    perfil?.empresa_ativa_id ??
-    perfil?.empresa_id ??
-    (hintValido ? hint : null);
+  // para empresa_id, igual ao coalesce de empresa_do_usuario() no banco). Com a
+  // policy do próprio perfil no banco, isto resolve em qualquer empresa.
+  let empresaAtivaId = perfil?.empresa_ativa_id ?? perfil?.empresa_id ?? null;
 
-  // Nem perfil nem dica: só dá para inferir a empresa ativa com segurança se
-  // houver um único vínculo. Com vários, adivinhar poderia jogar a pessoa na
-  // empresa errada — melhor a tela de recuperação.
-  if (empresaAtivaId == null && vinculos.length === 1) {
-    empresaAtivaId = vinculos[0].empresaId;
+  // Rede de segurança para o caso raro de o perfil não ter sido lido: a dica
+  // local da última troca (se ainda houver vínculo com ela) e, por fim, o
+  // vínculo único. Com vários vínculos e sem perfil, adivinhar poderia jogar a
+  // pessoa na empresa errada — melhor a tela de recuperação.
+  if (empresaAtivaId == null) {
+    const hint = lsGet(LS_EMPRESA_HINT);
+    if (hint && vinculos.some((v) => v.empresaId === hint)) {
+      empresaAtivaId = hint;
+    } else if (vinculos.length === 1) {
+      empresaAtivaId = vinculos[0].empresaId;
+    }
   }
+
+  // Perfil legível => a dica local já cumpriu (ou nem precisou cumprir) o papel.
+  if (perfil) lsDel(LS_EMPRESA_HINT);
 
   const vinculoAtivo = vinculos.find((v) => v.empresaId === empresaAtivaId);
 
@@ -217,9 +218,9 @@ export function AuthProvider({ children }) {
       console.error('Falha ao trocar de empresa', error);
       return { ok: false, error };
     }
-    // Registra a troca ANTES do reload que o chamador dispara: o buildUser
-    // pós-reload usa a dica para resolver o papel mesmo se perfis ficar
-    // invisível por RLS na empresa nova, e a "anterior" alimenta o botão voltar.
+    // Registra a troca ANTES do reload que o chamador dispara. A dica é só rede
+    // de segurança (o perfil já é legível em qualquer empresa pela policy do
+    // banco); a "anterior" alimenta o botão voltar da tela de recuperação.
     lsSet(LS_EMPRESA_HINT, novaEmpresaId);
     if (empresaId) lsSet(LS_EMPRESA_ANTERIOR, empresaId);
     return { ok: true };
