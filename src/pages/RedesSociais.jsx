@@ -60,6 +60,17 @@ function fmtNum(v) {
   return v == null || v === '' ? '—' : Number(v).toLocaleString('pt-BR');
 }
 
+// Engajamento é derivado, não digitado: (interações / alcance) × 100.
+// Retorna null quando não dá para calcular (alcance 0/vazio ou interações vazio),
+// para exibir "—" em vez de erro de divisão.
+function calcEngajamento(interacoes, alcance) {
+  if (interacoes === '' || interacoes == null) return null;
+  const i = Number(interacoes);
+  const a = Number(alcance);
+  if (!Number.isFinite(i) || !Number.isFinite(a) || a === 0) return null;
+  return Math.round((i / a) * 10000) / 100;
+}
+
 function postFromRow(r) {
   const met = r.metricas ?? {};
   return {
@@ -119,7 +130,9 @@ function metricaFromRow(r) {
     contaId: r.conta_id,
     dataReferencia: r.data_referencia,
     seguidores: r.seguidores,
+    seguidoresLiquidos: r.seguidores_liquidos,
     alcance: r.alcance,
+    interacoes: r.interacoes,
     impressoes: r.impressoes,
     engajamento: r.engajamento,
     postsPublicados: r.posts_publicados,
@@ -133,9 +146,11 @@ function metricaToRow(m, contaId) {
     conta_id: contaId,
     data_referencia: m.dataReferencia || todayISO(),
     seguidores: n(m.seguidores),
+    seguidores_liquidos: n(m.seguidoresLiquidos),
     alcance: n(m.alcance),
+    interacoes: n(m.interacoes),
     impressoes: n(m.impressoes),
-    engajamento: n(m.engajamento),
+    engajamento: calcEngajamento(m.interacoes, m.alcance),
     posts_publicados: n(m.postsPublicados),
   };
 }
@@ -148,6 +163,15 @@ function MiniBar({ value, max, color }) {
       <div style={{ width: `${pct}%`, height: '100%', background: `var(${color})`, borderRadius: 4, transition: 'width .4s' }} />
     </div>
   );
+}
+
+// Seguidores líquidos com destaque de sinal: verde (+), vermelho (-), neutro (0).
+// Sem dado (lançamento antigo) exibe "—", nunca zero.
+function SegLiqValue({ v }) {
+  if (v == null) return <span>—</span>;
+  const num = Number(v);
+  const color = num > 0 ? 'var(--green)' : num < 0 ? 'var(--red)' : 'var(--text2)';
+  return <span style={{ color }}>{num > 0 ? '+' : ''}{num.toLocaleString('pt-BR')}</span>;
 }
 
 function RedeCard({ conta, latest, previous, active, onClick }) {
@@ -269,14 +293,16 @@ function RedeDetail({ conta, latest, history, onLogMetrics, onDelete }) {
           <div style={{ fontSize: 12, color: 'var(--text3)', padding: '10px 0' }}>Nenhum lançamento ainda. Use "Lançar métricas do período" para começar o histórico.</div>
         ) : (
           <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '90px repeat(5,1fr)', gap: 6, fontSize: 10, color: 'var(--text3)', padding: '0 10px' }}>
-              <span>Data</span><span>Seguidores</span><span>Alcance</span><span>Impressões</span><span>Engaj.</span><span>Posts</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(7,1fr)', gap: 6, fontSize: 10, color: 'var(--text3)', padding: '0 10px' }}>
+              <span>Data</span><span>Seguidores</span><span>Seg. líq.</span><span>Alcance</span><span>Interações</span><span>Impressões</span><span>Engaj.</span><span>Posts</span>
             </div>
             {history.map((h) => (
-              <div key={h.id} style={{ display: 'grid', gridTemplateColumns: '90px repeat(5,1fr)', gap: 6, fontSize: 12, color: 'var(--text2)', background: 'var(--bg3)', borderRadius: 6, padding: '7px 10px' }}>
+              <div key={h.id} style={{ display: 'grid', gridTemplateColumns: '80px repeat(7,1fr)', gap: 6, fontSize: 11, color: 'var(--text2)', background: 'var(--bg3)', borderRadius: 6, padding: '7px 10px' }}>
                 <span>{h.dataReferencia ? h.dataReferencia.split('-').reverse().join('/') : '—'}</span>
                 <span>{fmtNum(h.seguidores)}</span>
+                <SegLiqValue v={h.seguidoresLiquidos} />
                 <span>{fmtNum(h.alcance)}</span>
+                <span>{fmtNum(h.interacoes)}</span>
                 <span>{fmtNum(h.impressoes)}</span>
                 <span>{h.engajamento == null ? '—' : `${h.engajamento}%`}</span>
                 <span>{fmtNum(h.postsPublicados)}</span>
@@ -718,9 +744,12 @@ function ContaModal({ onSave, onClose }) {
 /* ─── Metrica Modal (Lançar métricas do período) ─────────────────────────────── */
 function MetricaModal({ conta, onSave, onClose }) {
   const cfg = platformCfg(conta.plataforma);
-  const [form, setForm] = useState({ dataReferencia: todayISO(), seguidores: '', alcance: '', impressoes: '', engajamento: '', postsPublicados: '' });
+  const [form, setForm] = useState({ dataReferencia: todayISO(), seguidores: '', seguidoresLiquidos: '', alcance: '', interacoes: '', impressoes: '', postsPublicados: '' });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const inp = { background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%', boxSizing: 'border-box', outline: 'none' };
+  const roInp = { ...inp, background: 'var(--bg3)', color: 'var(--text2)', cursor: 'not-allowed' };
+  const lbl = { fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 };
+  const engaj = calcEngajamento(form.interacoes, form.alcance);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
@@ -734,32 +763,43 @@ function MetricaModal({ conta, onSave, onClose }) {
         </div>
         <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>DATA DE REFERÊNCIA</label>
+            <label style={lbl}>DATA DE REFERÊNCIA</label>
             <input type="date" style={inp} value={form.dataReferencia} onChange={e => set('dataReferencia', e.target.value)} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>SEGUIDORES</label>
-              <input type="number" style={inp} value={form.seguidores} onChange={e => set('seguidores', e.target.value)} placeholder="0" />
+              <label style={lbl}>SEGUIDORES</label>
+              <input type="number" style={inp} value={form.seguidores} onChange={e => set('seguidores', e.target.value)} placeholder="Total acumulado" />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>POSTS PUBLICADOS</label>
-              <input type="number" style={inp} value={form.postsPublicados} onChange={e => set('postsPublicados', e.target.value)} placeholder="0" />
+              <label style={lbl}>SEGUIDORES LÍQUIDOS</label>
+              <input type="number" style={inp} value={form.seguidoresLiquidos} onChange={e => set('seguidoresLiquidos', e.target.value)} placeholder="Ex.: 120 ou -30" />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>ALCANCE</label>
-              <input type="number" style={inp} value={form.alcance} onChange={e => set('alcance', e.target.value)} placeholder="0" />
+              <label style={lbl}>ALCANCE</label>
+              <input type="number" min="0" style={inp} value={form.alcance} onChange={e => set('alcance', e.target.value)} placeholder="0" />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>IMPRESSÕES</label>
-              <input type="number" style={inp} value={form.impressoes} onChange={e => set('impressoes', e.target.value)} placeholder="0" />
+              <label style={lbl}>INTERAÇÕES</label>
+              <input type="number" min="0" step="1" style={inp} value={form.interacoes} onChange={e => set('interacoes', e.target.value)} placeholder="Curtidas + coment. + salvos + compart." />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>IMPRESSÕES</label>
+              <input type="number" min="0" style={inp} value={form.impressoes} onChange={e => set('impressoes', e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label style={lbl}>POSTS PUBLICADOS</label>
+              <input type="number" min="0" style={inp} value={form.postsPublicados} onChange={e => set('postsPublicados', e.target.value)} placeholder="0" />
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>ENGAJAMENTO (%)</label>
-            <input type="number" step="0.1" style={inp} value={form.engajamento} onChange={e => set('engajamento', e.target.value)} placeholder="Ex.: 4.2" />
+            <label style={lbl}>ENGAJAMENTO (%)</label>
+            <div style={roInp}>{engaj == null ? '—' : engaj.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Calculado: (interações ÷ alcance) × 100</div>
           </div>
         </div>
         <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
