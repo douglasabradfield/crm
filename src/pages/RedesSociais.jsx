@@ -930,17 +930,34 @@ const DESEMPENHO_PERIODOS = [
   { id: 'trimestre', label: 'Trimestre' },
   { id: 'ano',       label: 'Ano' },
   { id: 'tudo',      label: 'Todo o período' },
+  { id: 'custom',    label: 'Personalizado' },
 ];
 
 // Mesma lógica de recorte temporal do Painel/KPIs, para ficar consistente.
-function desempenhoInicioPeriodo(periodo) {
+// Retorna o intervalo em milissegundos; `fim` só é preenchido no período
+// personalizado (nos demais, a data final é implicitamente "agora").
+function desempenhoRangePeriodo(periodo, customRange) {
   const now = new Date();
-  switch (periodo) {
-    case 'mes':       return new Date(now.getFullYear(), now.getMonth(), 1);
-    case 'trimestre': return new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    case 'ano':       return new Date(now.getFullYear(), 0, 1);
-    default:          return new Date(0);
+  if (periodo === 'custom') {
+    const from = customRange?.from ? new Date(customRange.from + 'T00:00:00').getTime() : null;
+    const to   = customRange?.to   ? new Date(customRange.to   + 'T23:59:59.999').getTime() : null;
+    return { inicio: from, fim: to };
   }
+  let inicio;
+  switch (periodo) {
+    case 'mes':       inicio = new Date(now.getFullYear(), now.getMonth(), 1); break;
+    case 'trimestre': inicio = new Date(now.getFullYear(), now.getMonth() - 3, 1); break;
+    case 'ano':       inicio = new Date(now.getFullYear(), 0, 1); break;
+    default:          inicio = new Date(0);
+  }
+  return { inicio: inicio.getTime(), fim: null };
+}
+
+// true quando o período personalizado tem as duas datas e a final não é
+// anterior à inicial.
+function desempenhoCustomValido(periodo, customRange) {
+  if (periodo !== 'custom') return true;
+  return !!(customRange.from && customRange.to && customRange.to >= customRange.from);
 }
 
 // Interações do post = curtidas + comentários (o que existe por post). null
@@ -1045,23 +1062,38 @@ function DesempenhoRow({ post, metricaId, metricaLabel, valor, semDado, rank, co
 function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
   const [metricaSel, setMetricaSel] = useState('engajamento');
   const [periodo,    setPeriodo]    = useState('trimestre');
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [filterRede, setFilterRede] = useState('todas');
 
   const inp = { background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer' };
 
+  // Troca de período: só o período personalizado preserva as datas; escolher
+  // outro período limpa o recorte personalizado (trocar métrica/rede não).
+  const escolherPeriodo = (id) => {
+    setPeriodo(id);
+    if (id !== 'custom') setCustomRange({ from: '', to: '' });
+  };
+
+  const customValido    = desempenhoCustomValido(periodo, customRange);
+  const customInvertido = periodo === 'custom' && customRange.from && customRange.to && customRange.to < customRange.from;
+
   // Recorte: só posts publicados, dentro do período e da rede filtrada.
   const recorte = useMemo(() => {
-    const inicio = desempenhoInicioPeriodo(periodo).getTime();
+    if (!customValido) return [];
+    const { inicio, fim } = desempenhoRangePeriodo(periodo, customRange);
     return posts.filter((p) => {
       if (p.status !== 'publicado') return false;
       if (p.data) {
         const t = new Date(p.data + 'T00:00:00').getTime();
-        if (Number.isFinite(t) && t < inicio) return false;
+        if (Number.isFinite(t)) {
+          if (inicio != null && t < inicio) return false;
+          if (fim != null && t > fim) return false;
+        }
       }
       if (filterRede !== 'todas' && !(p.redes || []).includes(filterRede)) return false;
       return true;
     });
-  }, [posts, periodo, filterRede]);
+  }, [posts, periodo, customRange, customValido, filterRede]);
 
   const temVideo     = recorte.some((p) => VIDEO_FORMATOS.includes(p.formato));
   const metricasDisp = DESEMPENHO_METRICAS.filter((m) => !m.video || temVideo);
@@ -1100,12 +1132,26 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
         </div>
         <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, padding: 3, gap: 2 }}>
           {DESEMPENHO_PERIODOS.map((p) => (
-            <button key={p.id} onClick={() => setPeriodo(p.id)}
+            <button key={p.id} onClick={() => escolherPeriodo(p.id)}
               style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all .12s', background: periodo === p.id ? 'var(--bg2)' : 'transparent', color: periodo === p.id ? 'var(--text)' : 'var(--text3)', boxShadow: periodo === p.id ? '0 1px 3px rgba(0,0,0,0.2)' : 'none' }}>
               {p.label}
             </button>
           ))}
         </div>
+        {periodo === 'custom' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <input type="date" value={customRange.from} max={customRange.to || undefined}
+              onChange={(e) => setCustomRange((r) => ({ ...r, from: e.target.value }))}
+              style={{ ...inp, colorScheme: 'dark', cursor: 'text' }} />
+            <span style={{ fontSize: 12, color: 'var(--text3)' }}>até</span>
+            <input type="date" value={customRange.to} min={customRange.from || undefined}
+              onChange={(e) => setCustomRange((r) => ({ ...r, to: e.target.value }))}
+              style={{ ...inp, colorScheme: 'dark', cursor: 'text' }} />
+            {customInvertido && (
+              <span style={{ fontSize: 11, color: 'var(--red)' }}>A data final não pode ser anterior à inicial.</span>
+            )}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {redeOpts.map((opt) => (
             <button key={opt.id} onClick={() => setFilterRede(opt.id)}
@@ -1116,6 +1162,12 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
           ))}
         </div>
       </div>
+
+      {periodo === 'custom' && customValido && (
+        <div style={{ fontSize: 11, color: 'var(--text3)', margin: '-8px 2px 14px' }}>
+          Período: {customRange.from.split('-').reverse().join('/')} até {customRange.to.split('-').reverse().join('/')}
+        </div>
+      )}
 
       {/* Resumo */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 20 }}>
@@ -1140,7 +1192,19 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
       </div>
 
       {/* Lista */}
-      {recorte.length === 0 ? (
+      {periodo === 'custom' && !customValido ? (
+        <div style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg2)', border: '1px dashed var(--border2)', borderRadius: 14 }}>
+          <Award size={24} style={{ color: 'var(--text3)', marginBottom: 10 }} />
+          <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 4 }}>
+            {customInvertido ? 'Intervalo de datas inválido' : 'Escolha o período personalizado'}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+            {customInvertido
+              ? 'A data final não pode ser anterior à inicial.'
+              : 'Selecione a data inicial e a data final para ver o ranking.'}
+          </div>
+        </div>
+      ) : recorte.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg2)', border: '1px dashed var(--border2)', borderRadius: 14 }}>
           <Award size={24} style={{ color: 'var(--text3)', marginBottom: 10 }} />
           <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 4 }}>Nenhum post publicado neste recorte</div>
