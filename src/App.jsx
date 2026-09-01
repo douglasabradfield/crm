@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useUI } from './store/index.js';
 import { useAuth } from './store/auth.js';
+import { primeiraRotaPermitida } from './data/permissions.js';
 import { useCRM } from './store/crm.js';
 import { useNotifications } from './hooks/useNotifications.js';
 import { SkeletonPageLoader } from './components/UI/SkeletonLoader.jsx';
@@ -72,6 +73,7 @@ function buildDashboardContext(leads, overdueCount) {
 function Layout() {
   const location = useLocation();
   const { aiState, openAI, closeAI } = useUI();
+  const { hasPermission } = useAuth();
   const { leads } = useCRM();
   const { overdueCount } = useNotifications();
 
@@ -90,7 +92,9 @@ function Layout() {
           <div className="page-enter" key={location.pathname}>
             <Routes>
               <Route path="/" element={
-                <ProtectedRoute module="dashboard"><Dashboard /></ProtectedRoute>
+                hasPermission('dashboard', 'view')
+                  ? <ProtectedRoute module="dashboard"><Dashboard /></ProtectedRoute>
+                  : <Navigate to={primeiraRotaPermitida(hasPermission)} replace />
               } />
               <Route path="/guia" element={
                 <ProtectedRoute module="guia"><GuiaEstrategico /></ProtectedRoute>
@@ -178,6 +182,11 @@ function AppRoutes() {
   }
 
   if (location.pathname === '/login') {
+    // Sessão já ativa em /login (ex.: retorno de magic link, que recarrega a
+    // página em vez de navegar por JS): manda para dentro do app.
+    if (isAuthenticated) {
+      return <Navigate to="/" replace />;
+    }
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />

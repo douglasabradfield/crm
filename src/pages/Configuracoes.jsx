@@ -2790,16 +2790,137 @@ function NovaEmpresaModal({ onClose }) {
   );
 }
 
+/* ─── ConvidarClienteModal ───────────────────────────────────────────────────── */
+function ConvidarClienteModal({ empresa, onClose }) {
+  const [email,   setEmail]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [erro,    setErro]    = useState('');
+  const [feito,   setFeito]   = useState(null);   // { email, jaExistia }
+
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  async function handleConvidar() {
+    if (!emailValido) { setErro('Informe um e-mail válido.'); return; }
+    setLoading(true);
+    setErro('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setErro('Sua sessão expirou. Faça login novamente.'); setLoading(false); return; }
+
+      const res = await fetch('/api/convidar-cliente', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ empresaId: empresa.empresaId, email: email.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setErro(data.error || 'Não foi possível criar o acesso. Tente novamente.');
+        setLoading(false);
+        return;
+      }
+      setFeito({ email: data.email || email.trim(), jaExistia: !!data.jaExistia });
+    } catch {
+      setErro('Não foi possível conectar. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const inp = { width: '100%', background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' };
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 440, maxWidth: '100%', padding: 28, maxHeight: '90vh', overflowY: 'auto' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <UserPlus size={16} style={{ color: 'var(--accent2)' }} />
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>
+              {feito ? 'Acesso criado' : 'Convidar cliente'}
+            </span>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+            <XIcon size={16} />
+          </button>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>{empresa.nome}</p>
+
+        {!feito ? (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>E-MAIL DO CLIENTE</label>
+              <input
+                autoFocus
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !loading) handleConvidar(); }}
+                placeholder="cliente@email.com"
+                style={inp}
+              />
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8, lineHeight: 1.5 }}>
+                O cliente recebe acesso <strong style={{ color: 'var(--text2)' }}>somente-leitura</strong> ao
+                módulo Redes Sociais desta empresa. Ele entra pela opção
+                <strong style={{ color: 'var(--text2)' }}> “Entrar com link por e-mail”</strong> na tela de login — sem senha.
+              </p>
+            </div>
+
+            {erro && <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 14 }}>{erro}</p>}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                Cancelar
+              </button>
+              <button onClick={handleConvidar} disabled={loading || !emailValido}
+                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: loading || !emailValido ? 'default' : 'pointer', fontFamily: 'var(--font-body)', background: loading || !emailValido ? 'var(--bg3)' : 'var(--accent)', border: 'none', color: loading || !emailValido ? 'var(--text3)' : '#fff' }}>
+                {loading ? 'Criando…' : 'Criar acesso'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 22 }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(45,212,160,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <Check size={22} style={{ color: 'var(--green)' }} />
+              </div>
+              <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 4 }}>
+                {feito.jaExistia ? 'Acesso liberado' : 'Acesso criado'} para {feito.email}
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
+                Peça para o cliente abrir a tela de login e usar
+                “Entrar com link por e-mail”. O link chega no e-mail dele.
+              </p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button onClick={onClose}
+                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+                Fechar
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /* ─── Empresas Tab (só superadmin) ───────────────────────────────────────────── */
 function EmpresasTab() {
   const { empresas, empresaId } = useAuth();
   const [showNova, setShowNova] = useState(false);
+  const [convidarEmpresa, setConvidarEmpresa] = useState(null);
 
   const lista = [...(empresas ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
   return (
     <div>
       {showNova && <NovaEmpresaModal onClose={() => setShowNova(false)} />}
+      {convidarEmpresa && (
+        <ConvidarClienteModal empresa={convidarEmpresa} onClose={() => setConvidarEmpresa(null)} />
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
@@ -2840,6 +2961,14 @@ function EmpresasTab() {
                   Empresa ativa
                 </span>
               )}
+              <button
+                onClick={() => setConvidarEmpresa(e)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, padding: '5px 11px', fontSize: 11, fontWeight: 500, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+                onMouseEnter={(ev) => { ev.currentTarget.style.borderColor = 'var(--accent)'; ev.currentTarget.style.color = 'var(--accent2)'; }}
+                onMouseLeave={(ev) => { ev.currentTarget.style.borderColor = 'var(--border2)'; ev.currentTarget.style.color = 'var(--text2)'; }}
+              >
+                <UserPlus size={12} /> Convidar cliente
+              </button>
             </div>
           );
         })}

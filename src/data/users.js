@@ -5,6 +5,7 @@ export const ROLES = {
   vendedor:     'Vendedor',
   marketing:    'Marketing',
   visualizador: 'Visualizador',
+  cliente:      'Cliente',
 };
 
 export const MOCK_USERS = [

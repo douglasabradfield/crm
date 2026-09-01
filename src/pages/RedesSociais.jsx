@@ -324,12 +324,14 @@ function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel 
         );
       })}
       {posts.length === 0 && (
-        <button onClick={() => openAI(`Sugira um conteúdo para postar nas redes sociais no dia ${day} de ${curMonthLabel}. Empresa B2B para PMEs brasileiras. Sugestões para: Instagram (carrossel ou reels) e LinkedIn (artigo ou post). Inclua: tema, formato, legenda de exemplo e hashtags relevantes.`)}
-          style={{ marginTop: 'auto', opacity: 0, transition: 'opacity .15s', padding: '2px 4px', borderRadius: 4, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text3)', fontSize: 9, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = 0}>
-          + IA
-        </button>
+        <PermissionGate module="ia" action="view">
+          <button onClick={() => openAI(`Sugira um conteúdo para postar nas redes sociais no dia ${day} de ${curMonthLabel}. Empresa B2B para PMEs brasileiras. Sugestões para: Instagram (carrossel ou reels) e LinkedIn (artigo ou post). Inclua: tema, formato, legenda de exemplo e hashtags relevantes.`)}
+            style={{ marginTop: 'auto', opacity: 0, transition: 'opacity .15s', padding: '2px 4px', borderRadius: 4, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text3)', fontSize: 9, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = 0}>
+            + IA
+          </button>
+        </PermissionGate>
       )}
     </div>
   );
@@ -519,26 +521,36 @@ function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openA
           )}
         </div>
 
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center', position: 'sticky', bottom: 0, background: 'var(--bg2)' }}>
-          {isEdit && (
-            <>
-              <button onClick={() => onDuplicate(form)} style={{ padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
-                Duplicar
+        <PermissionGate
+          module="redes"
+          action="edit"
+          fallback={
+            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text3)', textAlign: 'center', position: 'sticky', bottom: 0, background: 'var(--bg2)' }}>
+              Visualização somente leitura.
+            </div>
+          }
+        >
+          <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center', position: 'sticky', bottom: 0, background: 'var(--bg2)' }}>
+            {isEdit && (
+              <>
+                <button onClick={() => onDuplicate(form)} style={{ padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                  Duplicar
+                </button>
+                <button onClick={() => onDelete(form.id)} style={{ padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid rgba(240,92,92,0.4)', color: 'var(--red)' }}>
+                  Deletar
+                </button>
+              </>
+            )}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button onClick={handleAI} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)' }}>
+                <Bot size={13} /> Criar com IA
               </button>
-              <button onClick={() => onDelete(form.id)} style={{ padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid rgba(240,92,92,0.4)', color: 'var(--red)' }}>
-                Deletar
+              <button onClick={() => onSave(form)} style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+                {isEdit ? 'Salvar' : 'Criar manualmente'}
               </button>
-            </>
-          )}
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <button onClick={handleAI} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)' }}>
-              <Bot size={13} /> Criar com IA
-            </button>
-            <button onClick={() => onSave(form)} style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
-              {isEdit ? 'Salvar' : 'Criar manualmente'}
-            </button>
+            </div>
           </div>
-        </div>
+        </PermissionGate>
       </div>
     </div>
   );
@@ -984,7 +996,8 @@ export default function RedesSociais() {
                     onDelete={() => handleContaDelete(activeConta.id)}
                   />
 
-                  {/* AI insight */}
+                  {/* AI insight — só para quem tem acesso ao Assistente IA (cliente não tem) */}
+                  <PermissionGate module="ia" action="view">
                   {latestByConta[activeConta.id] ? (
                     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -1007,6 +1020,7 @@ export default function RedesSociais() {
                       Lance as primeiras métricas desta rede para receber análise da IA.
                     </div>
                   )}
+                  </PermissionGate>
                 </>
               )}
             </>

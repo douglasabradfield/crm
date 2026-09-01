@@ -1,13 +1,18 @@
 import { MessageSquare, Plus, Sun, Moon, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../store/index.js';
+import { useAuth } from '../../store/auth.js';
 import { useNotifications } from '../../hooks/useNotifications.js';
 import EmpresaSwitcher from './EmpresaSwitcher.jsx';
 
 export default function Topbar({ title, subtitle, onOpenAI }) {
   const { theme, toggleTheme } = useTheme();
+  const { hasPermission } = useAuth();
   const { count, overdueCount } = useNotifications();
   const navigate = useNavigate();
+
+  const podeVerCRM = hasPermission('crm', 'view');
+  const podeVerIA  = hasPermission('ia', 'view');
 
   return (
     <header style={{
@@ -40,7 +45,7 @@ export default function Topbar({ title, subtitle, onOpenAI }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <EmpresaSwitcher />
 
-        {count > 0 && (
+        {count > 0 && podeVerCRM && (
           <div style={{ position: 'relative', display: 'flex' }}>
             <button
               className="btn-ghost"
@@ -63,10 +68,12 @@ export default function Topbar({ title, subtitle, onOpenAI }) {
           </div>
         )}
 
-        <button className="btn-ghost" onClick={onOpenAI}>
-          <MessageSquare size={13} />
-          Perguntar à IA
-        </button>
+        {podeVerIA && (
+          <button className="btn-ghost" onClick={onOpenAI}>
+            <MessageSquare size={13} />
+            Perguntar à IA
+          </button>
+        )}
 
         <button
           className="btn-ghost"
@@ -77,10 +84,12 @@ export default function Topbar({ title, subtitle, onOpenAI }) {
           {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
         </button>
 
-        <button className="btn-primary">
-          <Plus size={14} />
-          Nova ação
-        </button>
+        {podeVerCRM && (
+          <button className="btn-primary">
+            <Plus size={14} />
+            Nova ação
+          </button>
+        )}
       </div>
     </header>
   );

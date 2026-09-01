@@ -14,7 +14,7 @@ import { useAuth } from '../../store/auth.js';
  * vaze para a tela de outra.
  */
 export default function EmpresaSwitcher() {
-  const { empresas, empresaId, empresaAtiva, trocarEmpresa } = useAuth();
+  const { user, empresas, empresaId, empresaAtiva, trocarEmpresa } = useAuth();
   const [open,     setOpen]     = useState(false);
   const [trocando, setTrocando] = useState(false);
   const [erro,     setErro]     = useState(null);
@@ -33,6 +33,10 @@ export default function EmpresaSwitcher() {
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  // Cliente da agência nunca troca de empresa — tem um vínculo só, mas a checagem
+  // explícita é uma salvaguarda para o seletor jamais aparecer para ele.
+  if (user?.role === 'cliente') return null;
 
   // Menos de 2 vínculos: nenhum seletor, nenhum espaço vazio.
   if (!empresas || empresas.length < 2) return null;
