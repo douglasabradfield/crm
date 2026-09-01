@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAuth } from '../store/auth.js';
 import { supabase } from '../services/supabase.js';
 import SkeletonLoader from '../components/UI/SkeletonLoader.jsx';
@@ -6,6 +8,7 @@ import {
   Camera, Briefcase, Play, AtSign, TrendingUp, TrendingDown,
   Users, Heart, MessageCircle, Eye, Share2, Plus, Bot,
   X, BarChart2, Zap, Calendar, Globe, Music, Link2, Trash2,
+  ImageIcon, Film, ChevronLeft, ChevronRight, GripVertical, Upload, AlertTriangle,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
 import PermissionGate from '../components/Auth/PermissionGate.jsx';
@@ -34,6 +37,59 @@ const POST_STATUS = {
 };
 
 const FORMATOS = ['Feed', 'Stories', 'Reels', 'Carrossel', 'Vídeo', 'Artigo', 'Thread', 'Documento', 'Tweet', 'Shorts'];
+
+/* ─── Mídia (Supabase Storage) ───────────────────────────────────────────────── */
+// Bucket privado; política por empresa (1º segmento do path = empresa_id).
+// A linha guarda só a lista ordenada de ponteiros em redes_posts.midias:
+//   [{ path, tipo: 'imagem'|'video', mime }]
+// imagem_url (base64) fica só para posts antigos ainda não migrados.
+const REDES_BUCKET   = 'redes-midia';
+const MAX_CARROSSEL  = 10;
+const IMG_MIME       = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const VIDEO_MIME     = ['video/mp4', 'video/quicktime', 'video/webm'];
+const MAX_IMG_BYTES  = 10 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
+const VIDEO_FORMATOS = ['Reels', 'Vídeo', 'Shorts'];
+
+const formatoAceitaVideo = (f) => VIDEO_FORMATOS.includes(f);
+const formatoMultiplo    = (f) => f === 'Carrossel';
+const tipoMidiaDoFormato = (f) => (formatoAceitaVideo(f) ? 'video' : 'imagem');
+
+function sanitizeName(name) {
+  const dot  = name.lastIndexOf('.');
+  const base = (dot > 0 ? name.slice(0, dot) : name).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'midia';
+  const ext  = (dot > 0 ? name.slice(dot + 1) : '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'bin';
+  return `${base}.${ext}`;
+}
+
+function midiaStoragePath(empresaId, file) {
+  return `${empresaId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${sanitizeName(file.name)}`;
+}
+
+async function signMidiaPaths(paths, expiresIn = 86400) {
+  const uniq = [...new Set((paths ?? []).filter(Boolean))];
+  if (!uniq.length) return {};
+  const { data, error } = await supabase.storage.from(REDES_BUCKET).createSignedUrls(uniq, expiresIn);
+  if (error) return {};
+  const map = {};
+  (data ?? []).forEach((d) => { if (d && !d.error && d.signedUrl) map[d.path] = d.signedUrl; });
+  return map;
+}
+
+// Constrói a lista de mídias do modal a partir da linha do post. Prioriza
+// midias[]; cai para imagem_url (base64 legado) como item único não editável.
+function midiasFromPost(post) {
+  if (Array.isArray(post?.midias) && post.midias.length) {
+    return post.midias.map((m, i) => ({
+      key: `saved-${i}-${m.path}`, path: m.path, tipo: m.tipo || 'imagem',
+      mime: m.mime || '', previewUrl: null, status: 'ready', legacy: false,
+    }));
+  }
+  if (post?.imagemUrl) {
+    return [{ key: 'legacy', path: null, tipo: 'imagem', mime: '', previewUrl: post.imagemUrl, status: 'ready', legacy: true }];
+  }
+  return [];
+}
 
 /* ─── Helpers & mappers ──────────────────────────────────────────────────────── */
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -82,6 +138,7 @@ function postFromRow(r) {
     formato: r.formato ?? 'Feed',
     conteudo: r.conteudo ?? '',
     imagemUrl: r.imagem_url ?? null,
+    midias: Array.isArray(r.midias) ? r.midias : [],
     metricas: { alcance: met.alcance ?? '', curtidas: met.curtidas ?? '', comentarios: met.comentarios ?? '' },
     horario: r.hora ?? met.horario ?? '12:00',
   };
@@ -96,6 +153,7 @@ function postToRow(p) {
     formato: p.formato ?? 'Feed',
     conteudo: p.conteudo ?? '',
     imagem_url: p.imagemUrl ?? null,
+    midias: Array.isArray(p.midias) ? p.midias : [],
     hora: p.horario ?? '12:00',
     metricas: {
       alcance: p.metricas?.alcance ?? '',
@@ -423,9 +481,260 @@ function Legend() {
   );
 }
 
-/* ─── Post Modal ─────────────────────────────────────────────────────────────── */
-function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openAI }) {
+/* ─── Lightbox (mídia em tela cheia) ─────────────────────────────────────────── */
+// items: [{ tipo:'imagem'|'video', previewUrl }]. Fecha por X, Esc ou clique no
+// fundo. Em carrossel, navega por setas (tela e teclado) com indicador "n/total".
+function MediaLightbox({ items, startIndex = 0, onClose }) {
+  const [idx, setIdx] = useState(startIndex);
+  const multi = items.length > 1;
+  const safeIdx = Math.max(0, Math.min(idx, items.length - 1));
+  const cur = items[safeIdx];
+
+  const go = useCallback((dir) => {
+    setIdx((i) => (i + dir + items.length) % items.length);
+  }, [items.length]);
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowRight' && multi) go(1);
+      else if (e.key === 'ArrowLeft' && multi) go(-1);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [go, multi, onClose]);
+
+  if (!cur) return null;
+
+  const navBtn = { background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', width: 42, height: 42, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 };
+
+  return createPortal(
+    <div onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+      <button onClick={onClose} title="Fechar (Esc)"
+        style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', width: 38, height: 38, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+        <X size={18} />
+      </button>
+      {multi && <button onClick={(e) => { e.stopPropagation(); go(-1); }} style={navBtn}><ChevronLeft size={20} /></button>}
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        {cur.tipo === 'video' ? (
+          <video src={cur.previewUrl || undefined} controls autoPlay playsInline
+            style={{ maxWidth: '86vw', maxHeight: '78vh', borderRadius: 8, background: '#000' }} />
+        ) : (
+          <img src={cur.previewUrl || undefined} alt=""
+            style={{ maxWidth: '86vw', maxHeight: '78vh', objectFit: 'contain', borderRadius: 8 }} />
+        )}
+        {multi && (
+          <div style={{ color: '#fff', fontSize: 12, background: 'rgba(0,0,0,0.5)', padding: '4px 12px', borderRadius: 20 }}>
+            {safeIdx + 1}/{items.length}
+          </div>
+        )}
+      </div>
+      {multi && <button onClick={(e) => { e.stopPropagation(); go(1); }} style={navBtn}><ChevronRight size={20} /></button>}
+    </div>,
+    document.body,
+  );
+}
+
+/* ─── Campo de mídia do post (upload, carrossel, vídeo, lightbox) ─────────────── */
+function PostMediaField({ formato, midias, setMidias, canEdit, empresaId, registerUpload, isSessionUpload }) {
   const fileRef = useRef(null);
+  const [lightboxAt, setLightboxAt] = useState(null);
+  const [fieldErr, setFieldErr] = useState('');
+
+  const kind     = tipoMidiaDoFormato(formato);
+  const multiple = formatoMultiplo(formato);
+  const accept   = (kind === 'video' ? VIDEO_MIME : IMG_MIME).join(',');
+  const ready    = midias.filter((m) => m.status !== 'error');
+  const atLimit  = multiple ? ready.length >= MAX_CARROSSEL : ready.length >= 1;
+  const reorder  = canEdit && multiple && midias.length > 1;
+
+  // itens navegáveis no lightbox (só os que já têm preview)
+  const viewable = midias.filter((m) => m.previewUrl && m.status !== 'error');
+
+  function revoke(m) {
+    if (m?.previewUrl && m.previewUrl.startsWith('blob:')) URL.revokeObjectURL(m.previewUrl);
+  }
+
+  async function uploadOne(file) {
+    const isVideo = VIDEO_MIME.includes(file.type);
+    const isImg   = IMG_MIME.includes(file.type);
+    if (kind === 'video' && !isVideo) { setFieldErr('Reels aceita vídeo: MP4, MOV ou WEBM.'); return; }
+    if (kind === 'imagem' && !isImg)  { setFieldErr('Formato de imagem inválido. Use JPG, PNG, WEBP ou GIF.'); return; }
+    if (isVideo && file.size > MAX_VIDEO_BYTES) { setFieldErr('Vídeo acima de 200 MB.'); return; }
+    if (isImg && file.size > MAX_IMG_BYTES)     { setFieldErr('Imagem acima de 10 MB.'); return; }
+
+    const key = `up-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const previewUrl = URL.createObjectURL(file);
+    setMidias((prev) => [...prev, { key, path: null, tipo: isVideo ? 'video' : 'imagem', mime: file.type, previewUrl, status: 'uploading', legacy: false }]);
+
+    const path = midiaStoragePath(empresaId, file);
+    const { error } = await supabase.storage.from(REDES_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+    if (error) {
+      setMidias((prev) => prev.map((m) => (m.key === key ? { ...m, status: 'error', errorMsg: 'Falha no upload. Tente de novo.' } : m)));
+      return;
+    }
+    registerUpload(path);
+    setMidias((prev) => prev.map((m) => (m.key === key ? { ...m, path, status: 'ready' } : m)));
+  }
+
+  async function handleFiles(list) {
+    setFieldErr('');
+    const files = Array.from(list);
+    if (!files.length) return;
+    if (!multiple) {
+      setMidias((prev) => { prev.forEach(revoke); return []; });
+      await uploadOne(files[0]);
+      return;
+    }
+    const room = MAX_CARROSSEL - ready.length;
+    if (files.length > room) setFieldErr(`O carrossel do Instagram aceita até ${MAX_CARROSSEL} imagens.`);
+    for (const f of files.slice(0, Math.max(0, room))) {
+      await uploadOne(f);
+    }
+  }
+
+  function removeAt(idx) {
+    setMidias((prev) => {
+      const m = prev[idx];
+      revoke(m);
+      // Só apaga do Storage já se o arquivo foi enviado agora nesta sessão.
+      // Mídia que já estava salva no post só some do Storage quando o post é
+      // salvo (senão um "Cancelar" deixaria a linha apontando p/ arquivo morto).
+      if (m?.path && isSessionUpload(m.path)) {
+        supabase.storage.from(REDES_BUCKET).remove([m.path]);
+      }
+      return prev.filter((_, i) => i !== idx);
+    });
+  }
+
+  function onDragEnd(result) {
+    if (!result.destination) return;
+    setMidias((prev) => {
+      const arr = [...prev];
+      const [moved] = arr.splice(result.source.index, 1);
+      arr.splice(result.destination.index, 0, moved);
+      return arr;
+    });
+  }
+
+  const openLightbox = (m) => {
+    const at = viewable.findIndex((v) => v.key === m.key);
+    if (at >= 0) setLightboxAt(at);
+  };
+
+  function Thumb({ item, index, dragHandle }) {
+    return (
+      <div
+        onClick={() => item.status !== 'error' && item.previewUrl && openLightbox(item)}
+        style={{ position: 'relative', width: 84, height: 84, borderRadius: 8, overflow: 'hidden', background: 'var(--bg4)', border: `1px solid ${item.status === 'error' ? 'var(--red)' : 'var(--border)'}`, flexShrink: 0, cursor: item.previewUrl && item.status !== 'error' ? 'zoom-in' : 'default' }}
+        {...(dragHandle || {})}>
+        {item.previewUrl ? (
+          item.tipo === 'video'
+            ? <video src={item.previewUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
+            : <img src={item.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}>
+            {item.tipo === 'video' ? <Film size={18} /> : <ImageIcon size={18} />}
+          </div>
+        )}
+        {item.tipo === 'video' && item.status === 'ready' && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <Play size={20} style={{ color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.7))' }} />
+          </div>
+        )}
+        {item.status === 'uploading' && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>enviando…</div>
+        )}
+        {item.status === 'error' && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(240,92,92,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'var(--red)', textAlign: 'center', padding: 4 }}>{item.errorMsg || 'erro'}</div>
+        )}
+        {reorder && (
+          <div style={{ position: 'absolute', left: 3, top: 3, width: 18, height: 18, borderRadius: 5, background: 'rgba(0,0,0,0.55)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <GripVertical size={11} />
+          </div>
+        )}
+        {multiple && item.status === 'ready' && (
+          <div style={{ position: 'absolute', left: 4, bottom: 4, fontSize: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', borderRadius: 4, padding: '0 5px' }}>{index + 1}</div>
+        )}
+        {canEdit && (
+          <button onClick={(e) => { e.stopPropagation(); removeAt(index); }} title="Remover"
+            style={{ position: 'absolute', top: 3, right: 3, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <X size={11} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const addLabel = multiple
+    ? `Adicionar imagens (${ready.length}/${MAX_CARROSSEL})`
+    : kind === 'video' ? 'Carregar vídeo (Reels)' : 'Carregar imagem';
+
+  return (
+    <div>
+      <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>
+        {kind === 'video' ? 'VÍDEO' : multiple ? 'IMAGENS DO CARROSSEL' : 'IMAGEM'}
+      </label>
+
+      {midias.length > 0 && (
+        reorder ? (
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="post-midias" direction="horizontal">
+              {(prov) => (
+                <div ref={prov.innerRef} {...prov.droppableProps} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                  {midias.map((m, i) => (
+                    <Draggable key={m.key} draggableId={m.key} index={i}>
+                      {(dp) => (
+                        <div ref={dp.innerRef} {...dp.draggableProps}>
+                          <Thumb item={m} index={i} dragHandle={dp.dragHandleProps} />
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {prov.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {midias.map((m, i) => <Thumb key={m.key} item={m} index={i} />)}
+          </div>
+        )
+      )}
+
+      {canEdit && !atLimit && (
+        <button onClick={() => fileRef.current?.click()}
+          style={{ width: '100%', padding: 12, borderRadius: 8, background: 'var(--bg3)', border: '1px dashed var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Upload size={12} /> {addLabel}
+        </button>
+      )}
+
+      {!canEdit && midias.length === 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Sem mídia.</div>
+      )}
+
+      {reorder && (
+        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6 }}>Arraste as miniaturas para reordenar a publicação.</div>
+      )}
+      {fieldErr && <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 6 }}>{fieldErr}</div>}
+
+      <input ref={fileRef} type="file" accept={accept} multiple={multiple} style={{ display: 'none' }}
+        onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }} />
+
+      {lightboxAt != null && viewable.length > 0 && (
+        <MediaLightbox items={viewable} startIndex={lightboxAt} onClose={() => setLightboxAt(null)} />
+      )}
+    </div>
+  );
+}
+
+/* ─── Post Modal ─────────────────────────────────────────────────────────────── */
+function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onClose, openAI }) {
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('redes', 'edit');
   const isEdit = !!post?.id;
   const [form, setForm] = useState(() => ({
     titulo: '', conteudo: '',
@@ -439,12 +748,79 @@ function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openA
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setMet = (k, v) => setForm(f => ({ ...f, metricas: { ...f.metricas, [k]: v } }));
 
-  function handleImage(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => set('imagemUrl', ev.target.result);
-    reader.readAsDataURL(file);
+  // ── Mídia ──────────────────────────────────────────────────────────────────
+  const [midias, setMidias] = useState(() => midiasFromPost(post));
+  const [pendingFormato, setPendingFormato] = useState(null);
+  const uploadedRef      = useRef([]);                                              // paths enviados nesta sessão
+  const originalPathsRef  = useRef(new Set((post?.midias ?? []).map((m) => m.path).filter(Boolean)));
+  const legacyImagemRef   = useRef(post?.imagemUrl ?? null);
+  const uploading = midias.some((m) => m.status === 'uploading');
+
+  const registerUpload  = useCallback((p) => { uploadedRef.current.push(p); }, []);
+  const isSessionUpload = useCallback((p) => uploadedRef.current.includes(p), []);
+
+  // Assina as URLs das mídias já salvas ao abrir o post.
+  useEffect(() => {
+    let cancelled = false;
+    const paths = midias.filter((m) => m.path && !m.previewUrl).map((m) => m.path);
+    if (!paths.length) return;
+    signMidiaPaths(paths).then((map) => {
+      if (cancelled) return;
+      setMidias((prev) => prev.map((m) => (m.path && map[m.path] ? { ...m, previewUrl: map[m.path] } : m)));
+    });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const relevantes = midias.filter((m) => m.status !== 'error');
+
+  function requestFormato(next) {
+    if (next === form.formato) return;
+    const curKind      = tipoMidiaDoFormato(form.formato);
+    const nextKind     = tipoMidiaDoFormato(next);
+    const nextMultiple = formatoMultiplo(next);
+    const quebra = relevantes.length > 0 && (curKind !== nextKind || (!nextMultiple && relevantes.length > 1));
+    if (quebra) { setPendingFormato(next); return; }
+    set('formato', next);
+  }
+
+  function confirmFormatoChange() {
+    const next     = pendingFormato;
+    const mesmaKind = tipoMidiaDoFormato(form.formato) === tipoMidiaDoFormato(next);
+    setMidias((prev) => {
+      // Se só muda a quantidade (imagem → imagem única), mantém a 1ª mídia.
+      const keep    = mesmaKind && !formatoMultiplo(next) ? prev.filter((m) => m.status !== 'error').slice(0, 1) : [];
+      const dropped = prev.filter((m) => !keep.includes(m));
+      const dead    = dropped.map((m) => m.path).filter((p) => p && uploadedRef.current.includes(p));
+      if (dead.length) supabase.storage.from(REDES_BUCKET).remove(dead);
+      dropped.forEach((m) => { if (m.previewUrl && m.previewUrl.startsWith('blob:')) URL.revokeObjectURL(m.previewUrl); });
+      return keep;
+    });
+    set('formato', next);
+    setPendingFormato(null);
+  }
+
+  function serializeMidias() {
+    return midias.filter((m) => m.status === 'ready' && m.path).map((m) => ({ path: m.path, tipo: m.tipo, mime: m.mime || '' }));
+  }
+  function buildPayload() {
+    const legacyKept = midias.some((m) => m.legacy && m.status === 'ready');
+    return { ...form, midias: serializeMidias(), imagemUrl: legacyKept ? legacyImagemRef.current : null };
+  }
+  function cleanupDeadMedia(payload) {
+    const keep = new Set(payload.midias.map((m) => m.path));
+    const dead = [...new Set([
+      ...[...originalPathsRef.current].filter((p) => p && !keep.has(p)),
+      ...uploadedRef.current.filter((p) => !keep.has(p)),
+    ])];
+    if (dead.length) supabase.storage.from(REDES_BUCKET).remove(dead);
+  }
+
+  function handleSaveClick()      { const p = buildPayload(); cleanupDeadMedia(p); onSave(p); }
+  function handleDuplicateClick() { onDuplicate(buildPayload()); }
+  function handleCloseClick() {
+    const orphans = uploadedRef.current.filter((p) => !originalPathsRef.current.has(p));
+    if (orphans.length) supabase.storage.from(REDES_BUCKET).remove(orphans);
+    onClose();
   }
 
   function handleAI() {
@@ -453,7 +829,7 @@ function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openA
       return c ? (c.nome || platformCfg(c.plataforma).label) : id;
     }).join(', ');
     openAI(`Crie um post para ${labels}. Formato: ${form.formato}. Data: ${form.data}. ${form.titulo ? `Tema: ${form.titulo}.` : ''} Gere: título chamativo, legenda completa com CTA e 5 hashtags para empresa B2B de serviços para PMEs.`);
-    onClose();
+    handleCloseClick();
   }
 
   const inp = { background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%', boxSizing: 'border-box', outline: 'none' };
@@ -463,7 +839,7 @@ function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openA
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 520, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg2)', zIndex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{isEdit ? 'Editar post' : 'Novo post'}</div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}><X size={16} /></button>
+          <button onClick={handleCloseClick} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}><X size={16} /></button>
         </div>
 
         <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -507,7 +883,7 @@ function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openA
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>FORMATO</label>
-              <select style={{ ...inp, cursor: 'pointer' }} value={form.formato} onChange={e => set('formato', e.target.value)}>
+              <select style={{ ...inp, cursor: canEdit ? 'pointer' : 'not-allowed' }} value={form.formato} disabled={!canEdit} onChange={e => requestFormato(e.target.value)}>
                 {FORMATOS.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
@@ -518,20 +894,27 @@ function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openA
               </select>
             </div>
           </div>
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>IMAGEM</label>
-            {form.imagemUrl ? (
-              <div style={{ position: 'relative' }}>
-                <img src={form.imagemUrl} alt="" style={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 8 }} />
-                <button onClick={() => set('imagemUrl', null)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}><X size={12} /></button>
+          {pendingFormato && (
+            <div style={{ background: 'rgba(240,168,50,0.12)', border: '1px solid var(--amber)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 12, color: 'var(--text)', display: 'flex', gap: 6, lineHeight: 1.5 }}>
+                <AlertTriangle size={14} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
+                Mudar para "{pendingFormato}" vai descartar {relevantes.length} {relevantes.length === 1 ? 'mídia' : 'mídias'} já adicionada{relevantes.length === 1 ? '' : 's'}.
               </div>
-            ) : (
-              <button onClick={() => fileRef.current?.click()} style={{ width: '100%', padding: 14, borderRadius: 8, background: 'var(--bg3)', border: '1px dashed var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                + Carregar imagem
-              </button>
-            )}
-            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImage} />
-          </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={confirmFormatoChange} style={{ padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--amber)', border: 'none', color: '#1a1a1a' }}>Descartar e mudar</button>
+                <button onClick={() => setPendingFormato(null)} style={{ padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>Manter "{form.formato}"</button>
+              </div>
+            </div>
+          )}
+          <PostMediaField
+            formato={form.formato}
+            midias={midias}
+            setMidias={setMidias}
+            canEdit={canEdit}
+            empresaId={empresaId}
+            registerUpload={registerUpload}
+            isSessionUpload={isSessionUpload}
+          />
           {form.status === 'publicado' && (
             <div>
               <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>MÉTRICAS</label>
@@ -559,7 +942,7 @@ function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openA
           <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center', position: 'sticky', bottom: 0, background: 'var(--bg2)' }}>
             {isEdit && (
               <>
-                <button onClick={() => onDuplicate(form)} style={{ padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                <button onClick={handleDuplicateClick} disabled={uploading} style={{ padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.5 : 1, fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
                   Duplicar
                 </button>
                 <button onClick={() => onDelete(form.id)} style={{ padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid rgba(240,92,92,0.4)', color: 'var(--red)' }}>
@@ -567,11 +950,12 @@ function PostModal({ post, contas, onSave, onDelete, onDuplicate, onClose, openA
                 </button>
               </>
             )}
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+              {uploading && <span style={{ fontSize: 11, color: 'var(--text3)' }}>enviando mídia…</span>}
               <button onClick={handleAI} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)' }}>
                 <Bot size={13} /> Criar com IA
               </button>
-              <button onClick={() => onSave(form)} style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+              <button onClick={handleSaveClick} disabled={uploading} style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.5 : 1, fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
                 {isEdit ? 'Salvar' : 'Criar manualmente'}
               </button>
             </div>
@@ -643,7 +1027,7 @@ function WeekView({ posts, contas, filterRede, onPostClick }) {
 }
 
 /* ─── List View ──────────────────────────────────────────────────────────────── */
-function ListView({ posts, contas, filterRede, onPostClick }) {
+function ListView({ posts, contas, filterRede, onPostClick, midiaUrls = {} }) {
   const filtered = [...posts]
     .filter(p => filterRede === 'todas' || (p.redes || []).includes(filterRede))
     .sort((a, b) => {
@@ -662,6 +1046,9 @@ function ListView({ posts, contas, filterRede, onPostClick }) {
         const redes = (p.redes || []).map(id => contas.find(c => c.id === id)).filter(Boolean);
         const st = POST_STATUS[p.status] || POST_STATUS.ideia;
         const dayNum = p.data ? parseInt(p.data.split('-')[2]) : '--';
+        const primeiraMidia = (p.midias && p.midias[0]) || null;
+        const thumbUrl = primeiraMidia ? midiaUrls[primeiraMidia.path] : p.imagemUrl;
+        const thumbVideo = primeiraMidia?.tipo === 'video';
         return (
           <div key={p.id} onClick={() => onPostClick(p)}
             style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'border-color .15s' }}
@@ -686,7 +1073,12 @@ function ListView({ posts, contas, filterRede, onPostClick }) {
                 {p.formato && <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {p.formato}</span>}
               </div>
             </div>
-            {p.imagemUrl && <img src={p.imagemUrl} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
+            {thumbUrl && (
+              thumbVideo
+                ? <div style={{ width: 40, height: 40, borderRadius: 6, flexShrink: 0, background: 'var(--bg4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}><Film size={14} /></div>
+                : <img src={thumbUrl} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+            )}
+            {(p.midias?.length > 1) && <span style={{ fontSize: 10, color: 'var(--text3)', flexShrink: 0 }}>{p.midias.length} imgs</span>}
             <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, background: st.bg, color: st.color, flexShrink: 0 }}>{st.label}</span>
           </div>
         );
@@ -830,6 +1222,7 @@ export default function RedesSociais() {
 
   const [calPosts,     setCalPosts]     = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [midiaUrls,    setMidiaUrls]    = useState({});
   const [viewDate,     setViewDate]     = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [calView,      setCalView]      = useState('mensal');
   const [postModal,    setPostModal]    = useState(null);
@@ -850,6 +1243,16 @@ export default function RedesSociais() {
     load();
     return () => { cancelled = true; };
   }, [empresaId]);
+
+  // URLs assinadas das mídias de todos os posts do calendário (para as
+  // miniaturas da lista). Reassina quando a lista de posts muda.
+  useEffect(() => {
+    let cancelled = false;
+    const paths = calPosts.flatMap((p) => (p.midias ?? []).map((m) => m.path)).filter(Boolean);
+    // signMidiaPaths resolve async (inclusive p/ lista vazia) — sem setState síncrono.
+    signMidiaPaths(paths).then((m) => { if (!cancelled) setMidiaUrls(m); });
+    return () => { cancelled = true; };
+  }, [calPosts]);
 
   useEffect(() => {
     if (!empresaId) return;
@@ -883,7 +1286,10 @@ export default function RedesSociais() {
   }
 
   async function handlePostDelete(id) {
+    const alvo = calPosts.find(p => p.id === id);
     await supabase.from('redes_posts').delete().eq('id', id);
+    const paths = (alvo?.midias ?? []).map(m => m.path).filter(Boolean);
+    if (paths.length) supabase.storage.from(REDES_BUCKET).remove(paths);
     setCalPosts(prev => prev.filter(p => p.id !== id));
     setPostModal(null);
   }
@@ -891,7 +1297,23 @@ export default function RedesSociais() {
   async function handlePostDuplicate(form) {
     const d = new Date(form.data + 'T00:00:00');
     d.setDate(d.getDate() + 1);
-    const row = postToRow({ ...form, data: dateToISO(d.getFullYear(), d.getMonth(), d.getDate()) });
+    const novaData = dateToISO(d.getFullYear(), d.getMonth(), d.getDate());
+
+    // O post duplicado não pode compartilhar objetos de Storage com o original
+    // (deletar um apagaria a mídia do outro) — cada arquivo é copiado.
+    const midias = [];
+    for (const m of form.midias ?? []) {
+      const ext = (m.path.split('.').pop() || 'bin').replace(/[^a-zA-Z0-9]/g, '');
+      const novoPath = `${empresaId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-copia.${ext}`;
+      const { error } = await supabase.storage.from(REDES_BUCKET).copy(m.path, novoPath);
+      if (!error) midias.push({ ...m, path: novoPath });
+    }
+    const row = postToRow({
+      ...form,
+      data: novaData,
+      midias,
+      imagemUrl: midias.length ? null : (form.imagemUrl ?? null),
+    });
     const { data } = await supabase.from('redes_posts').insert(row).select().single();
     if (data) setCalPosts(prev => [...prev, postFromRow(data)]);
     setPostModal(null);
@@ -1142,7 +1564,7 @@ export default function RedesSociais() {
                 </>
               )}
               {calView === 'lista' && (
-                <ListView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} />
+                <ListView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} midiaUrls={midiaUrls} />
               )}
             </>
           )}
@@ -1189,6 +1611,7 @@ export default function RedesSociais() {
         <PostModal
           post={postModal.post}
           contas={contas}
+          empresaId={empresaId}
           onSave={handlePostSave}
           onDelete={handlePostDelete}
           onDuplicate={handlePostDuplicate}
