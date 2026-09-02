@@ -12,6 +12,17 @@ const ACTIONS = ['view', 'edit', 'delete', 'export'];
 const ACTION_LABELS = { view: 'Ver', edit: 'Editar', delete: 'Excluir', export: 'Exportar' };
 const ROLE_KEYS = Object.keys(ROLES);
 
+// Papéis que um gestor de usuários pode atribuir a um membro NA EMPRESA ATIVA.
+// 'superadmin' fica de fora — é papel global, não se dá por aqui.
+const PAPEIS_ATRIBUIVEIS = [
+  { value: 'admin',        label: 'Administrador' },
+  { value: 'gestor',       label: 'Gestor Comercial' },
+  { value: 'vendedor',     label: 'Vendedor' },
+  { value: 'marketing',    label: 'Marketing' },
+  { value: 'visualizador', label: 'Visualizador' },
+  { value: 'cliente',      label: 'Cliente (só Redes, leitura)' },
+];
+
 /* ─── Small toggle checkbox ─────────────────────────────────────────────────── */
 function Toggle({ checked, onChange, disabled }) {
   return (
@@ -41,11 +52,12 @@ function Toggle({ checked, onChange, disabled }) {
 
 /* ─── Permission cell (check icon) ─────────────────────────────────────────── */
 function PermCell({ value, onChange }) {
+  const clickable = typeof onChange === 'function';
   return (
     <div
-      onClick={() => onChange(!value)}
+      onClick={clickable ? () => onChange(!value) : undefined}
       style={{
-        width: 28, height: 28, borderRadius: 6, cursor: 'pointer',
+        width: 28, height: 28, borderRadius: 6, cursor: clickable ? 'pointer' : 'default',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: value ? 'rgba(45,212,160,0.1)' : 'var(--bg4)',
         border: `1px solid ${value ? 'rgba(45,212,160,0.3)' : 'var(--border)'}`,
@@ -60,76 +72,63 @@ function PermCell({ value, onChange }) {
   );
 }
 
-/* ─── Tab 1: Role permissions matrix ────────────────────────────────────────── */
+/* ─── Tab 1: Role permissions matrix (somente leitura) ──────────────────────── */
+// Estes são os PADRÕES de cada papel (src/data/permissions.js). Ajustes por
+// pessoa são feitos na aba "Usuários" e ficam gravados no banco por empresa.
 function RoleTab() {
-  const { getRolePermissions, updateRolePermission, resetRolePermissions } = useAuth();
-
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
-        <thead>
-          <tr>
-            <th style={{ width: 160, padding: '8px 12px', textAlign: 'left', fontSize: 11, color: 'var(--text3)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>
-              Módulo
-            </th>
-            <th style={{ width: 80, padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text3)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>
-              Ação
-            </th>
-            {ROLE_KEYS.map((role) => (
-              <th key={role} style={{ padding: '8px 12px', textAlign: 'center', fontSize: 11, color: 'var(--text3)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <span style={{ color: 'var(--text2)' }}>{ROLES[role]}</span>
-                  <button
-                    onClick={() => resetRolePermissions(role)}
-                    title="Restaurar padrões"
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text3)', padding: 2, borderRadius: 4,
-                      display: 'flex', alignItems: 'center', gap: 3,
-                      fontSize: 10, fontFamily: 'var(--font-body)',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--amber)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text3)'; }}
-                  >
-                    <RotateCcw size={10} /> Restaurar
-                  </button>
-                </div>
+    <div>
+      <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16, lineHeight: 1.6 }}>
+        Referência dos acessos padrão de cada papel. Para ajustar o que uma
+        pessoa específica pode fazer, use a aba <strong style={{ color: 'var(--text2)' }}>Usuários</strong> —
+        os ajustes valem para a empresa ativa e passam a valer para todos.
+      </p>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+          <thead>
+            <tr>
+              <th style={{ width: 160, padding: '8px 12px', textAlign: 'left', fontSize: 11, color: 'var(--text3)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>
+                Módulo
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {MODULES.map((mod, mIdx) =>
-            ACTIONS.map((action, aIdx) => {
-              const isFirstAction = aIdx === 0;
-              return (
-                <tr key={`${mod.id}-${action}`} style={{ background: mIdx % 2 === 0 ? 'transparent' : 'rgba(30,32,40,0.4)' }}>
-                  <td style={{ padding: '6px 12px', fontSize: 12, color: 'var(--text2)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }}>
-                    {isFirstAction ? mod.label : ''}
-                  </td>
-                  <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text3)', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
-                    {ACTION_LABELS[action]}
-                  </td>
-                  {ROLE_KEYS.map((role) => {
-                    const perms = getRolePermissions(role);
-                    const value = perms[mod.id]?.[action] ?? false;
-                    return (
-                      <td key={role} style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', textAlign: 'center', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                          <PermCell
-                            value={value}
-                            onChange={(v) => updateRolePermission(role, mod.id, action, v)}
-                          />
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
+              <th style={{ width: 80, padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text3)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>
+                Ação
+              </th>
+              {ROLE_KEYS.map((role) => (
+                <th key={role} style={{ padding: '8px 12px', textAlign: 'center', fontSize: 11, color: 'var(--text2)', fontWeight: 500, borderBottom: '1px solid var(--border)' }}>
+                  {ROLES[role]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {MODULES.map((mod, mIdx) =>
+              ACTIONS.map((action, aIdx) => {
+                const isFirstAction = aIdx === 0;
+                return (
+                  <tr key={`${mod.id}-${action}`} style={{ background: mIdx % 2 === 0 ? 'transparent' : 'rgba(30,32,40,0.4)' }}>
+                    <td style={{ padding: '6px 12px', fontSize: 12, color: 'var(--text2)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }}>
+                      {isFirstAction ? mod.label : ''}
+                    </td>
+                    <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text3)', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
+                      {ACTION_LABELS[action]}
+                    </td>
+                    {ROLE_KEYS.map((role) => {
+                      const value = DEFAULT_PERMISSIONS[role]?.[mod.id]?.[action] ?? false;
+                      return (
+                        <td key={role} style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', textAlign: 'center', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'flex', justifyContent: 'center' }}>
+                            <PermCell value={value} />
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -309,28 +308,74 @@ function ConviteModal({ onClose, onConviteCriado }) {
 
 /* ─── Tab 2: User management ────────────────────────────────────────────────── */
 function UsersTab() {
-  const { empresaId, user, getUserPermissions, updateUserPermission, resetUserPermissions } = useAuth();
-  const [perfis,       setPerfis]      = useState([]);
-  const [loadingPerfis, setLoadingP]   = useState(true);
-  const [selectedId,   setSelectedId] = useState(null);
-  const [showConvite,   setShowConvite] = useState(false);
-  const [convites,      setConvites]    = useState([]);
-  const [loadingConv,   setLoadingConv] = useState(true);
-  const [copiadoId,     setCopiadoId]   = useState(null);
+  const { empresaId, empresaAtiva, user, isSuperadmin, refreshUser } = useAuth();
+  const [membros,        setMembros]     = useState([]);
+  const [loadingMembros, setLoadingM]    = useState(true);
+  const [erroMembros,    setErroMembros] = useState('');
+  const [overrides,      setOverrides]   = useState({});   // { [perfilId]: { [modulo]: { [acao]: bool } } }
+  const [selectedId,    setSelectedId]  = useState(null);
+  const [showConvite,    setShowConvite] = useState(false);
+  const [convites,       setConvites]    = useState([]);
+  const [loadingConv,    setLoadingConv] = useState(true);
+  const [copiadoId,      setCopiadoId]   = useState(null);
+  const [permErro,       setPermErro]    = useState('');
+  const [papelErro,      setPapelErro]   = useState('');
+  const [papelSaving,    setPapelSaving] = useState(false);
+  const [pendingPromo,   setPendingPromo] = useState(null);   // papel-alvo aguardando confirmação
 
   const canInvite = ['superadmin', 'admin', 'gestor'].includes(user?.role);
+  const podeGerir = isSuperadmin || user?.role === 'admin';
 
+  // Membros: quem tem vínculo com a empresa ATIVA (perfis_empresas), com o papel
+  // do vínculo. Vem de um endpoint serverless porque a RLS de perfis_empresas só
+  // deixa cada um ver os próprios vínculos — e a lista antiga (perfis por
+  // empresa_id) deixava de fora quem tem vínculo aqui mas perfil noutra empresa,
+  // inclusive o próprio superadmin da agência.
   useEffect(() => {
-    if (!empresaId) { setLoadingP(false); return; }
+    if (!empresaId) { setLoadingM(false); return; }
+    let cancelled = false;
+    (async () => {
+      setLoadingM(true);
+      setErroMembros('');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const res = await fetch(`/api/membros?empresaId=${empresaId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setErroMembros(data.error || 'Não foi possível carregar a equipe.');
+          setMembros([]);
+        } else {
+          setMembros(data.membros ?? []);
+        }
+      } catch {
+        if (!cancelled) setErroMembros('Não foi possível conectar. Tente novamente.');
+      } finally {
+        if (!cancelled) setLoadingM(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  // Overrides de permissão da empresa ativa (RLS deixa qualquer membro ler; só
+  // gestor de usuários escreve).
+  useEffect(() => {
+    if (!empresaId) return;
     let cancelled = false;
     supabase
-      .from('perfis')
-      .select('id, nome, email, papel')
+      .from('perfis_permissoes')
+      .select('perfil_id, modulo, acao, permitido')
       .eq('empresa_id', empresaId)
       .then(({ data, error }) => {
-        if (cancelled) return;
-        if (!error) setPerfis(data ?? []);
-        setLoadingP(false);
+        if (cancelled || error || !data) return;
+        const out = {};
+        for (const r of data) {
+          ((out[r.perfil_id] ||= {})[r.modulo] ||= {})[r.acao] = r.permitido;
+        }
+        setOverrides(out);
       });
     return () => { cancelled = true; };
   }, [empresaId]);
@@ -379,18 +424,109 @@ function UsersTab() {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
-  const targetPerfil = selectedId ? perfis.find(p => p.id === selectedId) : null;
-  // getUserPermissions expects { id, role }
-  const targetUser   = targetPerfil ? { id: targetPerfil.id, role: targetPerfil.papel } : null;
-  const userPerms    = targetUser ? getUserPermissions(targetUser) : null;
+  const target = selectedId ? membros.find(m => m.id === selectedId) : null;
+  const isSelf = target && user && target.id === user.id;
+
+  // Valor efetivo = override do usuário nesta empresa, senão o padrão do papel.
+  function effVal(mod, acao) {
+    const ov = overrides[target.id]?.[mod]?.[acao];
+    if (ov !== undefined) return ov;
+    return DEFAULT_PERMISSIONS[target.papel]?.[mod]?.[acao] ?? false;
+  }
+
+  async function toggle(mod, acao, value) {
+    if (!target) return;
+    setPermErro('');
+    const def = DEFAULT_PERMISSIONS[target.papel]?.[mod]?.[acao] ?? false;
+    let error;
+    if (value === def) {
+      // Voltou ao padrão do papel → remove o override.
+      ({ error } = await supabase
+        .from('perfis_permissoes').delete()
+        .eq('empresa_id', empresaId).eq('perfil_id', target.id)
+        .eq('modulo', mod).eq('acao', acao));
+    } else {
+      ({ error } = await supabase
+        .from('perfis_permissoes')
+        .upsert(
+          { empresa_id: empresaId, perfil_id: target.id, modulo: mod, acao: acao, permitido: value },
+          { onConflict: 'empresa_id,perfil_id,modulo,acao' },
+        ));
+    }
+    if (error) {
+      setPermErro('Não foi possível salvar. Você precisa poder gerir usuários desta empresa.');
+      return;
+    }
+    setOverrides(prev => {
+      const perfil = { ...(prev[target.id] ?? {}) };
+      const modObj = { ...(perfil[mod] ?? {}) };
+      if (value === def) delete modObj[acao];
+      else modObj[acao] = value;
+      perfil[mod] = modObj;
+      return { ...prev, [target.id]: perfil };
+    });
+    if (isSelf) refreshUser();
+  }
+
+  async function resetPerms() {
+    if (!target) return;
+    setPermErro('');
+    const { error } = await supabase
+      .from('perfis_permissoes').delete()
+      .eq('empresa_id', empresaId).eq('perfil_id', target.id);
+    if (error) {
+      setPermErro('Não foi possível restaurar os padrões.');
+      return;
+    }
+    setOverrides(prev => { const n = { ...prev }; delete n[target.id]; return n; });
+    if (isSelf) refreshUser();
+  }
+
+  async function aplicarPapel(novoPapel) {
+    if (!target || novoPapel === target.papel) return;
+    setPapelErro('');
+    setPapelSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch('/api/membros', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ empresaId, perfilId: target.id, papel: novoPapel }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPapelErro(data.error || 'Não foi possível alterar o papel.');
+        return;
+      }
+      setMembros(prev => prev.map(m => (m.id === target.id ? { ...m, papel: novoPapel } : m)));
+    } catch {
+      setPapelErro('Não foi possível conectar. Tente novamente.');
+    } finally {
+      setPapelSaving(false);
+      setPendingPromo(null);
+    }
+  }
+
+  function onSelectPapel(novo) {
+    setPapelErro('');
+    if (!target || novo === target.papel) return;
+    // Promover quem era 'cliente' abre módulos — confirmar antes.
+    if (target.papel === 'cliente') { setPendingPromo(novo); return; }
+    aplicarPapel(novo);
+  }
 
   return (
     <div>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <p style={{ fontSize: 13, color: 'var(--text2)' }}>
-          {loadingPerfis ? 'Carregando…' : `${perfis.length} membro${perfis.length !== 1 ? 's' : ''} na equipe`}
-        </p>
+        <div>
+          <p style={{ fontSize: 13, color: 'var(--text2)' }}>
+            {loadingMembros ? 'Carregando…' : `${membros.length} membro${membros.length !== 1 ? 's' : ''}`}
+            {empresaAtiva?.nome ? ` · ${empresaAtiva.nome}` : ''}
+          </p>
+          {erroMembros && <p style={{ fontSize: 12, color: 'var(--red)', marginTop: 3 }}>{erroMembros}</p>}
+        </div>
         {canInvite && (
           <button onClick={() => setShowConvite(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
@@ -401,7 +537,7 @@ function UsersTab() {
 
       {showConvite && <ConviteModal onClose={() => setShowConvite(false)} onConviteCriado={handleConviteCriado} />}
 
-      {loadingPerfis ? (
+      {loadingMembros ? (
         <div style={{ padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <p style={{ fontSize: 13, color: 'var(--text3)' }}>Carregando equipe…</p>
         </div>
@@ -409,7 +545,7 @@ function UsersTab() {
         <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 20, alignItems: 'start' }}>
           {/* Member list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {perfis.map((u) => (
+            {membros.map((u) => (
               <button key={u.id} onClick={() => setSelectedId(u.id)}
                 style={{
                   background: selectedId === u.id ? 'rgba(91,110,245,0.1)' : 'var(--bg3)',
@@ -440,34 +576,99 @@ function UsersTab() {
                 <ChevronRight size={13} style={{ color: 'var(--text3)', flexShrink: 0 }} />
               </button>
             ))}
-            {perfis.length === 0 && (
+            {membros.length === 0 && !erroMembros && (
               <p style={{ fontSize: 13, color: 'var(--text3)', padding: '16px 0' }}>Nenhum membro encontrado.</p>
             )}
           </div>
 
           {/* Permission panel */}
-          {targetPerfil && userPerms ? (
+          {target ? (
             <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div>
-                  <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{targetPerfil.nome}</p>
-                  <p style={{ fontSize: 12, color: 'var(--text3)' }}>{ROLES[targetPerfil.papel] ?? targetPerfil.papel} · {targetPerfil.email}</p>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, gap: 12 }}>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{target.nome}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text3)' }}>{target.email}</p>
                 </div>
                 <button
-                  onClick={() => resetUserPermissions(targetPerfil.id)}
+                  onClick={resetPerms}
+                  disabled={!podeGerir}
                   style={{
                     background: 'none', border: '1px solid var(--border)',
-                    borderRadius: 8, padding: '6px 10px',
-                    color: 'var(--text3)', fontSize: 12, cursor: 'pointer',
+                    borderRadius: 8, padding: '6px 10px', flexShrink: 0,
+                    color: 'var(--text3)', fontSize: 12, cursor: podeGerir ? 'pointer' : 'default',
+                    opacity: podeGerir ? 1 : 0.5,
                     display: 'flex', alignItems: 'center', gap: 6,
                     fontFamily: 'var(--font-body)', transition: 'color 0.13s, border-color 0.13s',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--amber)'; e.currentTarget.style.borderColor = 'var(--amber)'; }}
+                  onMouseEnter={(e) => { if (podeGerir) { e.currentTarget.style.color = 'var(--amber)'; e.currentTarget.style.borderColor = 'var(--amber)'; } }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text3)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
                 >
                   <RotateCcw size={12} /> Restaurar padrões
                 </button>
               </div>
+
+              {/* Papel na empresa ativa */}
+              <div style={{ marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid var(--border)' }}>
+                <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>
+                  PAPEL NESTA EMPRESA
+                </label>
+                {target.papel === 'superadmin' ? (
+                  <p style={{ fontSize: 13, color: 'var(--text2)' }}>{ROLES.superadmin} · papel global</p>
+                ) : (
+                  <>
+                    <select
+                      value={target.papel}
+                      disabled={!podeGerir || isSelf || papelSaving}
+                      onChange={(e) => onSelectPapel(e.target.value)}
+                      style={{
+                        width: '100%', maxWidth: 280, background: 'var(--bg4)',
+                        border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px',
+                        fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)',
+                        cursor: (!podeGerir || isSelf || papelSaving) ? 'default' : 'pointer', outline: 'none',
+                        opacity: (!podeGerir || isSelf) ? 0.6 : 1,
+                      }}
+                    >
+                      {PAPEIS_ATRIBUIVEIS.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                    {isSelf && (
+                      <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+                        Você não pode alterar o seu próprio papel.
+                      </p>
+                    )}
+                    {pendingPromo && (
+                      <div style={{ marginTop: 10, background: 'var(--bg4)', border: '1px solid rgba(240,168,50,0.4)', borderRadius: 8, padding: '10px 12px' }}>
+                        <p style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 10 }}>
+                          <AlertTriangle size={12} style={{ color: 'var(--amber)', marginRight: 5, verticalAlign: '-2px' }} />
+                          Esta pessoa é <strong style={{ color: 'var(--text)' }}>Cliente</strong> e só vê Redes Sociais.
+                          Como <strong style={{ color: 'var(--text)' }}>{ROLES[pendingPromo] ?? pendingPromo}</strong> ela passará a ver mais módulos.
+                        </p>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => setPendingPromo(null)}
+                            style={{ padding: '6px 14px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                            Cancelar
+                          </button>
+                          <button onClick={() => aplicarPapel(pendingPromo)} disabled={papelSaving}
+                            style={{ padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: papelSaving ? 'default' : 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+                            {papelSaving ? 'Alterando…' : 'Confirmar promoção'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {papelSaving && !pendingPromo && (
+                      <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>Alterando papel…</p>
+                    )}
+                    {papelErro && (
+                      <p style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}>{papelErro}</p>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {permErro && (
+                <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 10 }}>{permErro}</p>
+              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {MODULES.map((mod) => (
@@ -475,10 +676,10 @@ function UsersTab() {
                     <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 8 }}>{mod.label}</p>
                     <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                       {ACTIONS.map((action) => {
-                        const value = userPerms[mod.id]?.[action] ?? false;
+                        const value = effVal(mod.id, action);
                         return (
-                          <label key={action} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                            <Toggle checked={value} onChange={(v) => updateUserPermission(targetPerfil.id, mod.id, action, v)} />
+                          <label key={action} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: podeGerir ? 'pointer' : 'default' }}>
+                            <Toggle checked={value} disabled={!podeGerir} onChange={(v) => toggle(mod.id, action, v)} />
                             <span style={{ fontSize: 11, color: 'var(--text3)' }}>{ACTION_LABELS[action]}</span>
                           </label>
                         );
@@ -490,7 +691,7 @@ function UsersTab() {
             </div>
           ) : (
             <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 14, padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <p style={{ fontSize: 13, color: 'var(--text3)' }}>Selecione um membro para editar as permissões</p>
+              <p style={{ fontSize: 13, color: 'var(--text3)' }}>Selecione um membro para editar papel e permissões</p>
             </div>
           )}
         </div>

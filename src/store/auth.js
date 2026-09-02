@@ -2,9 +2,6 @@ import { createElement, createContext, useCallback, useContext, useEffect, useSt
 import { supabase } from '../services/supabase.js';
 import { DEFAULT_PERMISSIONS } from '../data/permissions.js';
 
-const LS_USER_OVERRIDES = 'crm_user_overrides';
-const LS_ROLE_OVERRIDES = 'crm_role_overrides';
-
 // Multi-empresa: pistas locais gravadas ao trocar de empresa.
 // A correção de raiz é no banco: a policy "perfis: select do proprio perfil"
 // (migration ...000006) garante que o usuário SEMPRE enxerga a própria linha de
@@ -55,6 +52,24 @@ async function fetchVinculos(userId) {
       nome:      v.empresas?.nome || 'Empresa',
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+// Overrides de permissão do usuário NESTA empresa (tabela public.perfis_permissoes,
+// RLS por empresa). Substitui os antigos LS_USER_OVERRIDES do localStorage, que
+// só valiam no navegador de quem editava. Devolve { [modulo]: { [acao]: bool } }.
+async function fetchPermissoes(userId, empresaId) {
+  if (!empresaId) return {};
+  const { data, error } = await supabase
+    .from('perfis_permissoes')
+    .select('modulo, acao, permitido')
+    .eq('perfil_id', userId)
+    .eq('empresa_id', empresaId);
+  if (error || !data) return {};
+  const out = {};
+  for (const r of data) {
+    (out[r.modulo] ||= {})[r.acao] = r.permitido;
+  }
+  return out;
 }
 
 async function buildUser(supabaseUser) {
@@ -115,6 +130,10 @@ async function buildUser(supabaseUser) {
     (empresaAtivaId == null && vinculos.length > 0) ||
     (empresaAtivaId != null && role == null);
 
+  // Overrides de permissão do próprio usuário na empresa ativa. Superadmin não
+  // precisa (hasPermission libera tudo antes de olhar overrides).
+  const permissoes = isSuperadmin ? {} : await fetchPermissoes(supabaseUser.id, empresaAtivaId);
+
   const name = perfil?.nome || email.split('@')[0] || 'Usuário';
   return {
     id:           supabaseUser.id,
@@ -125,27 +144,15 @@ async function buildUser(supabaseUser) {
     empresas:     vinculos,
     isSuperadmin,
     semPapelNaEmpresa,
+    permissoes,
     avatar:       name.slice(0, 2).toUpperCase(),
   };
 }
 
-/* ─── Local-storage helpers (permission overrides) ───────────────────────────── */
-function loadUserOverrides() {
-  try { return JSON.parse(localStorage.getItem(LS_USER_OVERRIDES) ?? '{}'); }
-  catch { return {}; }
-}
-
-function loadRoleOverrides() {
-  try { return JSON.parse(localStorage.getItem(LS_ROLE_OVERRIDES) ?? '{}'); }
-  catch { return {}; }
-}
-
 /* ─── Provider ───────────────────────────────────────────────────────────────── */
 export function AuthProvider({ children }) {
-  const [user,          setUser]         = useState(null);
-  const [loading,       setLoading]      = useState(true);
-  const [userOverrides, setUserOverrides] = useState(() => loadUserOverrides());
-  const [roleOverrides, setRoleOverrides] = useState(() => loadRoleOverrides());
+  const [user,    setUser]    = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check stored session on mount. loading stays true until the profile is
@@ -244,87 +251,19 @@ export function AuthProvider({ children }) {
   }, []);
 
   /* ── Permission checks ── */
+  // Resolução: superadmin global → override do usuário NESTA empresa (tabela
+  // public.perfis_permissoes, carregada em buildUser) → padrão do papel do
+  // vínculo (DEFAULT_PERMISSIONS) → negado.
   const hasPermission = useCallback((module, action) => {
     if (!user) return false;
     // Superadmin é papel GLOBAL: nunca fica sem acesso, nem quando o papel na
     // empresa ativa não pôde ser resolvido (role === null). Isso garante o
     // caminho de volta por Configurações → Empresas.
     if (user.role === 'superadmin' || user.isSuperadmin) return true;
-    // 1. User-level override
-    const uOverride = userOverrides[user.id]?.[module]?.[action];
-    if (uOverride !== undefined) return uOverride;
-    // 2. Role-level override
-    const rOverride = roleOverrides[user.role]?.[module]?.[action];
-    if (rOverride !== undefined) return rOverride;
-    // 3. Default role permission
+    const override = user.permissoes?.[module]?.[action];
+    if (override !== undefined) return override;
     return DEFAULT_PERMISSIONS[user.role]?.[module]?.[action] ?? false;
-  }, [user, userOverrides, roleOverrides]);
-
-  const updateUserPermission = useCallback((userId, module, action, value) => {
-    setUserOverrides((prev) => {
-      const next = {
-        ...prev,
-        [userId]: {
-          ...prev[userId],
-          [module]: { ...(prev[userId]?.[module] ?? {}), [action]: value },
-        },
-      };
-      localStorage.setItem(LS_USER_OVERRIDES, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const resetUserPermissions = useCallback((userId) => {
-    setUserOverrides((prev) => {
-      const next = { ...prev };
-      delete next[userId];
-      localStorage.setItem(LS_USER_OVERRIDES, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const updateRolePermission = useCallback((role, module, action, value) => {
-    setRoleOverrides((prev) => {
-      const next = {
-        ...prev,
-        [role]: {
-          ...prev[role],
-          [module]: { ...(prev[role]?.[module] ?? {}), [action]: value },
-        },
-      };
-      localStorage.setItem(LS_ROLE_OVERRIDES, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const resetRolePermissions = useCallback((role) => {
-    setRoleOverrides((prev) => {
-      const next = { ...prev };
-      delete next[role];
-      localStorage.setItem(LS_ROLE_OVERRIDES, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const getRolePermissions = useCallback((role) => {
-    const defaults  = DEFAULT_PERMISSIONS[role] ?? {};
-    const overrides = roleOverrides[role] ?? {};
-    const result = {};
-    for (const mod of Object.keys(defaults)) {
-      result[mod] = { ...defaults[mod], ...(overrides[mod] ?? {}) };
-    }
-    return result;
-  }, [roleOverrides]);
-
-  const getUserPermissions = useCallback((targetUser) => {
-    const rolePerms = getRolePermissions(targetUser.role);
-    const overrides = userOverrides[targetUser.id] ?? {};
-    const result = {};
-    for (const mod of Object.keys(rolePerms)) {
-      result[mod] = { ...rolePerms[mod], ...(overrides[mod] ?? {}) };
-    }
-    return result;
-  }, [getRolePermissions, userOverrides]);
+  }, [user]);
 
   const value = {
     user,
@@ -342,14 +281,6 @@ export function AuthProvider({ children }) {
     login,
     logout,
     hasPermission,
-    userOverrides,
-    roleOverrides,
-    updateUserPermission,
-    resetUserPermissions,
-    updateRolePermission,
-    resetRolePermissions,
-    getRolePermissions,
-    getUserPermissions,
   };
 
   return createElement(AuthContext.Provider, { value }, children);
