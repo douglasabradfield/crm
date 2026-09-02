@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useUI } from './store/index.js';
 import { useAuth } from './store/auth.js';
+import { useIsMobile } from './hooks/useMediaQuery.js';
 import { primeiraRotaPermitida } from './data/permissions.js';
 import { useCRM } from './store/crm.js';
 import { useNotifications } from './hooks/useNotifications.js';
@@ -76,6 +78,16 @@ function Layout() {
   const { hasPermission } = useAuth();
   const { leads } = useCRM();
   const { overdueCount } = useNotifications();
+  const isMobile = useIsMobile();
+  const [navOpen, setNavOpen] = useState(false);
+
+  // Menu off-canvas fecha sozinho ao trocar de rota (padrão do React de ajustar
+  // estado durante a renderização, sem efeito).
+  const [navPath, setNavPath] = useState(location.pathname);
+  if (navPath !== location.pathname) {
+    setNavPath(location.pathname);
+    if (navOpen) setNavOpen(false);
+  }
 
   const routeKey    = resolveRoute(location.pathname);
   const { title, subtitle } = PAGE_META[routeKey];
@@ -83,12 +95,30 @@ function Layout() {
 
   return (
     <div className="app-layout">
-      <Sidebar onOpenAI={() => openAI()} />
+      <Sidebar
+        mobile={isMobile}
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
+        onOpenAI={() => { setNavOpen(false); openAI(); }}
+      />
+
+      {isMobile && navOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setNavOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 75 }}
+        />
+      )}
 
       <div className="main-area">
-        <Topbar title={title} subtitle={subtitle} onOpenAI={() => openAI()} />
+        <Topbar
+          title={title}
+          subtitle={subtitle}
+          onOpenAI={() => openAI()}
+          onOpenNav={isMobile ? () => setNavOpen(true) : null}
+        />
 
-        <main className="page-area">
+        <main className="page-area" style={isMobile ? { padding: 16 } : undefined}>
           <div className="page-enter" key={location.pathname}>
             <Routes>
               <Route path="/" element={

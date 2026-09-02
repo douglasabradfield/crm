@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Building2, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { useAuth } from '../../store/auth.js';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
 
 /**
  * Seletor de empresa ativa no topo. Só aparece para quem tem 2+ vínculos —
@@ -19,6 +20,7 @@ export default function EmpresaSwitcher() {
   const [trocando, setTrocando] = useState(false);
   const [erro,     setErro]     = useState(null);
   const wrapRef = useRef(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +67,7 @@ export default function EmpresaSwitcher() {
         className="btn-ghost"
         onClick={() => setOpen((v) => !v)}
         title="Trocar de empresa"
-        style={{ maxWidth: 220 }}
+        style={{ maxWidth: isMobile ? 150 : 220, padding: isMobile ? '7px 10px' : undefined }}
       >
         <Building2 size={13} style={{ flexShrink: 0 }} />
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -78,9 +80,9 @@ export default function EmpresaSwitcher() {
         <div style={{
           position: 'absolute',
           top: 'calc(100% + 6px)',
-          left: 0,
-          minWidth: 240,
-          maxWidth: 320,
+          ...(isMobile ? { right: 0 } : { left: 0 }),
+          minWidth: isMobile ? 200 : 240,
+          maxWidth: isMobile ? '80vw' : 320,
           background: 'var(--bg3)',
           border: '1px solid var(--border2)',
           borderRadius: 10,
@@ -123,8 +125,9 @@ export default function EmpresaSwitcher() {
 
       {erro && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 6px)', left: 0,
-          minWidth: 240, maxWidth: 320,
+          position: 'absolute', top: 'calc(100% + 6px)',
+          ...(isMobile ? { right: 0 } : { left: 0 }),
+          minWidth: isMobile ? 200 : 240, maxWidth: isMobile ? '80vw' : 320,
           background: 'var(--bg3)', border: '1px solid var(--red)',
           borderRadius: 10, padding: '10px 12px', zIndex: 60,
           fontSize: 12, color: 'var(--text)',

@@ -138,7 +138,7 @@ export default function AIPanel({ open, onClose, pageContext = '', initialPrompt
         aria-hidden={!open}
         style={{
           position: 'fixed', top: 0, right: 0,
-          height: '100vh', width: 380,
+          height: '100vh', width: 'min(100vw, 380px)',
           background: 'var(--bg2)',
           borderLeft: '1px solid var(--border)',
           zIndex: 100,

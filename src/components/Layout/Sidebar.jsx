@@ -42,9 +42,34 @@ const NAV_GROUPS = [
   },
 ];
 
-export default function Sidebar({ onOpenAI }) {
+export default function Sidebar({ onOpenAI, mobile = false, open = false, onClose }) {
   const { user, logout, hasPermission, empresaId } = useAuth();
   const [badges, setBadges] = useState({ crm: null, tickets: null });
+
+  // No celular a sidebar vira gaveta: fecha com Esc e trava o scroll do corpo.
+  useEffect(() => {
+    if (!mobile || !open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobile, open, onClose]);
+
+  const closeIfMobile = () => { if (mobile) onClose?.(); };
+
+  const asideStyle = mobile
+    ? {
+        position: 'fixed', top: 0, left: 0, bottom: 0,
+        width: 264, maxWidth: '85vw', zIndex: 80,
+        transform: open ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow: open ? '0 16px 40px rgba(0,0,0,0.4)' : 'none',
+      }
+    : undefined;
 
   useEffect(() => {
     if (!empresaId) return;
@@ -67,7 +92,7 @@ export default function Sidebar({ onOpenAI }) {
   }, [empresaId]);
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" style={asideStyle}>
       {/* Logo */}
       <div style={{
         padding: '18px 16px',
@@ -106,6 +131,8 @@ export default function Sidebar({ onOpenAI }) {
                     key={path}
                     to={path}
                     end={path === '/'}
+                    onClick={closeIfMobile}
+                    style={mobile ? { minHeight: 44 } : undefined}
                     className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
                   >
                     <Icon size={15} className="nav-icon" />
@@ -138,6 +165,8 @@ export default function Sidebar({ onOpenAI }) {
             </p>
             <NavLink
               to="/configuracoes"
+              onClick={closeIfMobile}
+              style={mobile ? { minHeight: 44 } : undefined}
               className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
             >
               <Settings size={15} className="nav-icon" />

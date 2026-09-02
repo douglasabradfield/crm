@@ -13,7 +13,12 @@ import {
   Award, Trophy,
 } from 'lucide-react';
 import { useUI } from '../store/index.js';
+import { useMediaQuery } from '../hooks/useMediaQuery.js';
 import PermissionGate from '../components/Auth/PermissionGate.jsx';
+
+// Breakpoints do Tailwind reaproveitados aqui (md 768 / lg 1024).
+const MOBILE_Q = '(max-width: 767px)';
+const TABLET_Q = '(min-width: 768px) and (max-width: 1023px)';
 
 /* ─── Data ───────────────────────────────────────────────────────────────────── */
 // Catálogo de plataformas conhecidas — só ícone/cor/rótulo (sem métricas fixas).
@@ -354,6 +359,7 @@ function RedeCard({ conta, latest, previous, active, onClick }) {
 }
 
 function RedeDetail({ conta, latest, history, onLogMetrics, onDelete }) {
+  const isMobile = useMediaQuery(MOBILE_Q);
   const cfg = platformCfg(conta.plataforma);
   const metrics = [
     { label: 'Alcance',      value: fmtNum(latest?.alcance),     icon: Eye,       color: '--accent2' },
@@ -366,28 +372,28 @@ function RedeDetail({ conta, latest, history, onLogMetrics, onDelete }) {
 
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 9, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+        <div style={{ width: 36, height: 36, borderRadius: 9, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <cfg.Icon size={17} style={{ color: `var(${cfg.color})` }} />
         </div>
-        <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{conta.nome || cfg.label} — Detalhes</div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+        <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', minWidth: 0, flex: isMobile ? '1 0 60%' : '0 1 auto' }}>{conta.nome || cfg.label} — Detalhes</div>
+        <div style={{ marginLeft: isMobile ? 0 : 'auto', width: isMobile ? '100%' : 'auto', display: 'flex', gap: 8 }}>
           <PermissionGate module="redes" action="edit">
             <button onClick={onLogMetrics}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
-              <Plus size={12} /> Lançar métricas do período
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: isMobile ? '10px 12px' : '6px 12px', minHeight: isMobile ? 44 : undefined, flex: isMobile ? 1 : undefined, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+              <Plus size={12} /> {isMobile ? 'Lançar métricas' : 'Lançar métricas do período'}
             </button>
           </PermissionGate>
           <PermissionGate module="redes" action="delete">
             <button onClick={onDelete} title="Remover rede"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 44 : 30, height: isMobile ? 44 : 30, flexShrink: 0, borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text3)' }}>
               <Trash2 size={13} />
             </button>
           </PermissionGate>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 12, marginBottom: 18 }}>
         {metrics.map(({ label, value, icon: Icon, color }) => (
           <div key={label} style={{ background: 'var(--bg3)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
             <Icon size={14} style={{ color: `var(${color})`, marginBottom: 4 }} />
@@ -416,6 +422,35 @@ function RedeDetail({ conta, latest, history, onLogMetrics, onDelete }) {
         <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>HISTÓRICO DE LANÇAMENTOS</div>
         {history.length === 0 ? (
           <div style={{ fontSize: 12, color: 'var(--text3)', padding: '10px 0' }}>Nenhum lançamento ainda. Use "Lançar métricas do período" para começar o histórico.</div>
+        ) : isMobile ? (
+          <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {history.map((h) => {
+              const pares = [
+                ['Seguidores', fmtNum(h.seguidores)],
+                ['Seg. líq.', <SegLiqValue key="sl" v={h.seguidoresLiquidos} />],
+                ['Alcance', fmtNum(h.alcance)],
+                ['Interações', fmtNum(h.interacoes)],
+                ['Impressões', fmtNum(h.impressoes)],
+                ['Engaj.', h.engajamento == null ? '—' : `${h.engajamento}%`],
+                ['Posts', fmtNum(h.postsPublicados)],
+              ];
+              return (
+                <div key={h.id} style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+                    {h.dataReferencia ? h.dataReferencia.split('-').reverse().join('/') : '—'}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
+                    {pares.map(([lbl, val]) => (
+                      <div key={lbl}>
+                        <div style={{ fontSize: 10, color: 'var(--text3)' }}>{lbl}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text2)' }}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(7,1fr)', gap: 6, fontSize: 10, color: 'var(--text3)', padding: '0 10px' }}>
@@ -457,7 +492,7 @@ function EmptyRedesState({ onAdd }) {
 }
 
 /* ─── Calendar ───────────────────────────────────────────────────────────────── */
-function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel }) {
+function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel, isMobile }) {
   const { openAI } = useUI();
   return (
     <div style={{ minHeight: 90, background: isToday ? 'color-mix(in srgb, var(--accent) 8%, var(--bg2))' : 'var(--bg2)', border: `1px solid ${isToday ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -477,9 +512,9 @@ function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel 
       {posts.length === 0 && (
         <PermissionGate module="ia" action="view">
           <button onClick={() => openAI(`Sugira um conteúdo para postar nas redes sociais no dia ${day} de ${curMonthLabel}. Empresa B2B para PMEs brasileiras. Sugestões para: Instagram (carrossel ou reels) e LinkedIn (artigo ou post). Inclua: tema, formato, legenda de exemplo e hashtags relevantes.`)}
-            style={{ marginTop: 'auto', opacity: 0, transition: 'opacity .15s', padding: '2px 4px', borderRadius: 4, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text3)', fontSize: 9, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+            style={{ marginTop: 'auto', opacity: isMobile ? 0.7 : 0, transition: 'opacity .15s', padding: '2px 4px', borderRadius: 4, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text3)', fontSize: 9, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
             onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = 0}>
+            onMouseLeave={(e) => e.currentTarget.style.opacity = isMobile ? 0.7 : 0}>
             + IA
           </button>
         </PermissionGate>
@@ -488,7 +523,7 @@ function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel 
   );
 }
 
-function CalendarGrid({ posts, contas, filterRede, onPostClick, viewDate }) {
+function CalendarGrid({ posts, contas, filterRede, onPostClick, viewDate, isMobile }) {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -517,18 +552,20 @@ function CalendarGrid({ posts, contas, filterRede, onPostClick, viewDate }) {
   }
 
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: 4 }}>
-        {DOW.map((d) => (
-          <div key={d} style={{ textAlign: 'center', fontSize: 11, color: 'var(--text3)', padding: '4px 0' }}>{d}</div>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
-        {cells.map((cell) =>
-          cell.empty
-            ? <div key={cell.key} />
-            : <CalendarCell key={cell.day} day={cell.day} posts={cell.posts} contas={contas} isToday={cell.isToday} curMonthLabel={curMonthLabel} onPostClick={onPostClick} />
-        )}
+    <div style={isMobile ? { overflowX: 'auto', WebkitOverflowScrolling: 'touch' } : undefined}>
+      <div style={isMobile ? { minWidth: 640 } : undefined}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: 4 }}>
+          {DOW.map((d) => (
+            <div key={d} style={{ textAlign: 'center', fontSize: 11, color: 'var(--text3)', padding: '4px 0' }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
+          {cells.map((cell) =>
+            cell.empty
+              ? <div key={cell.key} />
+              : <CalendarCell key={cell.day} day={cell.day} posts={cell.posts} contas={contas} isToday={cell.isToday} curMonthLabel={curMonthLabel} onPostClick={onPostClick} isMobile={isMobile} />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -552,14 +589,24 @@ function Legend() {
 // items: [{ tipo:'imagem'|'video', previewUrl }]. Fecha por X, Esc ou clique no
 // fundo. Em carrossel, navega por setas (tela e teclado) com indicador "n/total".
 function MediaLightbox({ items, startIndex = 0, onClose }) {
+  const isMobile = useMediaQuery(MOBILE_Q);
   const [idx, setIdx] = useState(startIndex);
   const multi = items.length > 1;
   const safeIdx = Math.max(0, Math.min(idx, items.length - 1));
   const cur = items[safeIdx];
+  const touchX = useRef(null);
 
   const go = useCallback((dir) => {
     setIdx((i) => (i + dir + items.length) % items.length);
   }, [items.length]);
+
+  function onTouchStart(e) { touchX.current = e.touches[0]?.clientX ?? null; }
+  function onTouchEnd(e) {
+    if (touchX.current == null || !multi) return;
+    const dx = (e.changedTouches[0]?.clientX ?? touchX.current) - touchX.current;
+    if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+    touchX.current = null;
+  }
 
   useEffect(() => {
     function onKey(e) {
@@ -573,24 +620,32 @@ function MediaLightbox({ items, startIndex = 0, onClose }) {
 
   if (!cur) return null;
 
-  const navBtn = { background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', width: 42, height: 42, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 };
+  const navBtn = {
+    background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff',
+    width: isMobile ? 44 : 42, height: isMobile ? 44 : 42, borderRadius: '50%', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    ...(isMobile ? { position: 'absolute', top: '50%', transform: 'translateY(-50%)', zIndex: 1 } : {}),
+  };
 
   return createPortal(
     <div onClick={onClose}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 0 : 16, padding: isMobile ? 12 : 24 }}>
       <button onClick={onClose} title="Fechar (Esc)"
-        style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', width: 38, height: 38, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+        style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', width: isMobile ? 44 : 38, height: isMobile ? 44 : 38, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
         <X size={18} />
       </button>
-      {multi && <button onClick={(e) => { e.stopPropagation(); go(-1); }} style={navBtn}><ChevronLeft size={20} /></button>}
-      <div onClick={(e) => e.stopPropagation()}
+      {multi && <button onClick={(e) => { e.stopPropagation(); go(-1); }} style={{ ...navBtn, ...(isMobile ? { left: 8 } : {}) }}><ChevronLeft size={20} /></button>}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         {cur.tipo === 'video' ? (
           <video src={cur.previewUrl || undefined} controls autoPlay playsInline
-            style={{ maxWidth: '86vw', maxHeight: '78vh', borderRadius: 8, background: '#000' }} />
+            style={{ maxWidth: isMobile ? '94vw' : '86vw', maxHeight: '78vh', borderRadius: 8, background: '#000' }} />
         ) : (
           <img src={cur.previewUrl || undefined} alt=""
-            style={{ maxWidth: '86vw', maxHeight: '78vh', objectFit: 'contain', borderRadius: 8 }} />
+            style={{ maxWidth: isMobile ? '94vw' : '86vw', maxHeight: '78vh', objectFit: 'contain', borderRadius: 8 }} />
         )}
         {multi && (
           <div style={{ color: '#fff', fontSize: 12, background: 'rgba(0,0,0,0.5)', padding: '4px 12px', borderRadius: 20 }}>
@@ -598,7 +653,7 @@ function MediaLightbox({ items, startIndex = 0, onClose }) {
           </div>
         )}
       </div>
-      {multi && <button onClick={(e) => { e.stopPropagation(); go(1); }} style={navBtn}><ChevronRight size={20} /></button>}
+      {multi && <button onClick={(e) => { e.stopPropagation(); go(1); }} style={{ ...navBtn, ...(isMobile ? { right: 8 } : {}) }}><ChevronRight size={20} /></button>}
     </div>,
     document.body,
   );
@@ -996,7 +1051,7 @@ function DesempenhoResumoCard({ label, value, sub, Icon }) {
   );
 }
 
-function DesempenhoRow({ post, metricaId, metricaLabel, valor, semDado, rank, contas, midiaUrls, onPostClick }) {
+function DesempenhoRow({ post, metricaId, metricaLabel, valor, semDado, rank, contas, midiaUrls, onPostClick, isMobile }) {
   const redes = (post.redes || []).map((id) => contas.find((c) => c.id === id)).filter(Boolean);
   const primeira   = (post.midias && post.midias[0]) || null;
   const thumbUrl   = primeira ? midiaUrls[primeira.path] : post.imagemUrl;
@@ -1010,6 +1065,64 @@ function DesempenhoRow({ post, metricaId, metricaLabel, valor, semDado, rank, co
     .filter((x) => x.v != null)
     .slice(0, 4);
 
+  const thumbEl = thumbUrl ? (
+    thumbVideo
+      ? <div style={{ width: 44, height: 44, borderRadius: 8, flexShrink: 0, background: 'var(--bg4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}><Film size={15} /></div>
+      : <img src={thumbUrl} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+  ) : (
+    <div style={{ width: 44, height: 44, borderRadius: 8, flexShrink: 0, background: 'var(--bg4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}><ImageIcon size={15} /></div>
+  );
+
+  const metaLinha = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      {redes.map((c) => {
+        const cfg = platformCfg(c.plataforma);
+        return (
+          <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: `var(${cfg.color})` }}>
+            <cfg.Icon size={10} /> {c.nome || cfg.label}
+          </span>
+        );
+      })}
+      {post.formato && <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {post.formato}</span>}
+      <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {dataFmt}</span>
+    </div>
+  );
+
+  const outrasEl = outras.length > 0 && (
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 5 }}>
+      {outras.map((o) => (
+        <span key={o.id} style={{ fontSize: 10, color: 'var(--text3)' }}>
+          {o.label} <strong style={{ color: 'var(--text2)', fontWeight: 500 }}>{fmtValorMetrica(o.id, o.v)}</strong>
+        </span>
+      ))}
+    </div>
+  );
+
+  const valorEl = semDado ? '—' : fmtValorMetrica(metricaId, valor);
+
+  if (isMobile) {
+    return (
+      <div onClick={() => onPostClick(post)}
+        style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          {rank != null && (
+            <div style={{ width: 18, textAlign: 'center', flexShrink: 0, fontSize: 13, fontWeight: 600, color: rank <= 3 ? 'var(--accent2)' : 'var(--text3)', fontFamily: 'var(--font-display)' }}>{rank}</div>
+          )}
+          {thumbEl}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div title={post.titulo} style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{post.titulo || '(sem título)'}</div>
+            {metaLinha}
+          </div>
+        </div>
+        {outrasEl}
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+          <span style={{ fontSize: 11, color: 'var(--text3)' }}>{metricaLabel}</span>
+          <span style={{ fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', lineHeight: 1.1, color: semDado ? 'var(--text3)' : 'var(--text)' }}>{valorEl}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div onClick={() => onPostClick(post)}
       style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', transition: 'border-color .15s' }}
@@ -1018,40 +1131,15 @@ function DesempenhoRow({ post, metricaId, metricaLabel, valor, semDado, rank, co
       {rank != null && (
         <div style={{ width: 20, textAlign: 'center', flexShrink: 0, fontSize: 13, fontWeight: 600, color: rank <= 3 ? 'var(--accent2)' : 'var(--text3)', fontFamily: 'var(--font-display)' }}>{rank}</div>
       )}
-      {thumbUrl ? (
-        thumbVideo
-          ? <div style={{ width: 44, height: 44, borderRadius: 8, flexShrink: 0, background: 'var(--bg4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}><Film size={15} /></div>
-          : <img src={thumbUrl} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-      ) : (
-        <div style={{ width: 44, height: 44, borderRadius: 8, flexShrink: 0, background: 'var(--bg4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}><ImageIcon size={15} /></div>
-      )}
+      {thumbEl}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div title={post.titulo} style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{post.titulo || '(sem título)'}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {redes.map((c) => {
-            const cfg = platformCfg(c.plataforma);
-            return (
-              <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: `var(${cfg.color})` }}>
-                <cfg.Icon size={10} /> {c.nome || cfg.label}
-              </span>
-            );
-          })}
-          {post.formato && <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {post.formato}</span>}
-          <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {dataFmt}</span>
-        </div>
-        {outras.length > 0 && (
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 5 }}>
-            {outras.map((o) => (
-              <span key={o.id} style={{ fontSize: 10, color: 'var(--text3)' }}>
-                {o.label} <strong style={{ color: 'var(--text2)', fontWeight: 500 }}>{fmtValorMetrica(o.id, o.v)}</strong>
-              </span>
-            ))}
-          </div>
-        )}
+        {metaLinha}
+        {outrasEl}
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 64 }}>
         <div style={{ fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', lineHeight: 1.1, color: semDado ? 'var(--text3)' : 'var(--text)' }}>
-          {semDado ? '—' : fmtValorMetrica(metricaId, valor)}
+          {valorEl}
         </div>
         <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{metricaLabel}</div>
       </div>
@@ -1060,6 +1148,7 @@ function DesempenhoRow({ post, metricaId, metricaLabel, valor, semDado, rank, co
 }
 
 function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
+  const isMobile = useMediaQuery(MOBILE_Q);
   const [metricaSel, setMetricaSel] = useState('engajamento');
   const [periodo,    setPeriodo]    = useState('trimestre');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
@@ -1123,14 +1212,14 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
   return (
     <div>
       {/* Filtros */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }}>
-        <div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', marginBottom: 18 }}>
+        <div style={isMobile ? { display: 'flex', flexDirection: 'column', gap: 4 } : undefined}>
           <span style={{ fontSize: 11, color: 'var(--text3)', marginRight: 6 }}>Ordenar por</span>
-          <select value={metricaId} onChange={(e) => setMetricaSel(e.target.value)} style={inp}>
+          <select value={metricaId} onChange={(e) => setMetricaSel(e.target.value)} style={{ ...inp, width: isMobile ? '100%' : undefined }}>
             {metricasDisp.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
         </div>
-        <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, padding: 3, gap: 2 }}>
+        <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, padding: 3, gap: 2, flexWrap: 'wrap' }}>
           {DESEMPENHO_PERIODOS.map((p) => (
             <button key={p.id} onClick={() => escolherPeriodo(p.id)}
               style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all .12s', background: periodo === p.id ? 'var(--bg2)' : 'transparent', color: periodo === p.id ? 'var(--text)' : 'var(--text3)', boxShadow: periodo === p.id ? '0 1px 3px rgba(0,0,0,0.2)' : 'none' }}>
@@ -1139,14 +1228,14 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
           ))}
         </div>
         {periodo === 'custom' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', width: isMobile ? '100%' : undefined }}>
             <input type="date" value={customRange.from} max={customRange.to || undefined}
               onChange={(e) => setCustomRange((r) => ({ ...r, from: e.target.value }))}
-              style={{ ...inp, colorScheme: 'dark', cursor: 'text' }} />
+              style={{ ...inp, colorScheme: 'dark', cursor: 'text', flex: isMobile ? 1 : undefined }} />
             <span style={{ fontSize: 12, color: 'var(--text3)' }}>até</span>
             <input type="date" value={customRange.to} min={customRange.from || undefined}
               onChange={(e) => setCustomRange((r) => ({ ...r, to: e.target.value }))}
-              style={{ ...inp, colorScheme: 'dark', cursor: 'text' }} />
+              style={{ ...inp, colorScheme: 'dark', cursor: 'text', flex: isMobile ? 1 : undefined }} />
             {customInvertido && (
               <span style={{ fontSize: 11, color: 'var(--red)' }}>A data final não pode ser anterior à inicial.</span>
             )}
@@ -1155,7 +1244,7 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {redeOpts.map((opt) => (
             <button key={opt.id} onClick={() => setFilterRede(opt.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, fontSize: 11, border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s', background: filterRede === opt.id ? 'var(--accent)' : 'transparent', borderColor: filterRede === opt.id ? 'var(--accent)' : 'var(--border)', color: filterRede === opt.id ? '#fff' : 'var(--text3)' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: isMobile ? '8px 12px' : '4px 10px', minHeight: isMobile ? 40 : undefined, borderRadius: 20, fontSize: 11, border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s', background: filterRede === opt.id ? 'var(--accent)' : 'transparent', borderColor: filterRede === opt.id ? 'var(--accent)' : 'var(--border)', color: filterRede === opt.id ? '#fff' : 'var(--text3)' }}>
               {opt.Icon && <opt.Icon size={10} />}
               {opt.label}
             </button>
@@ -1170,7 +1259,7 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
       )}
 
       {/* Resumo */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 14, marginBottom: 20 }}>
         <DesempenhoResumoCard
           Icon={Trophy}
           label="Melhor post do período"
@@ -1214,7 +1303,7 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {comDado.map((x, i) => (
             <DesempenhoRow key={x.post.id} post={x.post} metricaId={metricaId} metricaLabel={metricaLabel}
-              valor={x.valor} rank={i + 1} contas={contas} midiaUrls={midiaUrls} onPostClick={onPostClick} />
+              valor={x.valor} rank={i + 1} contas={contas} midiaUrls={midiaUrls} onPostClick={onPostClick} isMobile={isMobile} />
           ))}
           {semDado.length > 0 && (
             <>
@@ -1223,7 +1312,7 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
               </div>
               {semDado.map((p) => (
                 <DesempenhoRow key={p.id} post={p} metricaId={metricaId} metricaLabel={metricaLabel}
-                  valor={null} semDado contas={contas} midiaUrls={midiaUrls} onPostClick={onPostClick} />
+                  valor={null} semDado contas={contas} midiaUrls={midiaUrls} onPostClick={onPostClick} isMobile={isMobile} />
               ))}
             </>
           )}
@@ -1236,6 +1325,7 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
 /* ─── Post Modal ─────────────────────────────────────────────────────────────── */
 function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onClose, openAI }) {
   const { hasPermission } = useAuth();
+  const isMobile = useMediaQuery(MOBILE_Q);
   const canEdit = hasPermission('redes', 'edit');
   const isEdit = !!post?.id;
   const [form, setForm] = useState(() => ({
@@ -1342,8 +1432,8 @@ function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onC
   const inp = { background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%', boxSizing: 'border-box', outline: 'none' };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 520, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : 20 }}>
+      <div style={{ background: 'var(--bg2)', border: isMobile ? 'none' : '1px solid var(--border2)', borderRadius: isMobile ? 0 : 14, width: isMobile ? '100%' : 520, maxWidth: '100%', height: isMobile ? '100dvh' : undefined, maxHeight: isMobile ? '100dvh' : '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg2)', zIndex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{isEdit ? 'Editar post' : 'Novo post'}</div>
           <button onClick={handleCloseClick} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}><X size={16} /></button>
@@ -1436,23 +1526,23 @@ function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onC
             </div>
           }
         >
-          <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center', position: 'sticky', bottom: 0, background: 'var(--bg2)' }}>
+          <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', position: 'sticky', bottom: 0, background: 'var(--bg2)' }}>
             {isEdit && (
               <>
-                <button onClick={handleDuplicateClick} disabled={uploading} style={{ padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.5 : 1, fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                <button onClick={handleDuplicateClick} disabled={uploading} style={{ padding: isMobile ? '10px 13px' : '7px 13px', minHeight: isMobile ? 44 : undefined, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.5 : 1, fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>
                   Duplicar
                 </button>
-                <button onClick={() => onDelete(form.id)} style={{ padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid rgba(240,92,92,0.4)', color: 'var(--red)' }}>
+                <button onClick={() => onDelete(form.id)} style={{ padding: isMobile ? '10px 13px' : '7px 13px', minHeight: isMobile ? 44 : undefined, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid rgba(240,92,92,0.4)', color: 'var(--red)' }}>
                   Deletar
                 </button>
               </>
             )}
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ marginLeft: isMobile ? 0 : 'auto', width: isMobile ? '100%' : 'auto', display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
               {uploading && <span style={{ fontSize: 11, color: 'var(--text3)' }}>enviando mídia…</span>}
-              <button onClick={handleAI} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)' }}>
+              <button onClick={handleAI} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: isMobile ? '10px 13px' : '7px 13px', minHeight: isMobile ? 44 : undefined, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)' }}>
                 <Bot size={13} /> Criar com IA
               </button>
-              <button onClick={handleSaveClick} disabled={uploading} style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.5 : 1, fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+              <button onClick={handleSaveClick} disabled={uploading} style={{ padding: isMobile ? '10px 16px' : '7px 16px', minHeight: isMobile ? 44 : undefined, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.5 : 1, fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
                 {isEdit ? 'Salvar' : 'Criar manualmente'}
               </button>
             </div>
@@ -1482,7 +1572,7 @@ function WeekView({ posts, contas, filterRede, onPostClick, viewDate }) {
     <div style={{ overflowX: 'auto' }}>
       <div style={{ minWidth: 700 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '44px repeat(7,1fr)', gap: 2, marginBottom: 2 }}>
-          <div />
+          <div style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg)' }} />
           {weekDays.map(({ iso, label, isToday }) => (
             <div key={iso} style={{ textAlign: 'center', fontSize: 11, fontWeight: isToday ? 600 : 400, color: isToday ? 'var(--accent)' : 'var(--text3)', padding: '5px 4px', background: isToday ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent', borderRadius: 6 }}>
               {label}
@@ -1491,7 +1581,7 @@ function WeekView({ posts, contas, filterRede, onPostClick, viewDate }) {
         </div>
         {HOURS.map(h => (
           <div key={h} style={{ display: 'grid', gridTemplateColumns: '44px repeat(7,1fr)', gap: 2, marginBottom: 2 }}>
-            <div style={{ fontSize: 10, color: 'var(--text3)', paddingTop: 6, textAlign: 'right', paddingRight: 8 }}>{h}h</div>
+            <div style={{ fontSize: 10, color: 'var(--text3)', paddingTop: 6, textAlign: 'right', paddingRight: 8, position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg)' }}>{h}h</div>
             {weekDays.map(({ iso, isToday }) => {
               const cell = filtered.filter(p => p.data === iso && p.horario && parseInt(p.horario) === h);
               return (
@@ -1581,19 +1671,20 @@ function ListView({ posts, contas, filterRede, onPostClick, midiaUrls = {} }) {
 
 /* ─── Conta Modal (Adicionar rede) ───────────────────────────────────────────── */
 function ContaModal({ onSave, onClose }) {
+  const isMobile = useMediaQuery(MOBILE_Q);
   const [form, setForm] = useState({ nome: '', handle: '', plataforma: PLATAFORMAS[0].id, metaSeguidores: '' });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const inp = { background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%', boxSizing: 'border-box', outline: 'none' };
   const canSave = form.nome.trim().length > 0;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 420, maxWidth: '100%' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : 20 }}>
+      <div style={{ background: 'var(--bg2)', border: isMobile ? 'none' : '1px solid var(--border2)', borderRadius: isMobile ? 0 : 14, width: isMobile ? '100%' : 420, maxWidth: '100%', height: isMobile ? '100dvh' : undefined, maxHeight: isMobile ? '100dvh' : '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Adicionar rede</div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}><X size={16} /></button>
         </div>
-        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14, flex: isMobile ? 1 : 'none', minHeight: 0, overflowY: isMobile ? 'auto' : 'visible' }}>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>PLATAFORMA</label>
             <select style={{ ...inp, cursor: 'pointer' }} value={form.plataforma} onChange={e => set('plataforma', e.target.value)}>
@@ -1613,10 +1704,10 @@ function ContaModal({ onSave, onClose }) {
             <input type="number" style={inp} value={form.metaSeguidores} onChange={e => set('metaSeguidores', e.target.value)} placeholder="Ex.: 2000" />
           </div>
         </div>
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>Cancelar</button>
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: isMobile ? '10px 14px' : '7px 14px', minHeight: isMobile ? 44 : undefined, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>Cancelar</button>
           <button disabled={!canSave} onClick={() => onSave(form)}
-            style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.5, fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+            style={{ padding: isMobile ? '10px 16px' : '7px 16px', minHeight: isMobile ? 44 : undefined, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.5, fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
             Salvar
           </button>
         </div>
@@ -1627,6 +1718,7 @@ function ContaModal({ onSave, onClose }) {
 
 /* ─── Metrica Modal (Lançar métricas do período) ─────────────────────────────── */
 function MetricaModal({ conta, onSave, onClose }) {
+  const isMobile = useMediaQuery(MOBILE_Q);
   const cfg = platformCfg(conta.plataforma);
   const [form, setForm] = useState({ dataReferencia: todayISO(), seguidores: '', seguidoresLiquidos: '', alcance: '', interacoes: '', impressoes: '', postsPublicados: '' });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -1636,16 +1728,16 @@ function MetricaModal({ conta, onSave, onClose }) {
   const engaj = calcEngajamento(form.interacoes, form.alcance);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 14, width: 460, maxWidth: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <cfg.Icon size={15} style={{ color: `var(${cfg.color})` }} />
-            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Lançar métricas — {conta.nome || cfg.label}</div>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : 20 }}>
+      <div style={{ background: 'var(--bg2)', border: isMobile ? 'none' : '1px solid var(--border2)', borderRadius: isMobile ? 0 : 14, width: isMobile ? '100%' : 460, maxWidth: '100%', height: isMobile ? '100dvh' : undefined, maxHeight: isMobile ? '100dvh' : '90vh', overflowY: isMobile ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <cfg.Icon size={15} style={{ color: `var(${cfg.color})`, flexShrink: 0 }} />
+            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Lançar métricas — {conta.nome || cfg.label}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}><X size={16} /></button>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4, flexShrink: 0 }}><X size={16} /></button>
         </div>
-        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14, flex: isMobile ? 1 : 'none', minHeight: 0, overflowY: isMobile ? 'auto' : 'visible' }}>
           <div>
             <label style={lbl}>DATA DE REFERÊNCIA</label>
             <input type="date" style={inp} value={form.dataReferencia} onChange={e => set('dataReferencia', e.target.value)} />
@@ -1686,10 +1778,10 @@ function MetricaModal({ conta, onSave, onClose }) {
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Calculado: (interações ÷ alcance) × 100</div>
           </div>
         </div>
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>Cancelar</button>
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: isMobile ? '10px 14px' : '7px 14px', minHeight: isMobile ? 44 : undefined, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)' }}>Cancelar</button>
           <button onClick={() => onSave(form)}
-            style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+            style={{ padding: isMobile ? '10px 16px' : '7px 16px', minHeight: isMobile ? 44 : undefined, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
             Salvar lançamento
           </button>
         </div>
@@ -1702,6 +1794,8 @@ function MetricaModal({ conta, onSave, onClose }) {
 export default function RedesSociais() {
   const { openAI } = useUI();
   const { empresaId } = useAuth();
+  const isMobile = useMediaQuery(MOBILE_Q);
+  const isTablet = useMediaQuery(TABLET_Q);
   const [activeContaId, setActiveContaId] = useState(null);
   const [activeTab,     setActiveTab]     = useState('metricas');
   const [filterCalRede, setFilterCalRede] = useState('todas');
@@ -1718,7 +1812,9 @@ export default function RedesSociais() {
   // Data de referência do calendário. Guardada como um dia real (não o 1º do
   // mês) para que trocar Mensal → Semanal preserve a semana em foco.
   const [viewDate,     setViewDate]     = useState(() => new Date());
-  const [calView,      setCalView]      = useState('mensal');
+  // No celular a grade mensal fica ilegível — a Lista é a visão padrão (as
+  // outras seguem acessíveis pelo seletor).
+  const [calView,      setCalView]      = useState(() => (window.matchMedia(MOBILE_Q).matches ? 'lista' : 'mensal'));
   const [postModal,    setPostModal]    = useState(null);
 
   useEffect(() => {
@@ -1881,9 +1977,9 @@ export default function RedesSociais() {
   const activeConta = contas.find((c) => c.id === activeContaId) || null;
 
   return (
-    <div style={{ padding: '24px', fontFamily: 'var(--font-body)', color: 'var(--text)' }}>
+    <div style={{ padding: isMobile ? '4px 0 32px' : '24px', fontFamily: 'var(--font-body)', color: 'var(--text)' }}>
       {/* Summary row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: isMobile ? 10 : 14, marginBottom: isMobile ? 18 : 28 }}>
         {[
           { label: 'Seguidores totais',  value: totalSeguidores.toLocaleString('pt-BR'),          icon: Users,      color: '--accent'  },
           { label: 'Engajamento médio',  value: avgEngajamento == null ? '—' : `${avgEngajamento}%`, icon: Heart,    color: '--purple'  },
@@ -1903,21 +1999,21 @@ export default function RedesSociais() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginBottom: 24, borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', gap: 0 }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-end', gap: isMobile ? 12 : 16, marginBottom: isMobile ? 16 : 24, borderBottom: isMobile ? 'none' : '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', gap: 0, overflowX: isMobile ? 'auto' : 'visible', borderBottom: isMobile ? '1px solid var(--border)' : 'none', maxWidth: '100%' }}>
           {TABS.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-body)', background: 'transparent', color: activeTab === tab.id ? 'var(--text)' : 'var(--text3)', borderBottom: `2px solid ${activeTab === tab.id ? 'var(--accent)' : 'transparent'}`, marginBottom: -1, transition: 'color .15s' }}>
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 16px', minHeight: isMobile ? 44 : undefined, flexShrink: 0, whiteSpace: 'nowrap', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-body)', background: 'transparent', color: activeTab === tab.id ? 'var(--text)' : 'var(--text3)', borderBottom: `2px solid ${activeTab === tab.id ? 'var(--accent)' : 'transparent'}`, marginBottom: -1, transition: 'color .15s' }}>
               <tab.icon size={14} />
               {tab.label}
             </button>
           ))}
         </div>
-        <div style={{ marginLeft: 'auto', marginBottom: 8 }}>
+        <div style={{ marginLeft: isMobile ? 0 : 'auto', marginBottom: isMobile ? 0 : 8 }}>
           <PermissionGate module="redes" action="edit">
             <button
               onClick={() => openAI(`Crie um plano de conteúdo para ${curMonthLabel} para empresa B2B de serviços para PMEs. Inclua: 1 tema por semana, sugestões de posts para Instagram e LinkedIn, formatos recomendados, horários de publicação e hashtags relevantes.`)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 13px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: isMobile ? '100%' : 'auto', minHeight: isMobile ? 44 : undefined, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 13px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
               <Bot size={13} /> Plano com IA
             </button>
           </PermissionGate>
@@ -1940,7 +2036,7 @@ export default function RedesSociais() {
                 </PermissionGate>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(contas.length, 4)},1fr)`, gap: 14, marginBottom: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? `repeat(${Math.min(contas.length, 2)},1fr)` : `repeat(${Math.min(contas.length, 4)},1fr)`, gap: 14, marginBottom: 24 }}>
                 {contas.map((c) => (
                   <RedeCard key={c.id} conta={c} latest={latestByConta[c.id]} previous={previousByConta[c.id]} active={activeContaId === c.id} onClick={() => setActiveContaId(c.id)} />
                 ))}
@@ -1961,7 +2057,7 @@ export default function RedesSociais() {
                   <PermissionGate module="ia" action="view">
                   {latestByConta[activeConta.id] ? (
                     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Análise e Recomendações de IA</div>
                         <button
                           onClick={() => {
@@ -1993,28 +2089,28 @@ export default function RedesSociais() {
       {activeTab === 'calendario' && (
         <div>
           {/* Calendar header row 1: navegação (mês/semana) + new post + AI */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 0, marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {calView === 'lista' ? (
                 <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Todos os posts</div>
               ) : (
                 <>
-                  <button onClick={() => shiftView(-1)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>‹</button>
-                  <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', minWidth: 180, textAlign: 'center' }}>{navLabel}</div>
-                  <button onClick={() => shiftView(1)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>›</button>
+                  <button onClick={() => shiftView(-1)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: isMobile ? '8px 12px' : '4px 10px', minHeight: isMobile ? 40 : undefined, cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>‹</button>
+                  <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', flex: isMobile ? 1 : undefined, minWidth: isMobile ? 0 : 180, textAlign: 'center' }}>{navLabel}</div>
+                  <button onClick={() => shiftView(1)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: isMobile ? '8px 12px' : '4px 10px', minHeight: isMobile ? 40 : undefined, cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1, fontFamily: 'var(--font-body)' }}>›</button>
                 </>
               )}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <PermissionGate module="redes" action="edit">
                 <button onClick={() => setPostModal({ mode: 'create', post: null })}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: 'var(--text)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, flex: isMobile ? 1 : undefined, minHeight: isMobile ? 44 : undefined, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: 'var(--text)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                   <Plus size={12} /> Novo post
                 </button>
               </PermissionGate>
               <PermissionGate module="redes" action="edit">
                 <button onClick={() => openAI(`Crie conteúdo para completar o calendário editorial de ${navLabel}. Empresa B2B de serviços para PMEs. Sugira posts para os dias sem publicação agendada, misturando Instagram (carrossel, reels) e LinkedIn (artigo, post). Formato: dia, rede, tipo de conteúdo, título e 2 linhas de contexto.`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, flex: isMobile ? 1 : undefined, minHeight: isMobile ? 44 : undefined, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                   <Bot size={12} /> Completar com IA
                 </button>
               </PermissionGate>
@@ -2040,7 +2136,7 @@ export default function RedesSociais() {
                 <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, padding: 3, gap: 2, flexShrink: 0 }}>
                   {[['mensal', 'Mensal'], ['semanal', 'Semanal'], ['lista', 'Lista']].map(([v, lbl]) => (
                     <button key={v} onClick={() => setCalView(v)}
-                      style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all .12s', background: calView === v ? 'var(--bg2)' : 'transparent', color: calView === v ? 'var(--text)' : 'var(--text3)', boxShadow: calView === v ? '0 1px 3px rgba(0,0,0,0.2)' : 'none' }}>
+                      style={{ padding: isMobile ? '8px 14px' : '4px 12px', minHeight: isMobile ? 40 : undefined, borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all .12s', background: calView === v ? 'var(--bg2)' : 'transparent', color: calView === v ? 'var(--text)' : 'var(--text3)', boxShadow: calView === v ? '0 1px 3px rgba(0,0,0,0.2)' : 'none' }}>
                       {lbl}
                     </button>
                   ))}
@@ -2048,7 +2144,7 @@ export default function RedesSociais() {
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {[{ id: 'todas', label: 'Todas', Icon: null, color: null }, ...contas.map(c => { const cfg = platformCfg(c.plataforma); return { id: c.id, label: c.nome || cfg.label, Icon: cfg.Icon, color: cfg.color }; })].map(opt => (
                     <button key={opt.id} onClick={() => setFilterCalRede(opt.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, fontSize: 11, border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s', background: filterCalRede === opt.id ? 'var(--accent)' : 'transparent', borderColor: filterCalRede === opt.id ? 'var(--accent)' : 'var(--border)', color: filterCalRede === opt.id ? '#fff' : 'var(--text3)' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, padding: isMobile ? '8px 12px' : '4px 10px', minHeight: isMobile ? 40 : undefined, borderRadius: 20, fontSize: 11, border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all .15s', background: filterCalRede === opt.id ? 'var(--accent)' : 'transparent', borderColor: filterCalRede === opt.id ? 'var(--accent)' : 'var(--border)', color: filterCalRede === opt.id ? '#fff' : 'var(--text3)' }}>
                       {opt.Icon && <opt.Icon size={10} />}
                       {opt.label}
                     </button>
@@ -2059,7 +2155,7 @@ export default function RedesSociais() {
               {calView === 'mensal' && (
                 <>
                   <Legend />
-                  <CalendarGrid posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} />
+                  <CalendarGrid posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} isMobile={isMobile} />
                 </>
               )}
               {calView === 'semanal' && (
