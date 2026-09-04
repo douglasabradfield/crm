@@ -138,6 +138,14 @@ function fmtNum(v) {
   return v == null || v === '' ? '—' : Number(v).toLocaleString('pt-BR');
 }
 
+// "23/08/2026 14:32" — usado no histórico de comentários do post.
+function fmtDataHora(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 // Engajamento é derivado, não digitado: (interações / alcance) × 100.
 // Retorna null quando não dá para calcular (alcance 0/vazio ou interações vazio),
 // para exibir "—" em vez de erro de divisão.
@@ -282,6 +290,17 @@ function metricaToRow(m, contaId) {
     impressoes: n(m.impressoes),
     engajamento: calcEngajamento(m.interacoes, m.alcance),
     posts_publicados: n(m.postsPublicados),
+  };
+}
+
+function comentarioFromRow(r) {
+  return {
+    id: r.id,
+    postId: r.post_id,
+    autorId: r.autor_id,
+    autorNome: r.autor_nome ?? '',
+    texto: r.texto ?? '',
+    criadoEm: r.criado_em,
   };
 }
 
@@ -492,10 +511,21 @@ function EmptyRedesState({ onAdd }) {
 }
 
 /* ─── Calendar ───────────────────────────────────────────────────────────────── */
-function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel, isMobile }) {
+// Badge compacto de contagem de comentários — só aparece quando há pelo menos 1,
+// para a equipe perceber que há algo para ler sem abrir post por post.
+function CommentCountBadge({ count, size = 9 }) {
+  if (!count) return null;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: size, color: 'var(--accent2)', flexShrink: 0 }}>
+      <MessageCircle size={size} /> {count}
+    </span>
+  );
+}
+
+function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel, isMobile, commentCounts }) {
   const { openAI } = useUI();
   return (
-    <div style={{ minHeight: 90, background: isToday ? 'color-mix(in srgb, var(--accent) 8%, var(--bg2))' : 'var(--bg2)', border: `1px solid ${isToday ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{ minHeight: 90, minWidth: 0, background: isToday ? 'color-mix(in srgb, var(--accent) 8%, var(--bg2))' : 'var(--bg2)', border: `1px solid ${isToday ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
       <div style={{ fontSize: 11, fontWeight: isToday ? 600 : 400, color: isToday ? 'var(--accent)' : 'var(--text3)', marginBottom: 2 }}>{day}</div>
       {posts.map((p) => {
         const conta = contas.find((c) => c.id === (p.redes && p.redes[0]));
@@ -503,9 +533,10 @@ function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel,
         const st  = POST_STATUS[p.status] || POST_STATUS.ideia;
         return (
           <div key={p.id} title={p.titulo} onClick={() => onPostClick(p)}
-            style={{ padding: '3px 6px', borderRadius: 6, background: st.bg, fontSize: 10, color: st.color, lineHeight: 1.3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', cursor: 'pointer' }}>
-            {cfg && <cfg.Icon size={9} style={{ verticalAlign: 'middle', marginRight: 3 }} />}
-            {p.titulo}
+            style={{ padding: '3px 6px', borderRadius: 6, background: st.bg, fontSize: 10, color: st.color, lineHeight: 1.3, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, minWidth: 0 }}>
+            {cfg && <cfg.Icon size={9} style={{ flexShrink: 0 }} />}
+            <span style={{ minWidth: 0, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{p.titulo}</span>
+            <CommentCountBadge count={commentCounts?.[p.id]} />
           </div>
         );
       })}
@@ -523,7 +554,7 @@ function CalendarCell({ day, posts, contas, onPostClick, isToday, curMonthLabel,
   );
 }
 
-function CalendarGrid({ posts, contas, filterRede, onPostClick, viewDate, isMobile }) {
+function CalendarGrid({ posts, contas, filterRede, onPostClick, viewDate, isMobile, commentCounts }) {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -562,8 +593,8 @@ function CalendarGrid({ posts, contas, filterRede, onPostClick, viewDate, isMobi
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
           {cells.map((cell) =>
             cell.empty
-              ? <div key={cell.key} />
-              : <CalendarCell key={cell.day} day={cell.day} posts={cell.posts} contas={contas} isToday={cell.isToday} curMonthLabel={curMonthLabel} onPostClick={onPostClick} isMobile={isMobile} />
+              ? <div key={cell.key} style={{ minWidth: 0 }} />
+              : <CalendarCell key={cell.day} day={cell.day} posts={cell.posts} contas={contas} isToday={cell.isToday} curMonthLabel={curMonthLabel} onPostClick={onPostClick} isMobile={isMobile} commentCounts={commentCounts} />
           )}
         </div>
       </div>
@@ -1322,9 +1353,100 @@ function DesempenhoRanking({ posts, contas, midiaUrls, onPostClick }) {
   );
 }
 
+/* ─── Comentários do post ─────────────────────────────────────────────────────
+   Disponível para qualquer papel com redes/view — inclusive 'cliente' (que só
+   lê o resto do módulo): é a exceção deliberada para permitir sugestões e
+   pedidos de alteração no post. Quem escreveu apaga o próprio comentário;
+   quem tem redes/edit apaga qualquer um (mesma regra do banco, ver migration
+   redes_posts_comentarios). ────────────────────────────────────────────────── */
+function PostComentarios({ postId, userId, autorNome, canModerar, onCountChange }) {
+  const [comentarios, setComentarios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [texto, setTexto] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('redes_posts_comentarios').select('*').eq('post_id', postId).order('criado_em', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setComentarios((data ?? []).map(comentarioFromRow));
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [postId]);
+
+  async function enviar() {
+    const t = texto.trim();
+    if (!t || enviando) return;
+    setEnviando(true);
+    const { data, error } = await supabase
+      .from('redes_posts_comentarios')
+      .insert({ post_id: postId, texto: t, autor_nome: autorNome || 'Usuário' })
+      .select().single();
+    setEnviando(false);
+    if (error || !data) return;
+    setComentarios((prev) => [...prev, comentarioFromRow(data)]);
+    setTexto('');
+    onCountChange?.(postId, 1);
+  }
+
+  async function remover(id) {
+    const anterior = comentarios;
+    setComentarios((prev) => prev.filter((c) => c.id !== id));
+    const { error } = await supabase.from('redes_posts_comentarios').delete().eq('id', id);
+    if (error) { setComentarios(anterior); return; }
+    onCountChange?.(postId, -1);
+  }
+
+  const inp = { background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%', boxSizing: 'border-box', outline: 'none' };
+
+  return (
+    <div>
+      <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>COMENTÁRIOS</label>
+
+      {loading ? (
+        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Carregando comentários…</div>
+      ) : comentarios.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>Nenhum comentário ainda.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 220, overflowY: 'auto' }}>
+          {comentarios.map((c) => (
+            <div key={c.id} style={{ background: 'var(--bg3)', borderRadius: 8, padding: '8px 10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text2)' }}>{c.autorNome || 'Usuário'}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text3)' }}>{fmtDataHora(c.criadoEm)}</span>
+                  {(canModerar || c.autorId === userId) && (
+                    <button onClick={() => remover(c.id)} title="Apagar comentário"
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2, display: 'flex' }}>
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{c.texto}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input style={inp} value={texto} onChange={(e) => setTexto(e.target.value)}
+          placeholder="Escreva uma sugestão ou pedido de alteração..."
+          onKeyDown={(e) => { if (e.key === 'Enter') enviar(); }} />
+        <button onClick={enviar} disabled={!texto.trim() || enviando}
+          style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: !texto.trim() || enviando ? 'not-allowed' : 'pointer', opacity: !texto.trim() || enviando ? 0.5 : 1, fontFamily: 'var(--font-body)', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+          Enviar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Post Modal ─────────────────────────────────────────────────────────────── */
-function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onClose, openAI }) {
-  const { hasPermission } = useAuth();
+function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onClose, openAI, onCommentsCountChange }) {
+  const { hasPermission, user } = useAuth();
   const isMobile = useMediaQuery(MOBILE_Q);
   const canEdit = hasPermission('redes', 'edit');
   const isEdit = !!post?.id;
@@ -1515,6 +1637,15 @@ function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onC
           {form.status === 'publicado' && (
             <PostMetricas formato={form.formato} metricas={form.metricas} setMet={setMet} canEdit={canEdit} inp={inp} />
           )}
+          {isEdit && (
+            <PostComentarios
+              postId={form.id}
+              userId={user?.id}
+              autorNome={user?.name}
+              canModerar={canEdit}
+              onCountChange={onCommentsCountChange}
+            />
+          )}
         </div>
 
         <PermissionGate
@@ -1557,7 +1688,7 @@ function PostModal({ post, contas, empresaId, onSave, onDelete, onDuplicate, onC
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
 const DOW_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-function WeekView({ posts, contas, filterRede, onPostClick, viewDate }) {
+function WeekView({ posts, contas, filterRede, onPostClick, viewDate, commentCounts }) {
   const monday = startOfWeek(viewDate, { weekStartsOn: 1 });
   const todayStr = todayISO();
 
@@ -1592,9 +1723,10 @@ function WeekView({ posts, contas, filterRede, onPostClick, viewDate }) {
                     const st = POST_STATUS[p.status] || POST_STATUS.ideia;
                     return (
                       <div key={p.id} onClick={() => onPostClick(p)} title={p.titulo}
-                        style={{ padding: '2px 4px', borderRadius: 4, background: st.bg, fontSize: 9, color: st.color, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', cursor: 'pointer' }}>
-                        {cfg && <cfg.Icon size={8} style={{ verticalAlign: 'middle', marginRight: 2 }} />}
-                        {p.titulo}
+                        style={{ padding: '2px 4px', borderRadius: 4, background: st.bg, fontSize: 9, color: st.color, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+                        {cfg && <cfg.Icon size={8} style={{ flexShrink: 0 }} />}
+                        <span style={{ minWidth: 0, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{p.titulo}</span>
+                        <CommentCountBadge count={commentCounts?.[p.id]} size={8} />
                       </div>
                     );
                   })}
@@ -1609,7 +1741,7 @@ function WeekView({ posts, contas, filterRede, onPostClick, viewDate }) {
 }
 
 /* ─── List View ──────────────────────────────────────────────────────────────── */
-function ListView({ posts, contas, filterRede, onPostClick, midiaUrls = {} }) {
+function ListView({ posts, contas, filterRede, onPostClick, midiaUrls = {}, commentCounts }) {
   const filtered = [...posts]
     .filter(p => filterRede === 'todas' || (p.redes || []).includes(filterRede))
     .sort((a, b) => {
@@ -1653,6 +1785,7 @@ function ListView({ posts, contas, filterRede, onPostClick, midiaUrls = {} }) {
                   );
                 })}
                 {p.formato && <span style={{ fontSize: 11, color: 'var(--text3)' }}>· {p.formato}</span>}
+                <CommentCountBadge count={commentCounts?.[p.id]} size={10} />
               </div>
             </div>
             {thumbUrl && (
@@ -1809,6 +1942,8 @@ export default function RedesSociais() {
   const [calPosts,     setCalPosts]     = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [midiaUrls,    setMidiaUrls]    = useState({});
+  // Contagem de comentários por post (para o indicador no calendário).
+  const [commentCounts, setCommentCounts] = useState({});
   // Data de referência do calendário. Guardada como um dia real (não o 1º do
   // mês) para que trocar Mensal → Semanal preserve a semana em foco.
   const [viewDate,     setViewDate]     = useState(() => new Date());
@@ -1843,6 +1978,25 @@ export default function RedesSociais() {
     signMidiaPaths(paths).then((m) => { if (!cancelled) setMidiaUrls(m); });
     return () => { cancelled = true; };
   }, [calPosts]);
+
+  // Contagem de comentários por post — carregada uma vez por empresa; depois é
+  // ajustada localmente (+1/-1) quando um comentário é enviado/apagado no modal.
+  useEffect(() => {
+    if (!empresaId) return;
+    let cancelled = false;
+    supabase.from('redes_posts_comentarios').select('post_id').eq('empresa_id', empresaId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const counts = {};
+        (data ?? []).forEach((r) => { counts[r.post_id] = (counts[r.post_id] ?? 0) + 1; });
+        setCommentCounts(counts);
+      });
+    return () => { cancelled = true; };
+  }, [empresaId]);
+
+  function handleCommentsCountChange(postId, delta) {
+    setCommentCounts((prev) => ({ ...prev, [postId]: Math.max(0, (prev[postId] ?? 0) + delta) }));
+  }
 
   useEffect(() => {
     if (!empresaId) return;
@@ -2155,17 +2309,17 @@ export default function RedesSociais() {
               {calView === 'mensal' && (
                 <>
                   <Legend />
-                  <CalendarGrid posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} isMobile={isMobile} />
+                  <CalendarGrid posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} isMobile={isMobile} commentCounts={commentCounts} />
                 </>
               )}
               {calView === 'semanal' && (
                 <>
                   <Legend />
-                  <WeekView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} />
+                  <WeekView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} viewDate={viewDate} commentCounts={commentCounts} />
                 </>
               )}
               {calView === 'lista' && (
-                <ListView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} midiaUrls={midiaUrls} />
+                <ListView posts={calPosts} contas={contas} filterRede={filterCalRede} onPostClick={handlePostClick} midiaUrls={midiaUrls} commentCounts={commentCounts} />
               )}
             </>
           )}
@@ -2225,6 +2379,7 @@ export default function RedesSociais() {
           onDuplicate={handlePostDuplicate}
           onClose={() => setPostModal(null)}
           openAI={openAI}
+          onCommentsCountChange={handleCommentsCountChange}
         />
       )}
 
